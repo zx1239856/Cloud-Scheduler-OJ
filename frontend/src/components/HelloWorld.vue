@@ -38,6 +38,7 @@
                 <a href="https://github.com/vuejs/awesome-vue" target="_blank">awesome-vue</a>
             </li>
         </ul>
+        <p>{{ backend_message }}</p>
     </div>
 </template>
 
@@ -46,8 +47,24 @@ export default {
     name: 'HelloWorld',
     data() {
         return {
-            msg: 'Welcome to Your Vue.js App'
+            msg: 'Welcome to Your Vue.js App',
+            backend_message: ''
         };
+    },
+    mounted() {
+        this.get_backend();
+    },
+    methods: {
+        get_backend: function() {
+            this.$http.get('http://127.0.0.1:8000/get-request/').then(
+                function(response) {
+                    this.backend_message = response.body.message;
+                },
+                function() {
+                    this.backend_message = 'Oops, you lost connection with backend.';
+                }
+            );
+        }
     }
 };
 </script>
