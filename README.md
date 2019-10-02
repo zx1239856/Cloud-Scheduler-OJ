@@ -20,12 +20,15 @@ Install prerequisites
 ```bash
 cd frontend
 npm install
+cd ../backend
+pip install -r requirements.txt
 ```
 
 Run backend
 
 ```bash
 cd backend
+python manage.py migrate
 python manage.py runserver
 ```
 
