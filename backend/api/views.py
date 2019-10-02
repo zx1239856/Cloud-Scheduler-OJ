@@ -1,7 +1,13 @@
+"""
+Test cases for backend project
+"""
+
 from django.http import HttpResponse, JsonResponse
 
 
 def get_request(request):
+    """get request"""
+
     request.encoding = 'utf-8'
     message = 'Get Message: '
     if request.GET and 'q' in request.GET:
@@ -11,6 +17,8 @@ def get_request(request):
 
 
 def post_request(request):
+    """post request"""
+
     message = 'Post Message: '
     if request.POST and 'q' in request.POST:
         message += request.POST['q']

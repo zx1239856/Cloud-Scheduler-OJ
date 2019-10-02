@@ -56,7 +56,7 @@ export default {
     },
     methods: {
         get_backend: function() {
-            this.$http.get('http://127.0.0.1:8000/get-request/').then(
+            this.$http.get('get-request/').then(
                 function(response) {
                     this.backend_message = response.body.message;
                 },
