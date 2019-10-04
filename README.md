@@ -10,7 +10,7 @@ npm 6.9.0
 python 3.7.1
 ```
 
-This project is created with the following scripts.
+This project is created with the following scripts:
 
 ```bash
 # frontend
