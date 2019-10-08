@@ -8,6 +8,7 @@ import Config from './config';
 Vue.config.productionTip = false;
 
 Vue.http.options.root = (process.env.NODE_ENV === 'production' ? Config.prod.apiUrl : Config.dev.apiUrl);
+Vue.http.options.ws_root = (process.env.NODE_ENV === 'production' ? Config.prod.wsUrl : Config.dev.wsUrl);
 
 /* eslint-disable no-new */
 new Vue({
