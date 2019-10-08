@@ -6,7 +6,7 @@ const Config = {
     },
     prod: {
         apiUrl: 'https://cloud-scheduler-sigquit.app.secoder.net/api/',
-        wsUrl: 'ws://cloud-scheduler-sigquit.app.secoder.net/api/',
+        wsUrl: 'wss://cloud-scheduler-sigquit.app.secoder.net/api/',
         routerBaseUrl: '/'
     }
 };
