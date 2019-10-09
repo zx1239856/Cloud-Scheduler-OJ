@@ -8,7 +8,7 @@ Check commit message guide: https://github.com/angular/angular/blob/master/CONTR
 import sys
 import re
 
-valid_commit_types = ['feat', 'fix', 'docs', 'style', 'refactor', 'test', 'chore', ]
+valid_commit_types = ['build','ci','docs','feat','fix','perf','refractor','style','test', ]
 commit_file = sys.argv[1]
 help_address = 'https://github.com/angular/angular/blob/master/CONTRIBUTING.md#coc'
 

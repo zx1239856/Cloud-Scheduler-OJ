@@ -14,8 +14,9 @@ build:
     - export BUILD_IMAGE_USERNAME=$CI_REGISTRY_USER
     - export BUILD_IMAGE_PASSWORD=$CI_REGISTRY_PASSWORD
     - deployer build
-  # only:
-  #   - master
+  only:
+    - master
+    - dev
 
 # Job template for test stage
 .test:
@@ -71,5 +72,6 @@ deploy:
   cache: {}
   script:
     - deployer dyno replace $CI_PROJECT_NAME "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG" "$REGISTRY_USER" "$REGISTRY_PWD"
-  # only:
-  #   - master
+  only:
+    - master
+    - dev
