@@ -4,6 +4,16 @@ import Vue from 'vue';
 import App from './App';
 import router from './router';
 import Config from './config';
+import VueResource from 'vue-resource';
+import Router from 'vue-router';
+import ElementUI from 'element-ui';
+
+import 'element-ui/lib/theme-chalk/index.css';
+import './icons'; // icon
+
+Vue.use(ElementUI);
+Vue.use(Router);
+Vue.use(VueResource);
 
 Vue.config.productionTip = false;
 
