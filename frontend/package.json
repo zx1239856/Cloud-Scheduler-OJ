@@ -11,7 +11,8 @@
     "e2e": "node test/e2e/runner.js",
     "test": "npm run unit && npm run e2e",
     "lint": "eslint --ext .js,.vue src test/unit test/e2e/specs",
-    "build": "node build/build.js"
+    "build": "node build/build.js",
+    "apidocs": "apidoc -i ../backend/ -o ../apidocs/"
   },
   "dependencies": {
     "element-ui": "^2.12.0",
@@ -25,6 +26,7 @@
   },
   "devDependencies": {
     "autoprefixer": "^7.1.2",
+    "apidoc": "^0.17.7",
     "babel-core": "^6.22.1",
     "babel-eslint": "^8.2.1",
     "babel-helper-vue-jsx-merge-props": "^2.0.3",

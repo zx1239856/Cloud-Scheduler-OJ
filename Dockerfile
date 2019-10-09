@@ -4,6 +4,7 @@ FROM node:10.16.3
 RUN npm config set registry https://registry.npm.taobao.org
 
 ENV FRONTEND=/opt/frontend
+ENV BACKEND=/opt/backend
 
 WORKDIR $FRONTEND
 
@@ -13,6 +14,8 @@ RUN npm install
 
 COPY frontend/ $FRONTEND
 RUN npm run build
+COPY backend/ $BACKEND
+RUN npm run apidocs
 
 # Second stage for nginx
 FROM elice/python-nginx:3.7
@@ -23,6 +26,7 @@ WORKDIR $HOME
 
 # Copy frontend from the first stage
 COPY --from=0 /opt/frontend/dist /opt/frontend/dist
+COPY --from=0 /opt/apidocs /opt/apidocs
 COPY nginx/ nginx/
 
 RUN rm -r /etc/nginx/conf.d \
