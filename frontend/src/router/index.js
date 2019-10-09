@@ -1,11 +1,7 @@
 import Router from 'vue-router';
 import HelloWorld from '@/components/HelloWorld';
-import WebSSH from '@/components/WebSSH';
-import 'xterm/css/xterm.css';
-
-Vue.use(Router);
-Vue.use(VueResource);
 import Login from '@/components/Login';
+import WebSSH from '@/components/WebSSH';
 
 export default new Router({
     mode: 'history',
@@ -13,17 +9,18 @@ export default new Router({
         {
             path: '/',
             name: 'HelloWorld',
+            redirect: '/login',
             component: HelloWorld
-        },
-        {
-            path: '/WebSSH',
-            name: 'WebSSH',
-            component: WebSSH
         },
         {
             path: '/login',
             name: 'Login',
             component: Login
+        },
+        {
+            path: '/web-ssh',
+            name: 'WebSSH',
+            component: WebSSH
         }
     ]
 });

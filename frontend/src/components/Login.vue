@@ -88,7 +88,6 @@ export default {
             }
         };
         return {
-            msg: 'Welcome to Your Vue.js App',
             loginForm: {
                 username: '',
                 password: ''
@@ -144,7 +143,7 @@ export default {
             this.$refs.loginForm.validate(valid => {
                 if (valid) {
                     this.loading = true;
-                    this.$router.push('/home');
+                    this.$router.push('/web-ssh');
                 } else {
                     console.log('submit error');
                     return false;
