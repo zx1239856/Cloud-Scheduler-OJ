@@ -16,10 +16,10 @@
               Home
             </el-dropdown-item>
           </router-link>
-          <a target="_blank" href="https://github.com/PanJiaChen/vue-admin-template/">
-            <el-dropdown-item>Github</el-dropdown-item>
+          <a target="_blank" href="https://gitlab.secoder.net/SIGQUIT/cloud-scheduler">
+            <el-dropdown-item>GitLab</el-dropdown-item>
           </a>
-          <a target="_blank" href="https://panjiachen.github.io/vue-element-admin-site/#/">
+          <a target="_blank" href="https://cloud-scheduler-sigquit.app.secoder.net/docs/">
             <el-dropdown-item>Docs</el-dropdown-item>
           </a>
           <el-dropdown-item divided>

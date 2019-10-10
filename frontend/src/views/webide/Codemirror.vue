@@ -188,23 +188,24 @@ export default {
 
 <style lang="stylus" rel="stylesheet/stylus">
 .in-coder-panel {
-    flex-grow: 1;
-    display: flex;
     position: relative;
+    display: block;
 
     .CodeMirror {
-        flex-grow: 1;
         z-index: 1;
-
+        height: 85vh;
         .CodeMirror-code {
             line-height: 19px;
+        }
+        .CodeMirror-scroll {
+            overflow-y: hidden;
         }
     }
 
     .code-mode-select {
         position: absolute;
         z-index: 2;
-        right: 10px;
+        right: 25px;
         top: 10px;
         max-width: 130px;
     }

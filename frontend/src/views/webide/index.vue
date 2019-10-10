@@ -1,14 +1,12 @@
 <template>
-  <div class="body">
-    <div>
+  <div class="container">
+    <!--div>
       <el-button plain @click="showDirDialog">打开</el-button>
-    </div>
+    </div-->
     <el-container>
-      <!--顶部栏-->
-      <el-header height="50px">header</el-header>
       <el-container>
         <!--左侧侧边栏-->
-        <el-aside width="300px">
+        <!--el-aside width="300px">
           <el-tree
             ref="dirTree"
             :data="dirTree"
@@ -17,7 +15,7 @@
             lazy
             @node-click="treeNodeClick"
           />
-        </el-aside>
+        </el-aside-->
         <!--主-->
         <el-main>
           <!--编辑器-->
@@ -27,6 +25,13 @@
     </el-container>
   </div>
 </template>
+
+<style scoped>
+.container {
+  min-height: 100%;
+  min-width: 100%;
+}
+</style>
 
 <script>
 // import { codemirror } from 'vue-codemirror';

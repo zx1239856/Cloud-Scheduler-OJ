@@ -19,8 +19,8 @@
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { AttachAddon } from 'xterm-addon-attach';
-import Config from '../../config';
 const fitAddon = new FitAddon();
+const wsRoot = process.env.VUE_APP_WS_API;
 
 export default {
     name: 'Console',
@@ -43,12 +43,9 @@ export default {
         this.term.loadAddon(fitAddon);
         this.term.open(terminalContainer);
         fitAddon.fit();
-        // open websocket
-        const root = (process.env.NODE_ENV === 'production' ? Config.prod.wsUrl : Config.dev.wsUrl);
 
         this.terminalSocket = new WebSocket(
-            //   Vue.http.options.ws_root +
-            root + 'terminals/?port=2223&host=inftyloop.tech&user=root&password=demoserver'
+            wsRoot + 'terminals/?port=2223&host=inftyloop.tech&user=root&password=demoserver'
         );
         this.terminalSocket.onopen = this.runRealTerminal;
         this.terminalSocket.onclose = this.closeRealTerminal;

@@ -9,7 +9,7 @@
       label-position="left"
     >
       <div class="title-container">
-        <h3 class="title">Login Form</h3>
+        <h3 class="title">Cloud Scheduler Login</h3>
       </div>
 
       <el-form-item prop="username">
@@ -53,11 +53,6 @@
         type="primary"
         @click.native.prevent="handleLogin"
       >Login</el-button>
-
-      <div class="tips">
-        <span style="margin-right:20px;">username: admin</span>
-        <span>password: any</span>
-      </div>
     </el-form>
   </div>
 </template>
