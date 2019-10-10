@@ -38,7 +38,7 @@ ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'corsheaders',
-    'websocket',
+    'wsocket',
     'django.contrib.contenttypes',
     'django.contrib.auth',
     'channels'
