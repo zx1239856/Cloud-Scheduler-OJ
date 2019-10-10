@@ -1,0 +1,5 @@
+{
+    "name": "Cloud Scheduler",
+    "version": "0.1.0",
+    "description": "A Kubernetes cluster mgmt system"
+}  

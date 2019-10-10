@@ -1,30 +1,42 @@
-// The Vue build version to load with the `import` command
-// (runtime-only or standalone) has been set in webpack.base.conf with an alias.
 import Vue from 'vue';
-import App from './App';
-import router from './router';
-import Config from './config';
-import VueResource from 'vue-resource';
-import Router from 'vue-router';
+
+import 'normalize.css/normalize.css'; // A modern alternative to CSS resets
+
 import ElementUI from 'element-ui';
-
 import 'element-ui/lib/theme-chalk/index.css';
-import 'xterm/css/xterm.css';
-import './icons'; // icon
+import locale from 'element-ui/lib/locale/lang/en'; // lang i18n
 
-Vue.use(ElementUI);
-Vue.use(Router);
-Vue.use(VueResource);
+import '@/styles/index.scss'; // global css
+
+import App from './App';
+import store from './store';
+import router from './router';
+
+import '@/icons'; // icon
+import '@/permission'; // permission control
+import 'xterm/css/xterm.css';
+
+/**
+ * If you don't want to use mock-server
+ * you want to use MockJs for mock api
+ * you can execute: mockXHR()
+ *
+ * Currently MockJs will be used in the production environment,
+ * please remove it before going online! ! !
+ */
+import { mockXHR } from '../mock';
+if (process.env.NODE_ENV === 'production') {
+    mockXHR();
+}
+
+// set ElementUI lang to EN
+Vue.use(ElementUI, { locale });
 
 Vue.config.productionTip = false;
 
-Vue.http.options.root = (process.env.NODE_ENV === 'production' ? Config.prod.apiUrl : Config.dev.apiUrl);
-Vue.http.options.ws_root = (process.env.NODE_ENV === 'production' ? Config.prod.wsUrl : Config.dev.wsUrl);
-
-/* eslint-disable no-new */
 new Vue({
     el: '#app',
     router,
-    components: { App },
-    template: '<App/>'
+    store,
+    render: h => h(App)
 });
