@@ -11,8 +11,8 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
-
 from corsheaders.defaults import default_methods
+import config
 
 CORS_ALLOW_METHODS = default_methods
 CORS_ALLOW_CREDENTIALS = True
@@ -29,7 +29,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '(t@s1tb(r%^7q0s6^$%vfzb!)5(=ywp3(%vu0d0gwidsdizkav'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config.DEBUG
 
 ALLOWED_HOSTS = ['*']
 
@@ -39,6 +39,7 @@ ALLOWED_HOSTS = ['*']
 INSTALLED_APPS = [
     'corsheaders',
     'wsocket',
+    'taskmanager',
     'django.contrib.contenttypes',
     'django.contrib.auth',
     'channels'
@@ -48,9 +49,46 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': True,
+    'formatters': {
+        'default': {
+            'format': '{asctime} - {name}:{module} - {levelname} - {message}',
+            'style': '{',
+        }
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'default',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+        'wsocket': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'api': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'taskmanager': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        }
+    },
+}
 
 ROOT_URLCONF = 'api.urls'
 
