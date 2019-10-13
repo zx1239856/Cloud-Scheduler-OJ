@@ -16,9 +16,18 @@ export function getInfo(token) {
     });
 }
 
-export function logout() {
+export function logout(token) {
     return request({
         url: '/user/logout',
-        method: 'post'
+        method: 'get',
+        params: { token }
+    });
+}
+
+export function signup(data) {
+    return request({
+        url: '/user/signup',
+        method: 'get',
+        params: data
     });
 }

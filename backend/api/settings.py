@@ -14,9 +14,12 @@ import os
 from corsheaders.defaults import default_methods
 import config
 
-CORS_ALLOW_METHODS = default_methods
+CORS_ALLOW_METHODS = list(default_methods) + ['POST']
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_HEADERS = (
+    '*'
+)
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -42,13 +45,15 @@ INSTALLED_APPS = [
     'taskmanager',
     'django.contrib.contenttypes',
     'django.contrib.auth',
-    'channels'
+    'channels',
+    'user_model',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
+    # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
