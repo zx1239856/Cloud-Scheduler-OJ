@@ -14,13 +14,13 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.urls import path
-from websocket import views as ws_views
+#from websocket import views as ws_views
 from storage import views as storage_views
 from . import views
 
 # pylint: disable=C0103
 websocket_urlpatterns = [
-    path('terminals/', ws_views.WebSSH),
+    #path('terminals/', ws_views.WebSSH),
 ]
 
 urlpatterns = [
