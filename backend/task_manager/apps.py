@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class TaskmanagerConfig(AppConfig):
-    name = 'taskmanager'
+    name = 'task_manager'

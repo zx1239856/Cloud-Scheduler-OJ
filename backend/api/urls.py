@@ -15,8 +15,9 @@ Including another URLconf
 """
 from django.urls import path
 from wsocket import views as ws_views
-from taskmanager import views as task_mgmt_views
+from task_manager import views as task_mgmt_views
 from user_model import views as user_views
+from user_model.views import login_required
 
 # pylint: disable=C0103
 websocket_urlpatterns = [
@@ -24,9 +25,9 @@ websocket_urlpatterns = [
 ]
 
 urlpatterns = [
-    path('task_settings/', task_mgmt_views.TaskSettingsHandler.as_view()),
-    path('user/login', user_views.UserLogin.as_view()),
-    path('user/signup', user_views.UserSignUp.as_view()),
-    path('user/info', user_views.UserInfo.as_view()),
-    path('user/logout', user_views.UserLogout.as_view()),
+    path('task_settings/', task_mgmt_views.TaskSettingsListHandler.as_view()),
+    path('task_settings/<str:uuid>/', task_mgmt_views.TaskSettingsItemHandler.as_view()),
+    path('user/login/', user_views.UserLogin.as_view()),
+    path('user/logout/', login_required(user_views.UserLogout.as_view())),
+    path('user/', user_views.UserHandler.as_view()),
 ]

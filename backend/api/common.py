@@ -8,6 +8,11 @@ Only admin user can access this API
 @apiDefine user User access only
 All users can access this API
 """
+"""
+@apiDefine APIHeader
+@apiHeader {String} X-Access-Token access token of the user
+@apiHeader {String} X-Access-Username username
+"""
 
 
 class _Response(object):
@@ -38,13 +43,13 @@ class _Response(object):
         HTTP/1.1 200 OK
         {
             "status": 500,
-            "message": "Internal server error",
+            "message": "Internal server error.",
             "payload": {}
         }
         """
         return {
             "status": 500,
-            "message": "Internal server error",
+            "message": "Internal server error.",
             "payload": {},
         }
 
@@ -57,13 +62,13 @@ class _Response(object):
         HTTP/1.1 200 OK
         {
             "status": 501,
-            "message": "Not implemented method",
+            "message": "Not implemented method.",
             "payload": {}
         }
         """
         return {
             "status": 501,
-            "message": "Not implemented method",
+            "message": "Not implemented method.",
             "payload": {},
         }
 
@@ -76,13 +81,32 @@ class _Response(object):
         HTTP/1.1 200 OK
         {
             "status": 400,
-            "message": "Invalid request",
+            "message": "Invalid request.",
             "payload": {}
         }
         """
         return {
             "status": 400,
-            "message": "Invalid request",
+            "message": "Invalid request.",
+            "payload": {},
+        }
+
+    @property
+    def OPERATION_FAILED(self):
+        """
+        @apiDefine OperationFailed
+        @apiError OperationFailed Operation is unsuccessful
+        @apiErrorExample {json} Error-Response:
+        HTTP/1.1 200 OK
+        {
+            "status": 402,
+            "message": "Operation is unsuccessful.",
+            "payload": {}
+        }
+        """
+        return {
+            "status": 402,
+            "message": "Operation is unsuccessful.",
             "payload": {},
         }
 
@@ -95,13 +119,13 @@ class _Response(object):
         HTTP/1.1 200 OK
         {
             "status": 401,
-            "message": "User is unauthorized",
+            "message": "User is unauthorized.",
             "payload": {}
         }
         """
         return {
             "status": 401,
-            "message": "User is unauthorized",
+            "message": "User is unauthorized.",
             "payload": {},
         }
 
@@ -114,13 +138,13 @@ class _Response(object):
         HTTP/1.1 200 OK
         {
             "status": 403,
-            "message": "Permission denied",
+            "message": "Permission denied.",
             "payload": {}
         }
         """
         return {
             "status": 403,
-            "message": "Permission denied",
+            "message": "Permission denied.",
             "payload": {},
         }
 

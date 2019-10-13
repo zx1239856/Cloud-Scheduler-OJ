@@ -38,7 +38,6 @@ build:
 unit-test:
   extends: .test
   script:
-    - python backend/manage.py makemigrations
     - python backend/manage.py migrate
     - coverage run -m pytest backend --junit-xml=xunit-reports/xunit-result.xml
     - BACKEND_RET=$?
@@ -59,7 +58,7 @@ style-test:
   extends: .test
   # allow_failure: true
   script:
-    - pylint backend --ignore=config.py
+    - pylint backend 
     - BACKEND_RET=$?
     - cd frontend/
     - npm run lint

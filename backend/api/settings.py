@@ -14,12 +14,22 @@ import os
 from corsheaders.defaults import default_methods
 import config
 
-CORS_ALLOW_METHODS = list(default_methods) + ['POST']
+CORS_ALLOW_METHODS = default_methods
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
-CORS_ALLOW_HEADERS = (
-    '*'
-)
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'x-access-token',
+    'x-access-username'
+]
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -42,7 +52,7 @@ ALLOWED_HOSTS = ['*']
 INSTALLED_APPS = [
     'corsheaders',
     'wsocket',
-    'taskmanager',
+    'task_manager',
     'django.contrib.contenttypes',
     'django.contrib.auth',
     'channels',
@@ -53,7 +63,6 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -87,7 +96,12 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
-        'taskmanager': {
+        'task_manager': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'user_model': {
             'handlers': ['console'],
             'level': 'INFO',
             'propagate': True,
