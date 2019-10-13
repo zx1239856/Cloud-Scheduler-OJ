@@ -15,7 +15,8 @@ Including another URLconf
 """
 from django.urls import path
 from wsocket import views as ws_views
-from . import views
+from taskmanager import views as task_mgmt_views
+# from . import views
 
 # pylint: disable=C0103
 websocket_urlpatterns = [
@@ -23,6 +24,5 @@ websocket_urlpatterns = [
 ]
 
 urlpatterns = [
-    path('get-request/', views.get_request),
-    path('post-request/', views.post_request),
+    path('task_settings/', task_mgmt_views.TaskSettingsHandler.as_view())
 ]
