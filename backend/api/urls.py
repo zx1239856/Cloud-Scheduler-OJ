@@ -15,6 +15,7 @@ Including another URLconf
 """
 from django.urls import path
 from websocket import views as ws_views
+from storage import views as storage_views
 from . import views
 
 # pylint: disable=C0103
@@ -25,4 +26,5 @@ websocket_urlpatterns = [
 urlpatterns = [
     path('get-request/', views.get_request),
     path('post-request/', views.post_request),
+    path('pvc/', storage_views.create_pvc),
 ]
