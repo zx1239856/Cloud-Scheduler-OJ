@@ -8,6 +8,11 @@ Only admin user can access this API
 @apiDefine user User access only
 All users can access this API
 """
+"""
+@apiDefine APIHeader
+@apiHeader {String} X-Access-Token access token of the user
+@apiHeader {String} X-Access-Username username
+"""
 
 
 class _Response(object):
@@ -83,6 +88,25 @@ class _Response(object):
         return {
             "status": 400,
             "message": "Invalid request",
+            "payload": {},
+        }
+
+    @property
+    def OPERATION_FAILED(self):
+        """
+        @apiDefine OperationFailed
+        @apiError OperationFailed Operation is unsuccessful
+        @apiErrorExample {json} Error-Response:
+        HTTP/1.1 200 OK
+        {
+            "status": 402,
+            "message": "Operation is unsuccessful",
+            "payload": {}
+        }
+        """
+        return {
+            "status": 402,
+            "message": "Operation is unsuccessful",
             "payload": {},
         }
 
