@@ -43,13 +43,13 @@ class _Response(object):
         HTTP/1.1 200 OK
         {
             "status": 500,
-            "message": "Internal server error",
+            "message": "Internal server error.",
             "payload": {}
         }
         """
         return {
             "status": 500,
-            "message": "Internal server error",
+            "message": "Internal server error.",
             "payload": {},
         }
 
@@ -62,13 +62,13 @@ class _Response(object):
         HTTP/1.1 200 OK
         {
             "status": 501,
-            "message": "Not implemented method",
+            "message": "Not implemented method.",
             "payload": {}
         }
         """
         return {
             "status": 501,
-            "message": "Not implemented method",
+            "message": "Not implemented method.",
             "payload": {},
         }
 
@@ -81,13 +81,13 @@ class _Response(object):
         HTTP/1.1 200 OK
         {
             "status": 400,
-            "message": "Invalid request",
+            "message": "Invalid request.",
             "payload": {}
         }
         """
         return {
             "status": 400,
-            "message": "Invalid request",
+            "message": "Invalid request.",
             "payload": {},
         }
 
@@ -100,13 +100,13 @@ class _Response(object):
         HTTP/1.1 200 OK
         {
             "status": 402,
-            "message": "Operation is unsuccessful",
+            "message": "Operation is unsuccessful.",
             "payload": {}
         }
         """
         return {
             "status": 402,
-            "message": "Operation is unsuccessful",
+            "message": "Operation is unsuccessful.",
             "payload": {},
         }
 
@@ -119,13 +119,13 @@ class _Response(object):
         HTTP/1.1 200 OK
         {
             "status": 401,
-            "message": "User is unauthorized",
+            "message": "User is unauthorized.",
             "payload": {}
         }
         """
         return {
             "status": 401,
-            "message": "User is unauthorized",
+            "message": "User is unauthorized.",
             "payload": {},
         }
 
@@ -138,13 +138,13 @@ class _Response(object):
         HTTP/1.1 200 OK
         {
             "status": 403,
-            "message": "Permission denied",
+            "message": "Permission denied.",
             "payload": {}
         }
         """
         return {
             "status": 403,
-            "message": "Permission denied",
+            "message": "Permission denied.",
             "payload": {},
         }
 

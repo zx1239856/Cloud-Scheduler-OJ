@@ -24,5 +24,6 @@ websocket_urlpatterns = [
 ]
 
 urlpatterns = [
-    path('task_settings/', task_mgmt_views.TaskSettingsHandler.as_view())
+    path('task_settings/', task_mgmt_views.TaskSettingsListHandler.as_view()),
+    path('task_settings/<str:uuid>/', task_mgmt_views.TaskSettingsItemHandler.as_view())
 ]
