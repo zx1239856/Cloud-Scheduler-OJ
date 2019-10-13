@@ -1,6 +1,8 @@
-import { login, logout, getInfo } from '@/api/user';
+import { login, logout, getInfo, signup } from '@/api/user';
 import { getToken, setToken, removeToken } from '@/utils/auth';
-import { resetRouter } from '@/router';
+// import { resetRouter } from '@/router';
+
+const md5 = require('js-md5');
 
 const state = {
     token: getToken(),
@@ -24,11 +26,28 @@ const actions = {
     // user login
     login({ commit }, userInfo) {
         const { username, password } = userInfo;
+
         return new Promise((resolve, reject) => {
-            login({ username: username.trim(), password: password }).then(response => {
+            return login({ username: username.trim(), password: md5(password) }).then(response => {
                 const { data } = response;
                 commit('SET_TOKEN', data.token);
+                commit('SET_NAME', data.username);
                 setToken(data.token);
+                resolve();
+            }).catch(error => {
+                reject(error);
+            });
+        });
+    },
+
+    // user signup
+    signup({ commit }, userInfo) {
+        const { username, password } = userInfo;
+        return new Promise((resolve, reject) => {
+            return signup({ username: username.trim(), password: md5(password) }).then(response => {
+                // const { data } = response;
+                // commit('SET_TOKEN', data.token);
+                // setToken(data.token);
                 resolve();
             }).catch(error => {
                 reject(error);
@@ -46,9 +65,9 @@ const actions = {
                     reject('Verification failed, please Login again.');
                 }
 
-                const { name, avatar } = data;
+                const { username, avatar } = data;
 
-                commit('SET_NAME', name);
+                commit('SET_NAME', username);
                 commit('SET_AVATAR', avatar);
                 resolve(data);
             }).catch(error => {
@@ -58,12 +77,12 @@ const actions = {
     },
 
     // user logout
-    logout({ commit, state }) {
+    async logout({ commit, state }) {
         return new Promise((resolve, reject) => {
             logout(state.token).then(() => {
                 commit('SET_TOKEN', '');
                 removeToken();
-                resetRouter();
+                // resetRouter();
                 resolve();
             }).catch(error => {
                 reject(error);
