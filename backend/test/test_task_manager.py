@@ -4,7 +4,7 @@ Unit Test for TaskManager
 from uuid import uuid1
 import json
 from django.test import TestCase, Client
-from taskmanager.models import TaskSettings
+from task_manager.models import TaskSettings
 
 
 class TestTaskSettings(TestCase):
