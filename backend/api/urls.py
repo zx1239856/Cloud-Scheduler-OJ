@@ -15,6 +15,7 @@ Including another URLconf
 """
 from django.urls import path
 from wsocket import views as ws_views
+from user_model import views as user_views
 from . import views
 
 # pylint: disable=C0103
@@ -25,4 +26,8 @@ websocket_urlpatterns = [
 urlpatterns = [
     path('get-request/', views.get_request),
     path('post-request/', views.post_request),
+    path('user/login', user_views.UserLogin.as_view()),
+    path('user/signup', user_views.UserSignUp.as_view()),
+    path('user/info', user_views.UserInfo.as_view()),
+    path('user/logout', user_views.UserLogout.as_view()),
 ]
