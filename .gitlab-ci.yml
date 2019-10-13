@@ -38,6 +38,7 @@ build:
 unit-test:
   extends: .test
   script:
+    - python backend/manage.py makemigrations
     - coverage run -m pytest backend --junit-xml=xunit-reports/xunit-result.xml
     - BACKEND_RET=$?
     - coverage xml -o coverage-reports/coverage.xml
