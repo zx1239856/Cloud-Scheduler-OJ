@@ -19,7 +19,7 @@ def getUUID():
 class TaskSettingsListHandler(View):
     http_method_names = ['get', 'post']
 
-    def get(self, request):
+    def get(self, request, **_):
         """
         @api {get} /task_settings/ Get task settings list
         @apiName GetTaskSettingsList
@@ -71,7 +71,7 @@ class TaskSettingsListHandler(View):
         finally:
             return JsonResponse(response)
 
-    def post(self, request):
+    def post(self, request, **_):
         """
         @api {post} /task_settings/ Create task settings
         @apiName CreateTaskSettings
@@ -154,7 +154,7 @@ class TaskSettingsItemHandler(View):
                                        'task_config': item.task_config, 'create_time': item.create_time}
         except TaskSettings.DoesNotExist:
             response = RESPONSE.OPERATION_FAILED
-            response['message'] += " {}".format("Name duplicates.")
+            response['message'] += " {}".format("Object does not exist.")
         except Exception as ex:
             LOGGER.error(ex)
             response = RESPONSE.SERVER_ERROR
