@@ -70,6 +70,14 @@ class TestUserModel(TestCase):
         response = json.loads(response.content)
         self.assertEqual(response, RESPONSE.SUCCESS)
 
+    def test_user_signup_duplicate(self):
+        post_data = {'username': '123', 'password': 'abc', 'email': '123'}
+        response = self.client.post('/user/', json.dumps(post_data),
+                                    content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+
     def test_user_get(self):
         response = self.client.get('/user/', HTTP_X_ACCESS_TOKEN=self.login_user['token'],
                                    HTTP_X_ACCESS_USERNAME=self.login_user['username'])
@@ -81,6 +89,12 @@ class TestUserModel(TestCase):
         self.assertEqual(response['payload']['email'],
                          self.login_user['email'])
 
+    def test_user_get_no_header(self):
+        response = self.client.get('/user/')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response, RESPONSE.UNAUTHORIZED)
+
     def test_user_delete(self):
         response = self.client.delete(
             '/user/', HTTP_X_ACCESS_TOKEN=self.login_user['token'], HTTP_X_ACCESS_USERNAME=self.login_user['username'])
@@ -88,14 +102,14 @@ class TestUserModel(TestCase):
         response = json.loads(response.content)
         self.assertEqual(response, RESPONSE.SUCCESS)
 
-    def test_user_put(self):
-        put_data = {'email': 'abc', 'password': '12345'}
-        response = self.client.put('/user/', HTTP_X_REQUEST_WITH='XMLHttpRequest', data=json.dumps(put_data),
+    def test_user_put_invalid_json(self):
+        put_data = 'bad_json'
+        response = self.client.put('/user/', HTTP_X_REQUEST_WITH='XMLHttpRequest', data=put_data,
                                    HTTP_X_ACCESS_TOKEN=self.login_user['token'],
                                    HTTP_X_ACCESS_USERNAME=self.login_user['username'])
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertEqual(response, RESPONSE.SUCCESS)
+        self.assertEqual(response, RESPONSE.INVALID_REQUEST)
 
     def test_user_logout(self):
         response = self.client.get('/user/logout/', HTTP_X_ACCESS_TOKEN=self.login_user['token'],
