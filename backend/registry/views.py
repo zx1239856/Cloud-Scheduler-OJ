@@ -1,10 +1,9 @@
 """View handlers for RegistryManager"""
 import os
 import re
-import json
 import logging
 import docker
-from django.http import HttpResponse
+from django.http import JsonResponse
 from django.views import View
 
 # Create your views here.
@@ -39,7 +38,7 @@ class RegistryManagementHandler(View):
             path = "registry/dockerfiles/"
             condition_code = 2
 
-        if condition_code == 1 or condition_code == 2:
+        if condition_code in (1, 2):
             try:
                 if not os.path.exists(path):
                     os.makedirs(path)
@@ -58,7 +57,7 @@ class RegistryManagementHandler(View):
                 'result': 'OK',
                 'filename': request.FILES['file'].name,
             }
-            return HttpResponse(json.dumps(result))
+            return JsonResponse(result)
 
 
-        return HttpResponse(json.dumps({'result': "didn't work"}))
+        return JsonResponse({'result': "didn't work"})
