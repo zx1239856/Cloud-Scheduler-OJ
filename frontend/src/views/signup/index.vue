@@ -87,7 +87,7 @@
         type="primary"
         @click.native.prevent="handleSignup"
       >Sign Up</el-button>
-      <router-link to="/login" class="link">Aready a member? Log in!</router-link>
+      <router-link to="/login/" class="link">Aready a member? Log in!</router-link>
     </el-form>
   </div>
 </template>
