@@ -3,5 +3,5 @@ django-cors-headers
 gunicorn
 gevent
 channels
-websocket-client
 docker
+kubernetes

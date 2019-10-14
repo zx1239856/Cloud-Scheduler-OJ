@@ -83,16 +83,19 @@ def permission_required(function=None):
                 header_token = request.META['HTTP_X_ACCESS_TOKEN']
                 user = UserModel.objects.get(username=username)
                 token = TokenManager.getToken(user)
-                if token == header_token and user.user_type == UserType.ADMIN:
-                    TokenManager.updateToken(user)
-                    return user
+                if token == header_token:
+                    if user.user_type == UserType.ADMIN:
+                        TokenManager.updateToken(user)
+                        return user
+                    else:
+                        return -1
                 else:
-                    return -1
+                    return 1
             except Exception as ex:
                 LOGGER.warning(ex)
-                return -1
+                return 1
         else:
-            return -1
+            return 1
 
     actual_decorator = user_passes_test(test_permission)
     if function:
@@ -151,7 +154,11 @@ class UserLogin(View):
             if password == user.password:
                 token = TokenManager.createToken(user)
                 response = RESPONSE.SUCCESS
-                response['payload'] = {'username': user.username, 'token': token}
+                response['payload'] = {
+                    'username': user.username,
+                    'token': token,
+                    'avatar': 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif'
+                }
             else:
                 raise UserModel.DoesNotExist()
         except UserModel.DoesNotExist:
@@ -185,6 +192,7 @@ class UserHandler(View):
             return JsonResponse(RESPONSE.INVALID_REQUEST)
 
     def post(self, request):
+        """user signup"""
         response = None
         try:
             request = json.loads(request.body)

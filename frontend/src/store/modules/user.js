@@ -1,12 +1,12 @@
 import { login, logout, getInfo, signup } from '@/api/user';
-import { getToken, setToken, removeToken } from '@/utils/auth';
+import { getToken, setToken, removeToken, getUsername, setUsername, removeUsername } from '@/utils/auth';
 // import { resetRouter } from '@/router';
 
 const md5 = require('js-md5');
 
 const state = {
     token: getToken(),
-    name: '',
+    name: getUsername(),
     avatar: ''
 };
 
@@ -29,10 +29,12 @@ const actions = {
 
         return new Promise((resolve, reject) => {
             return login({ username: username.trim(), password: md5(password) }).then(response => {
-                const { data } = response;
-                commit('SET_TOKEN', data.token);
-                commit('SET_NAME', data.username);
-                setToken(data.token);
+                const { payload } = response;
+                commit('SET_TOKEN', payload.token);
+                commit('SET_NAME', payload.username);
+                commit('SET_AVATAR', payload.avatar);
+                setToken(payload.token);
+                setUsername(payload.username);
                 resolve();
             }).catch(error => {
                 reject(error);
@@ -42,9 +44,9 @@ const actions = {
 
     // user signup
     signup({ commit }, userInfo) {
-        const { username, password } = userInfo;
+        const { username, password, email } = userInfo;
         return new Promise((resolve, reject) => {
-            return signup({ username: username.trim(), password: md5(password) }).then(response => {
+            return signup({ username: username.trim(), password: md5(password), email: email }).then(response => {
                 // const { data } = response;
                 // commit('SET_TOKEN', data.token);
                 // setToken(data.token);
@@ -59,17 +61,18 @@ const actions = {
     getInfo({ commit, state }) {
         return new Promise((resolve, reject) => {
             getInfo(state.token).then(response => {
-                const { data } = response;
+                console.log(response);
+                const { payload } = response;
 
-                if (!data) {
+                if (!payload) {
                     reject('Verification failed, please Login again.');
                 }
 
-                const { username, avatar } = data;
+                const { username, avatar } = payload;
 
                 commit('SET_NAME', username);
                 commit('SET_AVATAR', avatar);
-                resolve(data);
+                resolve(payload);
             }).catch(error => {
                 reject(error);
             });
@@ -82,6 +85,7 @@ const actions = {
             logout(state.token).then(() => {
                 commit('SET_TOKEN', '');
                 removeToken();
+                removeUsername();
                 // resetRouter();
                 resolve();
             }).catch(error => {

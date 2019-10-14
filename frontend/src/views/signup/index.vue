@@ -12,6 +12,21 @@
         <h3 class="title">Cloud Scheduler Sign Up</h3>
       </div>
 
+      <el-form-item prop="email">
+        <span class="svg-container">
+          <svg-icon icon-class="email" />
+        </span>
+        <el-input
+          ref="email"
+          v-model="signupForm.email"
+          auto-complete="off"
+          name="email"
+          placeholder="Email"
+          tabindex="1"
+          type="text"
+        />
+      </el-form-item>
+
       <el-form-item prop="username">
         <span class="svg-container">
           <svg-icon icon-class="user" />
@@ -72,7 +87,7 @@
         type="primary"
         @click.native.prevent="handleSignup"
       >Sign Up</el-button>
-      <router-link to="/login" class="link">Aready a member? Log in!</router-link>
+      <router-link to="/login/" class="link">Aready a member? Log in!</router-link>
     </el-form>
   </div>
 </template>
@@ -106,6 +121,7 @@ export default {
         };
         return {
             signupForm: {
+                email: '',
                 username: '',
                 password: '',
                 confirmPassword: ''
@@ -179,8 +195,8 @@ export default {
                                 message: 'Sign Up Success',
                                 type: 'success'
                             });
-                            this.$router.push('/');
                             this.loading = false;
+                            this.$router.push('/login');
                         })
                         .catch(() => {
                             this.loading = false;
@@ -257,7 +273,7 @@ $light_gray: #eee;
         position: relative;
         width: 520px;
         max-width: 100%;
-        padding: 160px 35px 0;
+        padding: 120px 35px 0;
         margin: 0 auto;
         overflow: hidden;
     }

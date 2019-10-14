@@ -19,7 +19,7 @@ def getUUID():
 class TaskSettingsListHandler(View):
     http_method_names = ['get', 'post']
 
-    def get(self, request):
+    def get(self, request, **_):
         """
         @api {get} /task_settings/ Get task settings list
         @apiName GetTaskSettingsList
@@ -71,7 +71,7 @@ class TaskSettingsListHandler(View):
         finally:
             return JsonResponse(response)
 
-    def post(self, request):
+    def post(self, request, **_):
         """
         @api {post} /task_settings/ Create task settings
         @apiName CreateTaskSettings
@@ -145,16 +145,14 @@ class TaskSettingsItemHandler(View):
         response = None
         try:
             uuid = kwargs.get('uuid', None)
-            if uuid is None:
-                response = RESPONSE.INVALID_REQUEST
-            else:
-                response = RESPONSE.SUCCESS
-                item = TaskSettings.objects.get(uuid=uuid)
-                response['payload'] = {'uuid': item.uuid, 'name': item.name, 'concurrency': item.concurrency,
-                                       'task_config': item.task_config, 'create_time': item.create_time}
+            assert uuid is not None
+            response = RESPONSE.SUCCESS
+            item = TaskSettings.objects.get(uuid=uuid)
+            response['payload'] = {'uuid': item.uuid, 'name': item.name, 'concurrency': item.concurrency,
+                                   'task_config': item.task_config, 'create_time': item.create_time}
         except TaskSettings.DoesNotExist:
             response = RESPONSE.OPERATION_FAILED
-            response['message'] += " {}".format("Name duplicates.")
+            response['message'] += " {}".format("Object does not exist.")
         except Exception as ex:
             LOGGER.error(ex)
             response = RESPONSE.SERVER_ERROR
@@ -188,19 +186,17 @@ class TaskSettingsItemHandler(View):
         response = None
         try:
             uuid = kwargs.get('uuid', None)
-            if uuid is None:
-                response = RESPONSE.INVALID_REQUEST
-            else:
-                query = json.loads(request.body)
-                response = RESPONSE.SUCCESS
-                item = TaskSettings.objects.get(uuid=uuid)
-                if 'name' in query.keys():
-                    item.name = str(query['name'])
-                if 'concurrency' in query.keys():
-                    item.concurrency = int(query['concurrency'])
-                if 'task_config' in query.keys():
-                    item.task_config = dict(query['task_config'])
-                item.save(force_update=True)
+            assert uuid is not None
+            query = json.loads(request.body)
+            response = RESPONSE.SUCCESS
+            item = TaskSettings.objects.get(uuid=uuid)
+            if 'name' in query.keys():
+                item.name = str(query['name'])
+            if 'concurrency' in query.keys():
+                item.concurrency = int(query['concurrency'])
+            if 'task_config' in query.keys():
+                item.task_config = dict(query['task_config'])
+            item.save(force_update=True)
         except ValueError:
             response = RESPONSE.INVALID_REQUEST
         except IntegrityError:
@@ -234,11 +230,9 @@ class TaskSettingsItemHandler(View):
         response = None
         try:
             uuid = kwargs.get('uuid', None)
-            if uuid is None:
-                response = RESPONSE.INVALID_REQUEST
-            else:
-                TaskSettings.objects.get(uuid=uuid).delete()
-                response = RESPONSE.SUCCESS
+            assert uuid is not None
+            TaskSettings.objects.get(uuid=uuid).delete()
+            response = RESPONSE.SUCCESS
         except TaskSettings.DoesNotExist:
             response = RESPONSE.OPERATION_FAILED
         finally:

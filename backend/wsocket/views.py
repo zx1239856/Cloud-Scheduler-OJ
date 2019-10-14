@@ -3,14 +3,14 @@ View handler for WebSocket
 """
 # pylint: disable=C0411
 import socket
-import time
-import ssl
 import logging
-import websocket as webskt
 from threading import Thread
 from channels.generic.websocket import WebsocketConsumer
 from django.http.request import QueryDict
-from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL_WS
+from kubernetes.client import Configuration, ApiClient
+from kubernetes.client.apis import core_v1_api
+from kubernetes.stream import stream
+from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL
 
 SHELL_LIST = [
     '/bin/sh',
@@ -26,17 +26,18 @@ LOGGER = logging.getLogger(__name__)
 class SSH:
     def __init__(self, websocket):
         self.websocket = websocket
-        self.ssh = None
-        webskt.enableTrace(False)
+        conf = Configuration()
+        conf.host = KUBERNETES_API_SERVER_URL
+        conf.verify_ssl = False
+        conf.api_key = {"authorization": "Bearer " + KUBERNETES_CLUSTER_TOKEN}
+        self.api_client = core_v1_api.CoreV1Api(ApiClient(conf))
+        self.api_response = None
 
     def connect(self, pod, shell):
         try:
-            token = KUBERNETES_CLUSTER_TOKEN
-            url = KUBERNETES_API_SERVER_URL_WS + "/api/v1/namespaces/default/pods/%s/exec?command=%s&stderr=true&stdin=true&stdout=true&tty=true" % (
-                pod, shell)
-            header = "Authorization: Bearer " + token
-            self.ssh = webskt.WebSocket(sslopt={"cert_reqs": ssl.CERT_NONE})
-            self.ssh.connect(url, header=[header])
+            self.api_response = stream(self.api_client.connect_get_namespaced_pod_exec,
+                                       pod, 'default', command=[shell], stderr=True, stdin=True,
+                                       stdout=True, tty=True, _preload_content=False)
             Thread(target=self.django_to_websocket).start()
         except socket.timeout:
             self.close()
@@ -46,7 +47,10 @@ class SSH:
 
     def django_to_ssh(self, data):
         try:
-            self.ssh.send_binary(b'\0' + bytearray(data, 'utf-8'))
+            if self.api_response is not None and self.api_response.is_open():
+                self.api_response.write_stdin(data)
+            else:
+                self.close()
         except Exception as e:
             LOGGER.error(e)
             self.close()
@@ -54,8 +58,7 @@ class SSH:
     def django_to_websocket(self):
         try:
             while True:
-                time.sleep(0.01)
-                data = self.ssh.recv().decode('utf-8')
+                data = self.api_response.read_stdout()
                 if data:
                     self.websocket.send(data)
         except Exception as e:
@@ -63,8 +66,8 @@ class SSH:
             self.close()
 
     def close(self):
-        if self.ssh is not None:
-            self.ssh.close()
+        if self.api_response is not None:
+            self.api_response.close()
         self.websocket.close()
 
 
@@ -84,7 +87,7 @@ class WebSSH(WebsocketConsumer):
         shell = ssh_args.get('shell', '/bin/sh')
         if pod is None or shell not in SHELL_LIST:
             self.send("\nInvalid request.")
-            LOGGER.warning("Invalid")
+            LOGGER.warning("Invalid request")
             self.close(code=4000)
             return
         self.ssh = SSH(websocket=self)
@@ -95,8 +98,8 @@ class WebSSH(WebsocketConsumer):
         try:
             if self.ssh is not None:
                 self.ssh.close()
-        except Exception as e:
-            LOGGER.log(e)
+        except Exception as ex:
+            LOGGER.error(ex)
 
     def receive(self, text_data=None, bytes_data=None):
         """Pass text content to remote shell"""
