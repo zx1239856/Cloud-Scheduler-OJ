@@ -19,6 +19,7 @@ from task_manager import views as task_mgmt_views
 from user_model import views as user_views
 from user_model.views import login_required, permission_required
 from registry import views as registry_mgmt_views
+from monitor import views as monitor_views
 
 # pylint: disable=C0103
 websocket_urlpatterns = [
@@ -32,4 +33,5 @@ urlpatterns = [
     path('user/logout/', login_required(user_views.UserLogout.as_view())),
     path('user/', user_views.UserHandler.as_view()),
     path('image_registry/', registry_mgmt_views.RegistryManagementHandler.as_view()),
+    path('pods/', monitor_views.PodListHandler.as_view()),
 ]

@@ -4,6 +4,7 @@ View handler for WebSocket
 # pylint: disable=C0411
 import socket
 import logging
+import time
 from threading import Thread
 from channels.generic.websocket import WebsocketConsumer
 from django.http.request import QueryDict
@@ -33,10 +34,10 @@ class SSH:
         self.api_client = core_v1_api.CoreV1Api(ApiClient(conf))
         self.api_response = None
 
-    def connect(self, pod, shell):
+    def connect(self, pod, shell, namespace='default'):
         try:
             self.api_response = stream(self.api_client.connect_get_namespaced_pod_exec,
-                                       pod, 'default', command=[shell], stderr=True, stdin=True,
+                                       pod, namespace, command=[shell], stderr=True, stdin=True,
                                        stdout=True, tty=True, _preload_content=False)
             Thread(target=self.django_to_websocket).start()
         except socket.timeout:
@@ -61,13 +62,17 @@ class SSH:
                 data = self.api_response.read_stdout()
                 if data:
                     self.websocket.send(data)
+                else:
+                    time.sleep(0.01)
         except Exception as e:
             LOGGER.error(e)
             self.close()
 
     def close(self):
         if self.api_response is not None:
-            self.api_response.close()
+            if self.api_response.is_open():
+                self.api_response.write_stdin("exit\n")
+                self.api_response.close()
         self.websocket.close()
 
 
@@ -84,14 +89,16 @@ class WebSSH(WebsocketConsumer):
         query_string = self.scope.get('query_string')
         ssh_args = QueryDict(query_string=query_string, encoding='utf-8')
         pod = ssh_args.get('pod', None)
+        namespace = ssh_args.get('namespace', 'default')
         shell = ssh_args.get('shell', '/bin/sh')
         if pod is None or shell not in SHELL_LIST:
             self.send("\nInvalid request.")
             LOGGER.warning("Invalid request")
             self.close(code=4000)
             return
+        LOGGER.info("Connecting to pod: {}, namespace: {}".format(pod, namespace))
         self.ssh = SSH(websocket=self)
-        self.ssh.connect(pod, shell)
+        self.ssh.connect(pod, shell, namespace)
 
     def disconnect(self, code):
         """Disconnect from SSH"""

@@ -34,7 +34,6 @@ CORS_ALLOW_HEADERS = [
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
@@ -46,7 +45,6 @@ DEBUG = config.DEBUG
 
 ALLOWED_HOSTS = ['*']
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -57,6 +55,7 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'channels',
     'user_model',
+    'monitor'
 ]
 
 MIDDLEWARE = [
@@ -65,6 +64,12 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+LOGGING_CONSOLE_HANDLER = {
+    'handlers': ['console'],
+    'level': 'INFO',
+    'propagate': True,
+}
 
 LOGGING = {
     'version': 1,
@@ -86,26 +91,11 @@ LOGGING = {
             'handlers': ['console'],
             'level': 'INFO',
         },
-        'wsocket': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'api': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'task_manager': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'user_model': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
-        }
+        'wsocket': LOGGING_CONSOLE_HANDLER,
+        'api': LOGGING_CONSOLE_HANDLER,
+        'task_manager': LOGGING_CONSOLE_HANDLER,
+        'user_model': LOGGING_CONSOLE_HANDLER,
+        'monitor': LOGGING_CONSOLE_HANDLER,
     },
 }
 
