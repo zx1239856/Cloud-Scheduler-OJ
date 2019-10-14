@@ -53,7 +53,7 @@
         type="primary"
         @click.native.prevent="handleLogin"
       >Login</el-button>
-      <router-link to="/signup" class="link">No account yet? Sign up!</router-link>
+      <router-link to="/signup/" class="link">No account yet? Sign up!</router-link>
     </el-form>
   </div>
 </template>
@@ -133,8 +133,8 @@ export default {
                                 message: 'Log in Success',
                                 type: 'success'
                             });
-                            this.$router.push({ path: this.redirect || '/' });
                             this.loading = false;
+                            this.$router.push('/');
                         })
                         .catch(() => {
                             this.loading = false;
