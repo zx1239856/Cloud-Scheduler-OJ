@@ -45,7 +45,7 @@ export default {
         fitAddon.fit();
 
         this.terminalSocket = new WebSocket(
-            wsRoot + 'terminals/?port=2223&host=inftyloop.tech&user=root&password=demoserver'
+            wsRoot + 'terminals/?pod=wordpress-mysql-b9ddd6d4c-87cvq&shell=/bin/sh'
         );
         this.terminalSocket.onopen = this.runRealTerminal;
         this.terminalSocket.onclose = this.closeRealTerminal;

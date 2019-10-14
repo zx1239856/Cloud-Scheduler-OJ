@@ -84,7 +84,7 @@ def permission_required(function=None):
                 user = UserModel.objects.get(username=username)
                 token = TokenManager.getToken(user)
                 if token == header_token:
-                    if user.user_type == user.user_type == UserType.ADMIN:
+                    if user.user_type == UserType.ADMIN:
                         TokenManager.updateToken(user)
                         return user
                     else:

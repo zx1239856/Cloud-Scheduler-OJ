@@ -8,31 +8,34 @@ import wsocket
 from wsocket.views import WebSSH
 
 
-class MockWebSocket:
+class MockWSClient:
     def __init__(self, **_):
         self.counter = 100
         print("Initialized MockWebSocket")
+        self.open = True
 
-    def connect(self, url, **_):
-        print("MockWebSocket connected url {}".format(url))
+    def write_stdin(self, data, **_):
+        assert data == 'Hello world'
 
-    def send_binary(self, binary, **_):
-        assert binary == (b'\0' + bytearray('Hello world', 'utf-8'))
-
-    def recv(self, **_):
+    def read_stdout(self, **_):
         if self.counter > 0:
             self.counter -= 1
-            return "Hello from WebSocket!\n".encode('utf8')
+            return "Hello from WebSocket!\n"
         else:
             raise Exception("Connection closed by remote server.")
 
+    def is_open(self):
+        return self.open
+
     def close(self, **_):
-        pass
+        self.open = False
 
 
 @pytest.mark.asyncio
 async def testSSHConnect():
-    with mock.patch.object(wsocket.views.webskt, 'WebSocket', MockWebSocket):
+    def mock_stream(_p0, _p1, _p2, **_):
+        return MockWSClient()
+    with mock.patch.object(wsocket.views, 'stream', mock_stream):
         communicator = WebsocketCommunicator(WebSSH, "/terminals/?pod=none&shell=/bin/sh")
         connected, _ = await communicator.connect()
         assert connected
