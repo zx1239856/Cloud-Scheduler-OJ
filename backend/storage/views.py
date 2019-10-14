@@ -2,13 +2,15 @@
 For shared storage management
 """
 from django.shortcuts import render
+from django.views import View
 from django.http import HttpResponse, JsonResponse
 from kubernetes import client
 from kubernetes import config
-import os
+from api.common import RESPONSE
 
 
-def login():
+def config_k8s_client():
+    """set up connection to k8s cluster"""
     APISERVER = 'https://152.136.222.117:30000'
 
     # Define the barer token we are going to use to authenticate.
@@ -36,38 +38,87 @@ def login():
     # Create a ApiClient with our config
     client.Configuration.set_default(configuration)
 
-    return JsonResponse({"message": "successful login"})
+class StorageHandler(View):
+    http_method_names = ['get', 'post', 'delete']
 
-def create_pvc(request):
-    """
-    @api {post} /create_pvc/ Storage POST Method
-    @apiName CreatePVC
-    @apiGroup Storage
-    @apiVersion 0.1.0
+    def post(self, request, **_):
+        """
+        @api {post} /storage_manager/ Create a PV claim
+        @apiName CreatePVC
+        @apiGroup StorageManager
+        @apiVersion 0.1.0
+        @apiParamExample {json} Request-Example:
+        {
+            "name": "new_pvc_name",
+            "capacity": "1Gi"
+        }
+        @apiParam {String} name Name of the PVC
+        @apiParam {String} required capacity for storage
+        @apiSuccess {Object} payload Success payload is empty
+        @apiUse Success
+        @apiUse AlreadyExists
+        """
+        request.encoding = 'utf-8'
+        if request.POST:
+            if 'name' in request.POST:
+                pvc_name = request.name
+            else:
+                pvc_name = "default-pvc"
+            if 'capacity' in request.POST:
+                pvc_capacity = request.capacity
+            else:
+                pvc_capacity = "100Mi"
+        
+        message = "Create PVC: PVC " + pvc_name + " "
 
-    @apiParam {String} name The name of pvc
-    @apiSuccess {String} message Success response message
-    @apiSuccessExample {text} Success-Response:
-    HTTP/1.1 200 OK
-    Create PVC: success or fail
-    """
-    request.encoding = 'utf-8'
-    if request.POST and 'name' in request.POST:
-        pvc_name = request.name
-    else:
-        pvc_name = "default-pvc"
-    message = "Create PVC: PVC " + pvc_name + " "
-    login()
-    v1 = client.CoreV1Api()
-    try:
-        v1.create_namespace(client.V1Namespace(api_version="v1",kind="Namespace",metadata=client.V1ObjectMeta(name="test",labels={"name":"test"})))
-    except:
-        pass
-    body = client.V1PersistentVolumeClaim(api_version="v1", kind="PersistentVolumeClaim",
-                                          metadata=client.V1ObjectMeta(name=pvc_name,namespace="test"),
-                                          spec=client.V1PersistentVolumeClaimSpec(access_modes=["ReadWriteOnce"],resources=client.V1ResourceRequirements(requests={"storage":"1Gi"}),storage_class_name="csi-cephfs"))
-    try:
-        v1.create_namespaced_persistent_volume_claim("test",body)
-    except:
-        return HttpResponse(message + "already exists")
-    return HttpResponse(message + "created successfully")
+        config_k8s_client()
+        v1 = client.CoreV1Api()
+        try:
+            v1.create_namespace(client.V1Namespace(api_version="v1",kind="Namespace",metadata=client.V1ObjectMeta(name="test",labels={"name":"test"})))
+        except:
+            pass
+        body = client.V1PersistentVolumeClaim(api_version="v1", kind="PersistentVolumeClaim",
+                                            metadata=client.V1ObjectMeta(name=pvc_name,namespace="test"),
+                                            spec=client.V1PersistentVolumeClaimSpec(access_modes=["ReadWriteOnce"],resources=client.V1ResourceRequirements(requests={"storage":"1Gi"}),storage_class_name="csi-cephfs"))
+        try:
+            v1.create_namespaced_persistent_volume_claim("test",body)
+            response = RESPONSE.SUCCESS
+            response['name'] = pvc_name
+        except:
+            response = RESPONSE.OPERATION_FAILED
+            response['name'] = pvc_name
+        return JsonResponse(response)
+    
+
+    def delete(self, request, **_):
+        """
+        @api {delete} /storage_manager/ Delete a PV claim
+        @apiName DeletePVC
+        @apiGroup StorageManager
+        @apiVersion 0.1.0
+        @apiParamExample {json} Request-Example:
+        {
+            "name": "pvc_name"
+        }
+        @apiParam {String} name Name of the PVC
+        @apiUse Success
+        """
+        pvc_name = 'default-pvc'
+        request.encoding = 'utf-8'
+        if request.POST:
+            if 'name' in request.POST:
+                pvc_name = request.name
+            else:
+                response = RESPONSE.INVALID_REQUEST
+                return JsonResponse(response)
+        config_k8s_client()
+        v1 = client.CoreV1Api()
+        try:
+            v1.delete_namespaced_persistent_volume_claim(name=pvc_name,namespace='test')
+            response = RESPONSE.SUCCESS
+        except:
+            response = RESPONSE.OPERATION_FAILED
+        response['name'] = pvc_name
+        return JsonResponse(response)
+            
+        

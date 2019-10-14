@@ -14,9 +14,11 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.urls import path
-from websocket import views as ws_views
+from wsocket import views as ws_views
+from task_manager import views as task_mgmt_views
+from user_model import views as user_views
+from user_model.views import login_required, permission_required
 from storage import views as storage_views
-from . import views
 
 # pylint: disable=C0103
 websocket_urlpatterns = [
@@ -24,7 +26,10 @@ websocket_urlpatterns = [
 ]
 
 urlpatterns = [
-    path('get-request/', views.get_request),
-    path('post-request/', views.post_request),
-    path('pvc/', storage_views.create_pvc),
+    path('task_settings/', permission_required(task_mgmt_views.TaskSettingsListHandler.as_view())),
+    path('task_settings/<str:uuid>/', permission_required(task_mgmt_views.TaskSettingsItemHandler.as_view())),
+    path('user/login/', user_views.UserLogin.as_view()),
+    path('user/logout/', login_required(user_views.UserLogout.as_view())),
+    path('user/', user_views.UserHandler.as_view()),
+    path('storage/', storage_views.StorageHandler.as_view()),
 ]
