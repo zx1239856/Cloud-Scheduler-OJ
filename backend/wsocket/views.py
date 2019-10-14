@@ -32,8 +32,8 @@ class SSH:
     def connect(self, pod, shell):
         try:
             token = KUBERNETES_CLUSTER_TOKEN
-            url = KUBERNETES_API_SERVER_URL_WS + "/api/v1/namespaces/default/pods/%s/exec?command=%s&stderr=true&stdin=true&stdout=true&tty=true" % (
-                pod, shell)
+            url = KUBERNETES_API_SERVER_URL_WS + "/api/v1/namespaces/default/pods/%s/exec?command=%s&stderr=true" \
+                                                 "&stdin=true&stdout=true&tty=true" % (pod, shell)
             header = "Authorization: Bearer " + token
             self.ssh = webskt.WebSocket(sslopt={"cert_reqs": ssl.CERT_NONE})
             self.ssh.connect(url, header=[header])
@@ -84,8 +84,8 @@ class WebSSH(WebsocketConsumer):
         shell = ssh_args.get('shell', '/bin/sh')
         if pod is None or shell not in SHELL_LIST:
             self.send("\nInvalid request.")
-            LOGGER.warning("Invalid")
-            self.close(code=4000)
+            LOGGER.warning("Invalid request")
+            self.close(code=400)
             return
         self.ssh = SSH(websocket=self)
         self.ssh.connect(pod, shell)
@@ -95,8 +95,8 @@ class WebSSH(WebsocketConsumer):
         try:
             if self.ssh is not None:
                 self.ssh.close()
-        except Exception as e:
-            LOGGER.log(e)
+        except Exception as ex:
+            LOGGER.log(ex)
 
     def receive(self, text_data=None, bytes_data=None):
         """Pass text content to remote shell"""
