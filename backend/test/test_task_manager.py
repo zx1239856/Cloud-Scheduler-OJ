@@ -42,7 +42,6 @@ class TestTaskSettings(TestCase):
 
     def testPermission(self):
         token = loginTestUser('user')
-        print(token)
         response = self.client.get('/task_settings/?page=1&order_by=-name', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='user')
         self.assertEqual(response.status_code, 200)
@@ -232,3 +231,19 @@ class TestTaskSettings(TestCase):
             response = json.loads(response.content)
             self.assertEqual(response['status'], 200)
             self.assertEqual(response['payload']['task_config'], str(self.item_list[i].task_config))
+
+        response = self.client.put('/task_settings/{}/'.format(self.item_list[0].uuid),
+                                   data=json.dumps({
+                                       'task_config': {}
+                                   }), content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
+                                   HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], 200)
+        response = self.client.get('/task_settings/{}/'.format(self.item_list[0].uuid), HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], 200)
+        self.assertEqual(response['payload']['task_config'], '{}')

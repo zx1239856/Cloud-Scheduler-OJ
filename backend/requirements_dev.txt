@@ -5,3 +5,5 @@ pylint
 pylint-django
 pytest
 pytest-django
+pytest-asyncio
+mock
