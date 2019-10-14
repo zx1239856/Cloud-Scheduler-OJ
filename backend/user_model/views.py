@@ -154,7 +154,11 @@ class UserLogin(View):
             if password == user.password:
                 token = TokenManager.createToken(user)
                 response = RESPONSE.SUCCESS
-                response['payload'] = {'username': user.username, 'token': token}
+                response['payload'] = {
+                    'username': user.username,
+                    'token': token,
+                    'avatar': 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif'
+                }
             else:
                 raise UserModel.DoesNotExist()
         except UserModel.DoesNotExist:
@@ -188,6 +192,7 @@ class UserHandler(View):
             return JsonResponse(RESPONSE.INVALID_REQUEST)
 
     def post(self, request):
+        """user signup"""
         response = None
         try:
             request = json.loads(request.body)
