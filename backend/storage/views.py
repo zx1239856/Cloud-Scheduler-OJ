@@ -176,7 +176,7 @@ class StorageFileHandler(View):
 
     def post(self, request, **_):
         """
-        @api {post} /upload_file/ Upload a file into a pvc storage
+        @api {post} /storage/upload_file/ Upload a file into a pvc storage
         @apiName UploadFile
         @apiGroup StorageManager
         @apiVersion 0.1.0
