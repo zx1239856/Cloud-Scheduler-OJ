@@ -10,45 +10,33 @@ from django.views import View
 # Create your views here.
 private_registry = "tcp://127.0.0.1:1234"
 client = docker.from_env()
+path = "registry/data/"
 LOGGER = logging.getLogger(__name__)
 
-class RegistryManagementHandler(View):
+def test_docker_is_running():
+    try:
+        client.ping()
+        return True
+    except (requests.exceptions.ConnectionError, docker.errors.APIError):
+        return False
+
+class DockerfileHandler(View):
     http_method_names = ['post']
 
-    def test_docker_is_running(self):
-        try:
-            client.ping()
-            return True
-        except (requests.exceptions.ConnectionError, docker.errors.APIError):
-            return False
-
     def post(self, request, **kwargs):
-        """
-        @api {post} /image_registry/ post image.tar or Dockerfile
-        @apiName PostImageToRegistry
-        @apiGroup ImageRegistry
-        @apiVersion 0.1.0
-        @apiPermission admin
-        """
+        result = {
+            'condition': '',
+            'filename': request.FILES['file'].name,
+            'error': '',
+        }
         try:
             if len(request.FILES) == 0:
-                return JsonResponse({'result': "File is empty!"})
+                return JsonResponse({'error': "File is empty!"})
             f = request.FILES['file']
             file_name = ""
-            path = "registry/data/"
-            condition_code = 0
-            result = {}
-
-            tar_pattern = "[.](tar)$"
             dockerfile_pattern = "Dockerfile"
-            searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
             searched_dockerfile = re.search(dockerfile_pattern, f.name, re.M|re.I)
-            if searched_tar:
-                condition_code = 1
-            elif searched_dockerfile:
-                condition_code = 2
-
-            if condition_code in (1, 2):
+            if searched_dockerfile:
                 try:
                     if not os.path.exists(path):
                         os.makedirs(path)
@@ -58,27 +46,53 @@ class RegistryManagementHandler(View):
                         destination.write(chunk)
                     destination.close()
                     try:
-                        if condition_code == 1:
-                            client.images.load(f)
-                        else:
-                            client.images.build(path='registry/data')
-                    except docker.errors.DockerException:
-                        return JsonResponse({'docker error': 'build error'})
+                        client.images.build(path='registry/data')
+                    except docker.errors.DockerException as e:
+                        result['error'] = 'Dockerfile build error' + e.__context__
+                        return JsonResponse(result)
+                    result['condition'] = 'OK'
                 except Exception as e:
                     LOGGER.error(e)
-                result = {
-                    'result': 'OK',
-                    'filename': request.FILES['file'].name,
-                }
             else:
-                result = {
-                    'result': 'not OK',
-                    'filename': request.FILES['file'].name,
-                }
+                result['condition'] = 'Not OK'
+                result['error'] = "there is no file called 'Dockerfile'"
             return JsonResponse(result)
-        except Exception as ex:
-            LOGGER.error(ex)
-            raise
+        except Exception:
+            result['error'] = 'error with file'
+        finally:
+            return JsonResponse(result)
+        return JsonResponse(result)
 
+class ImageHandler(View):
+    http_method_names = ['post']
 
-        return JsonResponse({'result': "didn't work"})
+    def post(self, request, **kwargs):
+        result = {
+            'condition': '',
+            'filename': request.FILES['file'].name,
+            'error': '',
+        }
+        try:
+            if len(request.FILES) == 0:
+                return JsonResponse({'error': "File is empty!"})
+            f = request.FILES['file']
+            tar_pattern = "[.](tar)$"
+            searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
+            if searched_tar:
+                try:
+                    try:
+                        client.images.load(f)
+                    except docker.errors.DockerException as e:
+                        result['error'] = 'Dockerfile build error' + e.__context__
+                        return JsonResponse(result)
+                    result['condition'] = 'OK'
+                except Exception as e:
+                    LOGGER.error(e)
+            else:
+                result['condition'] = 'Not OK'
+                result['error'] = "there is no file called 'Dockerfile'"
+            return JsonResponse(result)
+        except Exception:
+            result['error'] = 'error with file'
+        finally:
+            return JsonResponse(result)
