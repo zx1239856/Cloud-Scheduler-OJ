@@ -28,7 +28,7 @@
 
 <style scoped>
 .container {
-  min-height: 100%;
+  min-height: inherit;
   min-width: 100%;
 }
 </style>

@@ -1,7 +1,5 @@
 <template>
-  <div class="container">
-    <terminal class="terminal" :terminal="terminal" />
-  </div>
+  <terminal class="terminal" :terminal="terminal" />
 </template>
 
 <script>
@@ -27,7 +25,7 @@ export default {
 
 <style lang="scss">
 .terminal {
-    height: 100vh;
-    width: 100vw;
+    min-height: inherit;
+    width: 100%;
 }
 </style>

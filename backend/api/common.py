@@ -1,5 +1,6 @@
 """Common variable used in modules"""
-
+from kubernetes.client import Configuration, ApiClient
+from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL
 """
 @apiDefine admin User access only
 Only admin user can access this API
@@ -13,6 +14,14 @@ All users can access this API
 @apiHeader {String} X-Access-Token access token of the user
 @apiHeader {String} X-Access-Username username
 """
+
+
+def getKubernetesAPIClient():
+    conf = Configuration()
+    conf.host = KUBERNETES_API_SERVER_URL
+    conf.verify_ssl = False
+    conf.api_key = {"authorization": "Bearer " + KUBERNETES_CLUSTER_TOKEN}
+    return ApiClient(conf)
 
 
 class _Response(object):

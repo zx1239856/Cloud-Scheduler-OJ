@@ -1,5 +1,6 @@
 """Models for TaskManager"""
 from django.db import models
+from user_model import models as user_models
 
 
 class TASK:
@@ -8,6 +9,7 @@ class TASK:
     RUNNING = 1
     FINISH = 2
     FAILED = 3
+    DELETING = 4
 
 
 class TaskSettings(models.Model):
@@ -23,7 +25,8 @@ class TaskSettings(models.Model):
 
 class Task(models.Model):
     """Tasks"""
-    # user = models.ForeignKey() # wait for user module
+    uuid = models.CharField(max_length=50, unique=True, db_index=True)
+    user = models.ForeignKey(user_models.UserModel, on_delete=models.CASCADE)
     settings = models.ForeignKey(TaskSettings, on_delete=models.CASCADE)
     status = models.PositiveSmallIntegerField(default=TASK.PENDING)
     create_time = models.DateTimeField(auto_now_add=True)

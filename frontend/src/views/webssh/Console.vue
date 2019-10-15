@@ -8,10 +8,6 @@
     padding: 0;
     box-sizing: border-box;
 }
-#terminal {
-    width: 100%;
-    height: 100%;
-}
 </style>
 
 <script>
@@ -19,6 +15,8 @@
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { AttachAddon } from 'xterm-addon-attach';
+import 'xterm/css/xterm.css';
+
 const fitAddon = new FitAddon();
 const wsRoot = process.env.VUE_APP_WS_API;
 
@@ -39,13 +37,21 @@ export default {
     mounted() {
         console.log('pid : ' + this.terminal.pid + ' is on ready');
         const terminalContainer = document.getElementById('terminal');
-        this.term = new Terminal();
+        this.term = new Terminal({
+            convertEol: true,
+            fontFamily: `'Fira Mono', monospace`,
+            rendererType: 'dom'
+        });
+        this.term.setOption('theme', {
+            background: '#151942',
+            foreground: '#FFF'
+        });
         this.term.loadAddon(fitAddon);
         this.term.open(terminalContainer);
         fitAddon.fit();
 
         this.terminalSocket = new WebSocket(
-            wsRoot + 'terminals/?pod=wordpress-mysql-b9ddd6d4c-87cvq&shell=/bin/sh'
+            wsRoot + 'terminals/?pod=rook-ceph-tools-687444d7b6-kg6sg&namespace=rook-ceph&shell=/bin/sh'
         );
         this.terminalSocket.onopen = this.runRealTerminal;
         this.terminalSocket.onclose = this.closeRealTerminal;
@@ -57,7 +63,7 @@ export default {
     },
     beforeDestroy() {
         this.terminalSocket.close();
-        this.term.destroy();
+        this.term.dispose();
     },
     methods: {
         runRealTerminal() {

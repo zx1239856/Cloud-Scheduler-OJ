@@ -46,7 +46,9 @@ class TestTaskSettings(TestCase):
                                    HTTP_X_ACCESS_USERNAME='user')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertEqual(response['status'], RESPONSE.PERMISSION_DENIED['status'])
+        self.assertEqual(response['status'], 200)
+        self.assertTrue('task_config' not in response['payload']['entry'][0].keys())
+        self.assertTrue('concurrency' not in response['payload']['entry'][0].keys())
 
     def testGetListInvalidReq(self):
         token = loginTestUser('admin')
