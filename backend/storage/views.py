@@ -43,9 +43,44 @@ def config_k8s_client():
 class StorageHandler(View):
     http_method_names = ['get', 'post', 'delete']
 
+    def get(self, request, **_):
+        """
+        @api {get} /storage_manager/ Get PVC list
+        @apiName GetPVCList
+        @apiGroup StorageManager
+        @apiVersion 0.1.0
+        @apiSuccess {Object} payload Response Object
+        @apiSuccess {Number} payload.count Count of total PV claims
+        @apiSuccess {Object[]} payload.entry List of PVC
+        @apiSuccess {String} payload.entry.name PVC name
+        @apiSuccess {String} payload.entry.capacity PVC capacity
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
+        """
+        config_k8s_client()
+        api_instance = client.CoreV1Api()
+        try:
+            pvc_list = api_instance.list_namespaced_persistent_volume_claim("storage-manage").items
+            payload = {}
+            payload['count'] = len(pvc_list)
+            payload['entry'] = []
+            for pvc in pvc_list:
+                payload['entry'].append({'name': pvc.metadata.name, 'capacity': pvc.spec.resources.requests['storage']})
+            response = RESPONSE.SUCCESS
+            response['payload'] = payload
+        except Exception:
+            response = RESPONSE.SERVER_ERROR
+        return JsonResponse(response)
+
+
     def post(self, request, **_):
         """
-        @api {post} /storage_manager/ Create a PV claim
+        @api {post} /storage_manager/ Create a PVC
         @apiName CreatePVC
         @apiGroup StorageManager
         @apiVersion 0.1.0
