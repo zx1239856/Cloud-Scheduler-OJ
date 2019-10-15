@@ -37,6 +37,7 @@ class RegistryManagementHandler(View):
             file_name = ""
             path = "registry/data/"
             condition_code = 0
+            result = {}
 
             tar_pattern = "[.](tar)$"
             dockerfile_pattern = "Dockerfile"
@@ -69,7 +70,12 @@ class RegistryManagementHandler(View):
                     'result': 'OK',
                     'filename': request.FILES['file'].name,
                 }
-                return JsonResponse(result)
+            else:
+                result = {
+                    'result': 'not OK',
+                    'filename': request.FILES['file'].name,
+                }
+            return JsonResponse(result)
         except Exception as ex:
             LOGGER.error(ex)
             raise
