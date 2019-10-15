@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'channels',
     'user_model',
+    'storage',
 ]
 
 MIDDLEWARE = [
