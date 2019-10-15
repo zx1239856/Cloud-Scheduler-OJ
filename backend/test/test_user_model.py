@@ -102,6 +102,15 @@ class TestUserModel(TestCase):
         response = json.loads(response.content)
         self.assertEqual(response, RESPONSE.SUCCESS)
 
+    def test_user_put(self):
+        put_data = {'email': 'abc', 'password': '12345'}
+        response = self.client.put('/user/', HTTP_X_REQUEST_WITH='XMLHttpRequest', data=json.dumps(put_data),
+                                   HTTP_X_ACCESS_TOKEN=self.login_user['token'],
+                                   HTTP_X_ACCESS_USERNAME=self.login_user['username'])
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response, RESPONSE.SUCCESS)
+
     def test_user_put_invalid_json(self):
         put_data = 'bad_json'
         response = self.client.put('/user/', HTTP_X_REQUEST_WITH='XMLHttpRequest', data=put_data,

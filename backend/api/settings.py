@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'user_model',
     'monitor',
     'task_manager',
+    'storage',
 ]
 
 MIDDLEWARE = [
@@ -96,6 +97,7 @@ LOGGING = {
         'task_manager': LOGGING_CONSOLE_HANDLER,
         'user_model': LOGGING_CONSOLE_HANDLER,
         'monitor': LOGGING_CONSOLE_HANDLER,
+        'storage': LOGGING_CONSOLE_HANDLER,
     },
 }
 

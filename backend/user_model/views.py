@@ -138,7 +138,29 @@ class UserLogin(View):
     """User login view"""
 
     def post(self, request):
-        """post request"""
+        """
+        @api {post} /user/login/ User login
+        @apiName UserLogin
+        @apiGroup User
+        @apiVersion 0.1.0
+        @apiPermission user
+
+        @apiParam {String} [username] Specifies the username as the unique identification.
+        @apiParam {String} [password] Specifies the password.
+        @apiSuccess {Object} payload Response object
+        @apiSuccess {String} payload.username Username
+        @apiSuccess {String} payload.token Total element count
+        @apiSuccess {String} payload.avatar Avatar source of user.
+        @apiParamExample {json} Request-Example:
+        {
+            "username": "123456",
+            "password": "123456"
+        }
+        @apiUse Success
+        @apiUse OperationFailed
+        @apiUse InvalidRequest
+        @apiUse ServerError
+        """
         response = None
         try:
             request = json.loads(request.body)
@@ -178,7 +200,21 @@ class UserHandler(View):
 
     @method_decorator(login_required)
     def get(self, _, **kwargs):
-        """get request"""
+        """
+        @api {get} /user/ Get user info.
+        @apiName GetUserInfo
+        @apiGroup User
+        @apiVersion 0.1.0
+        @apiPermission user
+
+        @apiSuccess {Object} payload Response object
+        @apiSuccess {String} payload.username Username
+        @apiSuccess {String} payload.token Total element count
+        @apiSuccess {String} payload.avatar Avatar source of user.
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse InvalidRequest
+        """
         user = kwargs.get('__user', None)
         if user is not None:
             response = RESPONSE.SUCCESS
@@ -192,7 +228,27 @@ class UserHandler(View):
             return JsonResponse(RESPONSE.INVALID_REQUEST)
 
     def post(self, request):
-        """user signup"""
+        """
+        @api {post} /user/ User Sign Up
+        @apiName UserSignUp
+        @apiGroup User
+        @apiVersion 0.1.0
+        @apiPermission user
+
+        @apiParam {String} [username] Specifies the username as the unique identification.
+        @apiParam {String} [password] Specifies the password.
+        @apiParam {String} [email] Specifies the email.
+        @apiParamExample {json} Request-Example:
+        {
+            "username": "123456",
+            "password": "123456",
+            "email": "abc@163.com"
+        }
+        @apiUse Success
+        @apiUse OperationFailed
+        @apiUse InvalidRequest
+        @apiUse ServerError
+        """
         response = None
         try:
             request = json.loads(request.body)
@@ -221,6 +277,18 @@ class UserHandler(View):
 
     @method_decorator(login_required)
     def delete(self, _, **kwargs):
+        """
+        @api {delete} /user/ Delete user.
+        @apiName UserDelete
+        @apiGroup User
+        @apiVersion 0.1.0
+        @apiPermission user
+
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse OperationFailed
+        @apiUse InvalidRequest
+        """
         user = kwargs.get('__user', None)
         if user is not None:
             try:
@@ -234,6 +302,26 @@ class UserHandler(View):
 
     @method_decorator(login_required)
     def put(self, request, **kwargs):
+        """
+        @api {put} /user/ Update User Info
+        @apiName UserUpdate
+        @apiGroup User
+        @apiVersion 0.1.0
+        @apiPermission user
+
+        @apiParam {String} [email] Specifies new email.
+        @apiParam {String} [password] Specifies new password.
+        @apiParamExample {json} Request-Example:
+        {
+            "email": "abc@163.com",
+            "password": "123456"
+        }
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse OperationFailed
+        @apiUse InvalidRequest
+        @apiUse ServerError
+        """
         response = None
         try:
             user = kwargs.get('__user', None)
@@ -267,7 +355,18 @@ class UserLogout(View):
     """logout api"""
 
     def get(self, _, **kwargs):
-        """get request"""
+        """
+        @api {get} /user/logout/ User logout
+        @apiName UserLogout
+        @apiGroup User
+        @apiVersion 0.1.0
+        @apiPermission user
+
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse OperationFailed
+        @apiUse InvalidRequest
+        """
         user = kwargs.get('__user', None)
         if user is not None:
             try:

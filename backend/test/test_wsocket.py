@@ -1,9 +1,9 @@
 """
 Unit test for websocket
 """
-import mock
 import pytest
 from channels.testing import WebsocketCommunicator
+import mock
 import wsocket
 from wsocket.views import WebSSH
 

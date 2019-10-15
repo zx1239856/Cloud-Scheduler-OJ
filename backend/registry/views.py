@@ -2,9 +2,9 @@
 import os
 import re
 import logging
-import docker
 from django.http import JsonResponse
 from django.views import View
+import docker
 
 # Create your views here.
 private_registry = "tcp://127.0.0.1:1234"
