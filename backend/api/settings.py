@@ -50,12 +50,12 @@ ALLOWED_HOSTS = ['*']
 INSTALLED_APPS = [
     'corsheaders',
     'wsocket',
-    'task_manager',
     'django.contrib.contenttypes',
     'django.contrib.auth',
     'channels',
     'user_model',
-    'monitor'
+    'monitor',
+    'task_manager',
 ]
 
 MIDDLEWARE = [

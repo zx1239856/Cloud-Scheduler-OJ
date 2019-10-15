@@ -69,10 +69,9 @@ class SSH:
             self.close()
 
     def close(self):
-        if self.api_response is not None:
-            if self.api_response.is_open():
-                self.api_response.write_stdin("exit\n")
-                self.api_response.close()
+        if self.api_response is not None and self.api_response.is_open():
+            self.api_response.write_stdin("exit\n")
+            self.api_response.close()
         self.websocket.close()
 
 

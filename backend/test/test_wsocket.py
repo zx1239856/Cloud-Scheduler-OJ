@@ -10,7 +10,7 @@ from wsocket.views import WebSSH
 
 class MockWSClient:
     def __init__(self, **_):
-        self.counter = 100
+        self.counter = 1000
         print("Initialized MockWebSocket")
         self.open = True
 

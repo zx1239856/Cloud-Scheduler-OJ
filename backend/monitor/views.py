@@ -1,19 +1,10 @@
 import logging
 from django.http import JsonResponse
 from django.views import View
-from kubernetes.client import Configuration, CoreV1Api, ApiClient
-from api.common import RESPONSE
-from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL
+from kubernetes.client import CoreV1Api
+from api.common import RESPONSE, getKubernetesAPIClient
 
 LOGGER = logging.getLogger(__name__)
-
-
-def getKubernetesAPIClient():
-    conf = Configuration()
-    conf.host = KUBERNETES_API_SERVER_URL
-    conf.verify_ssl = False
-    conf.api_key = {"authorization": "Bearer " + KUBERNETES_CLUSTER_TOKEN}
-    return CoreV1Api(ApiClient(conf))
 
 
 class PodListHandler(View):
@@ -25,7 +16,7 @@ class PodListHandler(View):
             params = request.GET
             page = params.get('page', '1')
             page = int(page)
-            v1 = getKubernetesAPIClient()
+            v1 = CoreV1Api(getKubernetesAPIClient())
             ret = v1.list_pod_for_all_namespaces(watch=False)
             response['payload'] = {
                 'count': len(ret.items),
