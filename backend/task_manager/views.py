@@ -7,7 +7,8 @@ from django.views import View
 from django.db.utils import IntegrityError
 from django.core.paginator import Paginator
 from api.common import RESPONSE
-from .models import TaskSettings
+from user_model.models import UserType
+from .models import TaskSettings, Task, TASK
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,13 +20,13 @@ def getUUID():
 class TaskSettingsListHandler(View):
     http_method_names = ['get', 'post']
 
-    def get(self, request, **_):
+    def get(self, request, **kwargs):
         """
         @api {get} /task_settings/ Get task settings list
         @apiName GetTaskSettingsList
         @apiGroup TaskSettings
         @apiVersion 0.1.0
-        @apiPermission admin
+        @apiPermission user
 
         @apiParam {String} [order_by] Specifies list order criteria, available options:
         create_time, name. Use '-' sign to indicate reverse order.
@@ -36,18 +37,20 @@ class TaskSettingsListHandler(View):
         @apiSuccess {Object[]} payload.entry List of TaskSettings Object
         @apiSuccess {String} payload.entry.uuid Task uuid
         @apiSuccess {String} payload.entry.name Task name
-        @apiSuccess {Number} payload.entry.concurrency Task concurrency
-        @apiSuccess {Object} payload.entry.task_config Detailed task config
+        @apiSuccess {Number} [payload.entry.concurrency] Task concurrency (admin only)
+        @apiSuccess {Object} [payload.entry.task_config] Detailed task config (admin only)
         @apiSuccess {String} payload.entry.create_time Create time of task settings
         @apiUse APIHeader
         @apiUse Success
         @apiUse ServerError
         @apiUse InvalidRequest
         @apiUse Unauthorized
-        @apiUse PermissionDenied
         """
         response = RESPONSE.SUCCESS
         try:
+            user = kwargs.get('__user', None)
+            if user is None:
+                raise Exception("Internal exception raised when trying to get `User` object.")
             params = request.GET
             payload = {}
             order_by = params.get('order_by', 'id').split(',')
@@ -59,9 +62,11 @@ class TaskSettingsListHandler(View):
             payload['page_count'] = all_pages.num_pages if all_pages.count > 0 else 0
             payload['entry'] = []
             for item in curr_page.object_list:
-                payload['entry'].append({'uuid': item.uuid, 'name': item.name,
-                                         'concurrency': item.concurrency, 'task_config': item.task_config,
-                                         'create_time': item.create_time})
+                entry = {'uuid': item.uuid, 'name': item.name, 'create_time': item.create_time}
+                if user.user_type == UserType.ADMIN:
+                    entry['concurrency'] = item.concurrency
+                    entry['task_config'] = item.task_config
+                payload['entry'].append(entry)
             response['payload'] = payload
         except ValueError:
             response = RESPONSE.INVALID_REQUEST
@@ -71,7 +76,7 @@ class TaskSettingsListHandler(View):
         finally:
             return JsonResponse(response)
 
-    def post(self, request, **_):
+    def post(self, request, **kwargs):
         """
         @api {post} /task_settings/ Create task settings
         @apiName CreateTaskSettings
@@ -98,13 +103,20 @@ class TaskSettingsListHandler(View):
         """
         response = None
         try:
-            query = json.loads(request.body)
-            if 'name' not in query.keys() or 'concurrency' not in query.keys() or 'task_config' not in query.keys():
-                response = RESPONSE.INVALID_REQUEST
+            user = kwargs.get('__user', None)
+            if user is None:
+                raise Exception("Internal exception raised when trying to get `User` object.")
+            elif user.user_type == UserType.USER:
+                response = RESPONSE.PERMISSION_DENIED
             else:
-                TaskSettings.objects.create(uuid=str(getUUID()), name=query['name'], concurrency=query['concurrency'],
-                                            task_config=query['task_config'])
-                response = RESPONSE.SUCCESS
+                query = json.loads(request.body)
+                if 'name' not in query.keys() or 'concurrency' not in query.keys() or 'task_config' not in query.keys():
+                    response = RESPONSE.INVALID_REQUEST
+                else:
+                    TaskSettings.objects.create(uuid=str(getUUID()), name=query['name'],
+                                                concurrency=query['concurrency'],
+                                                task_config=query['task_config'])
+                    response = RESPONSE.SUCCESS
         except ValueError:
             response = RESPONSE.INVALID_REQUEST
         except IntegrityError as ex:
@@ -235,5 +247,127 @@ class TaskSettingsItemHandler(View):
             response = RESPONSE.SUCCESS
         except TaskSettings.DoesNotExist:
             response = RESPONSE.OPERATION_FAILED
+        finally:
+            return JsonResponse(response)
+
+
+class ConcreteTaskListHandler(View):
+    http_method_names = ['get', 'post']
+
+    def get(self, request, **kwargs):
+        response = RESPONSE.SUCCESS
+        try:
+            user = kwargs.get('__user', None)
+            if user is None:
+                raise Exception("Internal exception raised when trying to get `User` object.")
+            page = request.GET.get('page', '1')
+            page = int(page)
+            filter_dict = {}
+            if user.user_type == UserType.USER:
+                filter_dict['user'] = user
+            all_pages = Paginator(Task.objects.filter(**filter_dict).order_by("-create_time", "status"), 25)
+            curr_page = all_pages.page(page)
+            payload = {'count': all_pages.count, 'page_count': all_pages.num_pages if all_pages.count > 0 else 0,
+                       'entry': []}
+            for item in curr_page.object_list:
+                payload['entry'].append({'settings': {'name': item.settings.name, 'uuid': item.settings.uuid},
+                                         'status': item.status,
+                                         'uuid': item.uuid,
+                                         'user': item.user.username,
+                                         'create_time': item.create_time})
+            response['payload'] = payload
+        except ValueError:
+            response = RESPONSE.INVALID_REQUEST
+        except Exception as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.SERVER_ERROR
+        finally:
+            return JsonResponse(response)
+
+    def post(self, request, **kwargs):
+        response = None
+        try:
+            user = kwargs.get('__user', None)
+            if user is None:
+                raise Exception("Internal exception raised when trying to get `User` object.")
+            else:
+                query = json.loads(request.body)
+                if 'settings_uuid' not in query.keys():
+                    response = RESPONSE.INVALID_REQUEST
+                else:
+                    settings = TaskSettings.objects.get(uuid=query['settings_uuid'])
+                    item = Task.objects.create(user=user, settings=settings, uuid=str(getUUID()))
+                    response = RESPONSE.SUCCESS
+                    response['payload'] = {'settings': {'name': item.settings.name, 'uuid': item.settings.uuid},
+                                           'status': item.status,
+                                           'uuid': item.uuid,
+                                           'user': item.user.username,
+                                           'create_time': item.create_time}
+        except TaskSettings.DoesNotExist:
+            response = RESPONSE.OPERATION_FAILED
+            response["message"] += " Failed to find corresponding task settings."
+        except ValueError:
+            response = RESPONSE.INVALID_REQUEST
+        except IntegrityError as ex:
+            LOGGER.warning(ex)
+            response = RESPONSE.OPERATION_FAILED
+        except Exception as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.SERVER_ERROR
+        finally:
+            return JsonResponse(response)
+
+
+class ConcreteTaskHandler(View):
+    http_method_names = ['get', 'delete']
+
+    @staticmethod
+    def _get_task(arg_dict):
+        user = arg_dict.get('__user', None)
+        if user is None:
+            raise Exception("Internal exception raised when trying to get `User` object.")
+        uuid = arg_dict.get('uuid', None)
+        if uuid is None:
+            return None
+        else:
+            item = Task.objects.get(uuid=uuid, user=user)
+            return item
+
+    def get(self, _, **kwargs):
+        response = RESPONSE.SUCCESS
+        try:
+            item = self._get_task(kwargs)
+            if item is None:
+                response = RESPONSE.INVALID_REQUEST
+            else:
+                response['payload'] = {'settings': {'name': item.settings.name, 'uuid': item.settings.uuid},
+                                       'status': item.status,
+                                       'uuid': item.uuid,
+                                       'user': item.user.username,
+                                       'create_time': item.create_time}
+        except Task.DoesNotExist:
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " Object does not exist."
+        except Exception as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.SERVER_ERROR
+        finally:
+            return JsonResponse(response)
+
+    def delete(self, _, **kwargs):
+        response = RESPONSE.SUCCESS
+        try:
+            item = self._get_task(kwargs)
+            if item is None:
+                response = RESPONSE.INVALID_REQUEST
+            else:
+                item.status = TASK.DELETING  # schedule canceling by changing status
+                item.save(force_update=True)
+        except Task.DoesNotExist:
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " Object does not exist."
+        except Exception as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.SERVER_ERROR
         finally:
             return JsonResponse(response)

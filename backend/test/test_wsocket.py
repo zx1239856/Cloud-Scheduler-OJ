@@ -1,16 +1,16 @@
 """
 Unit test for websocket
 """
-import mock
 import pytest
 from channels.testing import WebsocketCommunicator
+import mock
 import wsocket
 from wsocket.views import WebSSH
 
 
 class MockWSClient:
     def __init__(self, **_):
-        self.counter = 100
+        self.counter = 1000
         print("Initialized MockWebSocket")
         self.open = True
 

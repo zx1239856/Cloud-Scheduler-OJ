@@ -119,6 +119,14 @@ export default {
                 callback();
             }
         };
+        const validateEmail = (rule, value, callback) => {
+            const pattern = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+            if (!pattern.test(value)) {
+                callback(new Error('Please enter a valid email address'));
+            } else {
+                callback();
+            }
+        };
         return {
             signupForm: {
                 email: '',
@@ -146,6 +154,13 @@ export default {
                         required: true,
                         trigger: 'blur',
                         validator: validateConfirmPassword
+                    }
+                ],
+                email: [
+                    {
+                        required: true,
+                        trigger: 'blur',
+                        validator: validateEmail
                     }
                 ]
             },
