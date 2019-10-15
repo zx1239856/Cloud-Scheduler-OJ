@@ -32,5 +32,5 @@ urlpatterns = [
     path('user/logout/', login_required(user_views.UserLogout.as_view())),
     path('user/', user_views.UserHandler.as_view()),
     path('storage/', storage_views.StorageHandler.as_view()),
-    path('upload_file/', storage_views.StorageFileHandler.as_view()),
+    path('upload_file/', storage_views.StorageFileHandler.as_view())
 ]

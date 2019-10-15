@@ -1,6 +1,8 @@
 """
 For shared storage management
 """
+import os
+import time
 import tarfile
 from tempfile import TemporaryFile
 from django.views import View
@@ -47,45 +49,50 @@ class StorageHandler(View):
         @apiName CreatePVC
         @apiGroup StorageManager
         @apiVersion 0.1.0
-        @apiParamExample {json} Request-Example:
+        @apiParamExample {json} Request-Body-Example:
         {
             "name": "new_pvc_name",
             "capacity": "1Gi"
         }
         @apiParam {String} name Name of the PVC
-        @apiParam {String} required capacity for storage
+        @apiParam {String} capacity Required capacity for storage
         @apiSuccess {Object} payload Success payload is empty
+        @apiUse APIHeader
         @apiUse Success
-        @apiUse AlreadyExists
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
         """
         request.encoding = 'utf-8'
-        if request.POST:
-            if 'name' in request.POST:
-                pvc_name = request.name
-            else:
-                pvc_name = "default-pvc"
-            if 'capacity' in request.POST:
-                pvc_capacity = request.capacity
-            else:
-                pvc_capacity = "100Mi"
+        if request.POST and 'name' in request.POST and 'capacity' in request.POST:
+            pvc_name = request.POST['name']
+            pvc_capacity = request.POST['capacity']
+        else:
+            return JsonResponse(RESPONSE.INVALID_REQUEST)
 
         config_k8s_client()
         api_instance = client.CoreV1Api()
-        # Create Specific Namespaces
+
+        # Create specific namespace
         try:
             api_instance.create_namespace(client.V1Namespace(api_version="v1", kind="Namespace", metadata=client.V1ObjectMeta(name="storage-manage", labels={"name":"storage-manage"})))
         except Exception:
+            # namespaces already exists
             pass
-        body = client.V1PersistentVolumeClaim(api_version="v1", kind="PersistentVolumeClaim", \
+
+        # Create PVC
+        PVC_body = client.V1PersistentVolumeClaim(api_version="v1", kind="PersistentVolumeClaim", \
                                             metadata=client.V1ObjectMeta(name=pvc_name, namespace="storage-manage"), \
                                             spec=client.V1PersistentVolumeClaimSpec(access_modes=["ReadWriteMany"], resources=client.V1ResourceRequirements(requests={"storage": pvc_capacity}), storage_class_name="csi-cephfs"))
         try:
-            api_instance.create_namespaced_persistent_volume_claim("storage-manage", body)
+            api_instance.create_namespaced_persistent_volume_claim("storage-manage", PVC_body)
             response = RESPONSE.SUCCESS
-            response['name'] = pvc_name
         except Exception:
             response = RESPONSE.OPERATION_FAILED
-            response['name'] = pvc_name
+            response['message'] += " PVC named {} already exists.".format(pvc_name)
+
         return JsonResponse(response)
 
 
@@ -99,62 +106,91 @@ class StorageHandler(View):
         {
             "name": "pvc_name"
         }
-        @apiParam {String} name Name of the PVC
+        @apiParam {String} name Name of the PVC to be deleted
+        @apiSuccess {Object} payload Success payload is empty
+        @apiUse APIHeader
         @apiUse Success
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
         """
-        pvc_name = 'default-pvc'
-        request.encoding = 'utf-8'
-        if request.POST:
-            if 'name' in request.POST:
-                pvc_name = request.name
-            else:
-                response = RESPONSE.INVALID_REQUEST
-                return JsonResponse(response)
+        query = request.GET
+        try:
+            pvc_name = query.get('name', None)
+            assert pvc_name is not None
+        except Exception:
+            return JsonResponse(RESPONSE.INVALID_REQUEST)
+
         config_k8s_client()
         api_instance = client.CoreV1Api()
+
         try:
             api_instance.delete_namespaced_persistent_volume_claim(name=pvc_name, namespace='storage-manage')
             response = RESPONSE.SUCCESS
         except Exception:
             response = RESPONSE.OPERATION_FAILED
-        response['name'] = pvc_name
+            response['message'] += " PVC {} not found.".format(pvc_name)
+
         return JsonResponse(response)
 
 
 class StorageFileHandler(View):
-    http_method_names = ['post', 'delete']
+    http_method_names = ['post']
 
     def post(self, request, **_):
         """
-        @api {post} /storage_file_manager/ Upload a file into a pvc storage
+        @api {post} /storage_manager/ Upload a file into a pvc storage
         @apiName UploadFile
-        @apiGroup StorageFileManager
+        @apiGroup StorageManager
         @apiVersion 0.1.0
         @apiParamExample {json} Request-Example:
         {
-            "fileDirectory": "[file_path]",
+            "fileDirectory": "../test.txt",
             "pvcName": "mypvc",
-            "path": "/data/"
+            "mountPath": "/data/"
         }
-        @apiParam {String} directory of file to be uploaded
-        @apiParam {String} name of the target PVC
+        @apiParam {String} fileDirectory directory of the file to be uploaded
+        @apiParam {String} pvcName name of the target PVC
+        @apiParam {String} mountPath target path in storage
+        @apiSuccess {Object} payload Success payload is empty
+        @apiUse APIHeader
         @apiUse Success
-        @apiUse Fail
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
         """
+
         request.encoding = 'utf-8'
-        if request.POST and 'directory' in request.POST and 'pvcName' in request.POST and 'path' in request.POST:
-            directory = request.directory
-            pvc_name = request.pvcName
-            path = request.path
+        if request.POST and 'fileDirectory' in request.POST and 'pvcName' in request.POST and 'mountPath' in request.POST:
+            directory = request.POST['fileDirectory']
+            pvc_name = request.POST['pvcName']
+            path = request.POST['mountPath']
         else:
             response = RESPONSE.INVALID_REQUEST
             return JsonResponse(response)
-            #directory = "D:\\test.txt"
-            #pvc_name = "test"
-            #path = "/data/"
+
+        # check if directory exists
+        if not os.path.exists(directory):
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " File does not exist in {}".format(directory)
+            return JsonResponse(response)
 
         config_k8s_client()
         api_instance = client.CoreV1Api()
+
+        #return HttpResponse(api_instance.read_namespaced_pod_status("file-upload-pod", "storage-manage").status.phase)
+
+        # check if pvc exists
+        try:
+            api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name, namespace="storage-manage")
+        except Exception:
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " PVC {} does not exist in namespaced {}".format(pvc_name, "storage-manage")
+            return JsonResponse(response)
 
         # create if namespace does not exist
         try:
@@ -162,18 +198,25 @@ class StorageFileHandler(View):
         except Exception:
             pass
 
-        # create pod, mount pvc
+        # create pod running a container with image nginx, bound pvc
         try:
             volume = client.V1Volume(name="file-upload-volume", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=pvc_name, read_only=False))
-            volume_mount = client.V1VolumeMount(name="file-upload-volume", mount_path=path)
+            volume_mount = client.V1VolumeMount(name="file-upload-volume", mount_path='/cephfs-data/')
             container = client.V1Container(name="file-upload-container", image="nginx:1.7.9", image_pull_policy="IfNotPresent", volume_mounts=[volume_mount])
             pod = client.V1Pod(api_version="v1", kind="Pod", metadata=client.V1ObjectMeta(name="file-upload-pod", namespace="storage-manage"), \
                             spec=client.V1PodSpec(containers=[container], volumes=[volume]))
             api_instance.create_namespaced_pod(namespace="storage-manage", body=pod)
+            while api_instance.read_namespaced_pod_status("file-upload-pod", "storage-manage").status.phase != "Running":
+                time.sleep(1)
         except Exception:
             pass
 
-        exec_command = ['tar', 'xvf', '-', '-C', path]
+        # create filedir
+        exec_command = ['mkdir', '/cephfs-data/'+path]
+        resp = stream(api_instance.connect_get_namespaced_pod_exec, "file-upload-pod", "storage-manage", command=exec_command, \
+                        stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
+
+        exec_command = ['tar', 'xvf', '-', '-C', '/cephfs-data/'+path]
         resp = stream(api_instance.connect_get_namespaced_pod_exec, "file-upload-pod", "storage-manage", command=exec_command, \
                         stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
 
@@ -187,17 +230,15 @@ class StorageFileHandler(View):
 
             while resp.is_open():
                 resp.update(timeout=1)
-                if resp.peek_stdout():
-                    #print("STDOUT: %s" % resp.read_stdout())
-                    pass
-                if resp.peek_stderr():
-                    #print("STDERR: %s" % resp.read_stderr())
-                    pass
+                #if resp.peek_stdout(): print("STDOUT: %s" % resp.read_stdout())
+                #if resp.peek_stderr(): print("STDERR: %s" % resp.read_stderr())
                 if commands:
                     c = commands.pop(0)
                     resp.write_stdin(c.decode())
                 else:
                     break
             resp.close()
+
+        api_instance.delete_namespaced_pod("file-upload-pod", "storage-manage")
 
         return JsonResponse(RESPONSE.SUCCESS)
