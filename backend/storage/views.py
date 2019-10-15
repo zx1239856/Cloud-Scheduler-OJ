@@ -45,7 +45,7 @@ class StorageHandler(View):
 
     def get(self, request, **_):
         """
-        @api {get} /storage_manager/ Get PVC list
+        @api {get} /storage/ Get PVC list
         @apiName GetPVCList
         @apiGroup StorageManager
         @apiVersion 0.1.0
@@ -80,7 +80,7 @@ class StorageHandler(View):
 
     def post(self, request, **_):
         """
-        @api {post} /storage_manager/ Create a PVC
+        @api {post} /storage/ Create a PVC
         @apiName CreatePVC
         @apiGroup StorageManager
         @apiVersion 0.1.0
@@ -133,7 +133,7 @@ class StorageHandler(View):
 
     def delete(self, request, **_):
         """
-        @api {delete} /storage_manager/ Delete a PV claim
+        @api {delete} /storage/ Delete a PV claim
         @apiName DeletePVC
         @apiGroup StorageManager
         @apiVersion 0.1.0
@@ -176,7 +176,7 @@ class StorageFileHandler(View):
 
     def post(self, request, **_):
         """
-        @api {post} /storage_manager/ Upload a file into a pvc storage
+        @api {post} /upload_file/ Upload a file into a pvc storage
         @apiName UploadFile
         @apiGroup StorageManager
         @apiVersion 0.1.0
