@@ -3,7 +3,7 @@
 </template>
 
 <script>
-import Console from './Console';
+import Console from '@/components/Console/index';
 
 export default {
     name: 'WebSSH',
@@ -14,6 +14,8 @@ export default {
         return {
             terminal: {
                 pid: 1,
+                podName: this.$route.query.pod,
+                namespace: this.$route.query.namespace,
                 name: 'terminal',
                 cols: 400,
                 rows: 400
@@ -26,6 +28,7 @@ export default {
 <style lang="scss">
 .terminal {
     min-height: inherit;
+    height: 100%;
     width: 100%;
 }
 </style>

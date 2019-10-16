@@ -80,6 +80,23 @@ export const constantRoutes = [
         ]
     },
 
+    {
+        path: '/pods',
+        component: Layout,
+        // redirect: '/pods',
+        children: [{
+            path: 'index',
+            name: 'pods',
+            component: () => import('@/views/pods/index'),
+            meta: { title: 'Pod List', icon: 'dashboard' }
+        }]
+    },
+
+    {
+        path: '/webssh/',
+        name: 'webssh',
+        component: () => import('@/views/webssh/index')
+    },
     // {
     //   path: '/form',
     //   component: Layout,
