@@ -344,6 +344,7 @@ class ConcreteTaskHandler(View):
                                        'status': item.status,
                                        'uuid': item.uuid,
                                        'user': item.user.username,
+                                       'log': item.logs,
                                        'create_time': item.create_time}
         except Task.DoesNotExist:
             response = RESPONSE.OPERATION_FAILED

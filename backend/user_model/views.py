@@ -12,6 +12,7 @@ from django.views import View
 from django.utils.decorators import method_decorator
 from django.db.utils import IntegrityError
 from user_model.models import UserModel, UserType
+from task_manager.views import getUUID
 from api.common import RESPONSE
 from config import USER_TOKEN_EXPIRE_TIME
 
@@ -173,13 +174,16 @@ class UserLogin(View):
             md5 = hashlib.md5()
             md5.update((password + salt).encode('utf-8'))
             password = md5.hexdigest()
+            md5 = hashlib.md5()
+            md5.update(user.email.encode('utf-8'))
             if password == user.password:
                 token = TokenManager.createToken(user)
                 response = RESPONSE.SUCCESS
                 response['payload'] = {
                     'username': user.username,
+                    'uuid': user.uuid,
                     'token': token,
-                    'avatar': 'https://wpimg.wallstcn.com/f778738c-e4f8-4870-b634-56703b4acafe.gif'
+                    'avatar': 'https://fdn.geekzu.org/avatar/{}'.format(md5.hexdigest())
                 }
             else:
                 raise UserModel.DoesNotExist()
@@ -222,6 +226,7 @@ class UserHandler(View):
                 'username': user.username,
                 'email': user.email,
                 'create_time': user.create_time,
+                'uuid': user.uuid,
             }
             return JsonResponse(response)
         else:
@@ -262,7 +267,7 @@ class UserHandler(View):
                 md5 = hashlib.md5()
                 md5.update((password + salt).encode('utf-8'))
                 password = md5.hexdigest()
-                user = UserModel(username=username, password=password, salt=salt, email=email)
+                user = UserModel(uuid=str(getUUID()), username=username, password=password, salt=salt, email=email)
                 user.save()
                 response = RESPONSE.SUCCESS
         except IntegrityError:

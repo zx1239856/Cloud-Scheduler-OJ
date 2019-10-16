@@ -6,6 +6,7 @@ import json
 import hashlib
 from django.test import TestCase, Client
 from task_manager.models import TaskSettings
+from task_manager.views import getUUID
 from user_model.models import UserModel, UserType
 from api.common import RESPONSE
 
@@ -29,11 +30,11 @@ class TestTaskSettings(TestCase):
         self.item_list = []
         md5 = hashlib.md5()
         md5.update('adminadmin_salt'.encode('utf8'))
-        UserModel.objects.create(username='admin', password=md5.hexdigest(),
+        UserModel.objects.create(uuid=str(getUUID()), username='admin', password=md5.hexdigest(),
                                  email='example@example.com', user_type=UserType.ADMIN, salt='admin_salt')
         md5 = hashlib.md5()
         md5.update('useruser_salt'.encode('utf8'))
-        UserModel.objects.create(username='user', password=md5.hexdigest(),
+        UserModel.objects.create(uuid=str(getUUID()), username='user', password=md5.hexdigest(),
                                  email='example@example.com', user_type=UserType.USER, salt='user_salt')
         for i in range(0, 30):
             item = TaskSettings.objects.create(uuid=str(uuid1()), name="task_{}".format(i), concurrency=30 - i,
