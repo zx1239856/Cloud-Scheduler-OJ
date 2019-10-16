@@ -19,5 +19,7 @@ selenium-debug.log
 # backend
 __pycache__
 db.sqlite3
+backend/.coverage
+backend/htmlcov/
 
 /apidocs/
