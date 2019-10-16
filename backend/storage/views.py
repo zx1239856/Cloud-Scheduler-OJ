@@ -13,42 +13,18 @@ from django.http import JsonResponse
 from kubernetes import client
 from kubernetes.stream import stream
 from kubernetes.client.rest import ApiException
+from kubernetes.client import CoreV1Api
 from api.common import RESPONSE
+from api.common import getKubernetesAPIClient
 from config import KUBERNETES_NAMESPACE
 
 LOGGER = logging.getLogger(__name__)
 
-def config_k8s_client():
-    """set up connection to k8s cluster"""
-    APISERVER = 'https://152.136.222.117:30000'
-
-    # Define the barer token we are going to use to authenticate.
-    # See here to create the token:
-    # https://kubernetes.io/docs/tasks/access-application-cluster/access-cluster/
-    Token = "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImRlZmF1bHQtdG9rZW4tNmQ4MnciLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiZGVmYXVsdCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjY1NjNjMTc1LWViNDgtMTFlOS1hYzA2LTUyMGMzOGUyZjVlNSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmRlZmF1bHQifQ.UTS6FqgyHxKFT7nWbxzbi3qXf8Xx6zIYg-TXJItpX_u4lPFQB6DwlgBMA16Xv3uImhDK857vfh_jyulqTlFZQTx47T3CzZ0NMxdTPYV6jPqdgxOXLixFWmfkVzsup7HhcTjXo67crxTu5pXlUqfDHmlub_JRdkLK5eHvEBU7-ArNWS-2iaeF-zifwih7A52qfxt-87PkFO76c3GetJ9b9RPu5mtVyMA7CaQoj2MZybKiTfq1C_mLgXsCHNwRpubJSBLdNMI9E6QDG99zV2asOMxMoNClrCDNfD97a702_2d2P-KU11yvM37rzMvaJptRFHuXtO_2ow6s9byez1XSGw"
-
-    # Create a configuration object
-    configuration = client.Configuration()
-
-    # Specify the endpoint of your Kube cluster
-    configuration.host = APISERVER
-
-    # Security part.
-    configuration.verify_ssl = False
-
-    # ssl_ca_cert is the filepath to the file that contains the certificate.
-    # configuration.ssl_ca_cert="certificate"
-
-    configuration.api_key = {"authorization": "Bearer " + Token}
-    # configuration.api_key["authorization"] = "bearer " + Token
-    # configuration.api_key_prefix['authorization'] = 'Bearer'
-    # configuration.ssl_ca_cert = 'ca.crt'
-
-    # Create a ApiClient with our config
-    client.Configuration.set_default(configuration)
-
 class StorageHandler(View):
     http_method_names = ['get', 'post', 'delete']
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.api_instance = CoreV1Api(getKubernetesAPIClient())
 
     def get(self, request, **_):
         """
@@ -69,10 +45,8 @@ class StorageHandler(View):
         @apiUse Unauthorized
         @apiUse PermissionDenied
         """
-        config_k8s_client()
-        api_instance = client.CoreV1Api()
         try:
-            pvc_list = api_instance.list_namespaced_persistent_volume_claim(KUBERNETES_NAMESPACE).items
+            pvc_list = self.api_instance.list_namespaced_persistent_volume_claim(KUBERNETES_NAMESPACE).items
             payload = {}
             payload['count'] = len(pvc_list)
             payload['entry'] = []
@@ -117,12 +91,9 @@ class StorageHandler(View):
         except Exception:
             return JsonResponse(RESPONSE.INVALID_REQUEST)
 
-        config_k8s_client()
-        api_instance = client.CoreV1Api()
-
         # Create specific namespace
         try:
-            api_instance.create_namespace(client.V1Namespace(api_version="v1", kind="Namespace", metadata=client.V1ObjectMeta(name=KUBERNETES_NAMESPACE, labels={"name":KUBERNETES_NAMESPACE})))
+            self.api_instance.create_namespace(client.V1Namespace(api_version="v1", kind="Namespace", metadata=client.V1ObjectMeta(name=KUBERNETES_NAMESPACE, labels={"name":KUBERNETES_NAMESPACE})))
         except Exception:
             # namespaces already exists
             pass
@@ -132,7 +103,7 @@ class StorageHandler(View):
                                             metadata=client.V1ObjectMeta(name=pvc_name, namespace=KUBERNETES_NAMESPACE), \
                                             spec=client.V1PersistentVolumeClaimSpec(access_modes=["ReadWriteMany"], resources=client.V1ResourceRequirements(requests={"storage": pvc_capacity}), storage_class_name="csi-cephfs"))
         try:
-            api_instance.create_namespaced_persistent_volume_claim(KUBERNETES_NAMESPACE, PVC_body)
+            self.api_instance.create_namespaced_persistent_volume_claim(KUBERNETES_NAMESPACE, PVC_body)
             response = RESPONSE.SUCCESS
         except Exception:
             response = RESPONSE.OPERATION_FAILED
@@ -169,11 +140,8 @@ class StorageHandler(View):
         except Exception:
             return JsonResponse(RESPONSE.INVALID_REQUEST)
 
-        config_k8s_client()
-        api_instance = client.CoreV1Api()
-
         try:
-            api_instance.delete_namespaced_persistent_volume_claim(name=pvc_name, namespace='storage-manage')
+            self.api_instance.delete_namespaced_persistent_volume_claim(name=pvc_name, namespace='storage-manage')
             response = RESPONSE.SUCCESS
         except Exception:
             response = RESPONSE.OPERATION_FAILED
@@ -184,6 +152,11 @@ class StorageHandler(View):
 
 class StorageFileHandler(View):
     http_method_names = ['post']
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.save_dir = "storage/data/"
+        self.api_instance = CoreV1Api(getKubernetesAPIClient())
 
     def post(self, request, **_):
         """
@@ -209,32 +182,23 @@ class StorageFileHandler(View):
         @apiUse Unauthorized
         @apiUse PermissionDenied
         """
-
-        #request.encoding = 'utf-8'
-        query = json.loads(request.body)
         try:
-            directory = query.get('fileDirectory', None)
-            pvc_name = query.get('pvcName', None)
-            path = query.get('mountPath', None)
-            assert directory is not None
+            file_upload = request.FILES.get('file', None)
+            if file_upload is None:
+                response = RESPONSE.INVALID_REQUEST
+                response['message'] += " File is empty."
+                return JsonResponse(response)
+            pvc_name = request.POST.get('pvcName', None)
+            path = request.POST.get('mountPath', None)
             assert pvc_name is not None
             assert path is not None
         except Exception:
             response = RESPONSE.INVALID_REQUEST
             return JsonResponse(response)
 
-        # check if directory exists
-        if not os.path.exists(directory):
-            response = RESPONSE.OPERATION_FAILED
-            response['message'] += " File does not exist in {}".format(directory)
-            return JsonResponse(response)
-
-        config_k8s_client()
-        api_instance = client.CoreV1Api()
-
         # check if pvc exists
         try:
-            api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name, namespace=KUBERNETES_NAMESPACE)
+            self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name, namespace=KUBERNETES_NAMESPACE)
         except Exception:
             response = RESPONSE.OPERATION_FAILED
             response['message'] += " PVC {} does not exist in namespaced {}".format(pvc_name, KUBERNETES_NAMESPACE)
@@ -242,20 +206,25 @@ class StorageFileHandler(View):
 
         # create if namespace does not exist
         try:
-            api_instance.create_namespace(client.V1Namespace(api_version="v1", kind="Namespace", metadata=client.V1ObjectMeta(name=KUBERNETES_NAMESPACE, labels={"name":KUBERNETES_NAMESPACE})))
+            self.api_instance.create_namespace(client.V1Namespace(api_version="v1", kind="Namespace", metadata=client.V1ObjectMeta(name=KUBERNETES_NAMESPACE, labels={"name":KUBERNETES_NAMESPACE})))
         except Exception:
             pass
 
-        uploading = Thread(target=self.uploading, args=(directory, pvc_name, path))
+        #save file
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
+        file_path = self.save_dir + file_upload.name
+        file_save = open(file_path, 'wb+')
+        for chunk in file_upload.chunks():
+            file_save.write(chunk)
+        file_save.close()
+        uploading = Thread(target=self.uploading, args=(file_upload.name, pvc_name, path))
         uploading.start()
+        response = RESPONSE.SUCCESS
+        return JsonResponse(response)
 
-        return JsonResponse(RESPONSE.SUCCESS)
-
-
-    def uploading(self, directory, pvc_name, path):
+    def uploading(self, file_upload, pvc_name, path):
         """a new thread to create pod and upload file"""
-        config_k8s_client()
-        api_instance = client.CoreV1Api()
         # create pod running a container with image nginx, bound pvc
         try:
             volume = client.V1Volume(name="file-upload-volume", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=pvc_name, read_only=False))
@@ -264,8 +233,8 @@ class StorageFileHandler(View):
             pod = client.V1Pod(api_version="v1", kind="Pod",
                                metadata=client.V1ObjectMeta(name="file-upload-pod", namespace=KUBERNETES_NAMESPACE), \
                                                             spec=client.V1PodSpec(containers=[container], volumes=[volume]))
-            api_instance.create_namespaced_pod(namespace=KUBERNETES_NAMESPACE, body=pod)
-            while api_instance.read_namespaced_pod_status("file-upload-pod", KUBERNETES_NAMESPACE).status.phase != "Running":
+            self.api_instance.create_namespaced_pod(namespace=KUBERNETES_NAMESPACE, body=pod)
+            while self.api_instance.read_namespaced_pod_status("file-upload-pod", KUBERNETES_NAMESPACE).status.phase != "Running":
                 time.sleep(1)
         except ApiException as e:
             LOGGER.warning("Kubernetes ApiException %d: %s", e.status, e.reason)
@@ -276,16 +245,16 @@ class StorageFileHandler(View):
 
         # create filedir
         exec_command = ['mkdir', '/cephfs-data/'+ path]
-        resp = stream(api_instance.connect_get_namespaced_pod_exec, "file-upload-pod", KUBERNETES_NAMESPACE, command=exec_command, \
+        resp = stream(self.api_instance.connect_get_namespaced_pod_exec, "file-upload-pod", KUBERNETES_NAMESPACE, command=exec_command, \
                         stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
 
         exec_command = ['tar', 'xvf', '-', '-C', '/cephfs-data/'+ path]
-        resp = stream(api_instance.connect_get_namespaced_pod_exec, "file-upload-pod", KUBERNETES_NAMESPACE, command=exec_command, \
+        resp = stream(self.api_instance.connect_get_namespaced_pod_exec, "file-upload-pod", KUBERNETES_NAMESPACE, command=exec_command, \
                         stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
 
         with TemporaryFile() as tar_buffer:
             with tarfile.open(fileobj=tar_buffer, mode='w') as tar:
-                tar.add(directory)
+                tar.add(self.save_dir + file_upload, arcname=file_upload)
 
             tar_buffer.seek(0)
             commands = []
@@ -303,6 +272,9 @@ class StorageFileHandler(View):
             resp.close()
 
         # delete pod when finished
-        api_instance.delete_namespaced_pod("file-upload-pod", KUBERNETES_NAMESPACE)
+        self.api_instance.delete_namespaced_pod("file-upload-pod", KUBERNETES_NAMESPACE)
+        # delete file in memory
+        if os.path.exists(self.save_dir + file_upload):
+            os.remove(self.save_dir + file_upload)
 
         LOGGER.info("File uploaded successfully.")
