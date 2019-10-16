@@ -51,7 +51,7 @@ export default {
         fitAddon.fit();
 
         this.terminalSocket = new WebSocket(
-            wsRoot + 'terminals/?pod=rook-ceph-tools-687444d7b6-kg6sg&namespace=rook-ceph&shell=/bin/sh'
+            wsRoot + 'terminals/?shell=/bin/sh&pod=' + this.terminal.podName + '&namespace=' + this.terminal.namespace
         );
         this.terminalSocket.onopen = this.runRealTerminal;
         this.terminalSocket.onclose = this.closeRealTerminal;
