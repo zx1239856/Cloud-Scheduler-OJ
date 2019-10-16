@@ -6,11 +6,10 @@ import requests
 import docker
 from django.http import JsonResponse
 from django.views import View
+from config import DOCKER_ADDRESS, REGISTRY_ADDRESS
 
-# Create your views here.
-private_registry = "tcp://127.0.0.1:1234"
-client = docker.from_env()
-path = "registry/data/"
+client = docker.DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
+docker_api = docker.APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
 LOGGER = logging.getLogger(__name__)
 
 def test_docker_is_running():
@@ -24,6 +23,7 @@ class DockerfileHandler(View):
     http_method_names = ['post']
 
     def post(self, request, **kwargs):
+        # print(test_docker_is_running())
         result = {
             'condition': '',
             'filename': request.FILES['file'].name,
@@ -34,6 +34,7 @@ class DockerfileHandler(View):
                 return JsonResponse({'error': "File is empty!"})
             f = request.FILES['file']
             file_name = ""
+            path = "registry/data/"
             dockerfile_pattern = "Dockerfile"
             searched_dockerfile = re.search(dockerfile_pattern, f.name, re.M|re.I)
             if searched_dockerfile:
@@ -46,9 +47,14 @@ class DockerfileHandler(View):
                         destination.write(chunk)
                     destination.close()
                     try:
-                        client.images.build(path='registry/data')
+                        image = client.images.build(path='registry/data')[0]
+                        name = image.tags[0]
+                        newName = REGISTRY_ADDRESS + '/' + name
+                        docker_api.tag(name, newName)
+                        docker_api.push(newName)
+                        # client.images.push(repository=REGISTRY_ADDRESS + '/' + f.name)
                     except docker.errors.DockerException as e:
-                        result['error'] = 'Dockerfile build error' + e.__context__
+                        result['error'] = 'Dockerfile build error ' + str(e.__context__)
                         return JsonResponse(result)
                     result['condition'] = 'OK'
                 except Exception as e:
@@ -67,6 +73,7 @@ class ImageHandler(View):
     http_method_names = ['post']
 
     def post(self, request, **kwargs):
+        # print(test_docker_is_running())
         result = {
             'condition': '',
             'filename': request.FILES['file'].name,
@@ -81,9 +88,13 @@ class ImageHandler(View):
             if searched_tar:
                 try:
                     try:
-                        client.images.load(f)
+                        image = client.images.load(f)[0]
+                        name = image.tags[0]
+                        newName = REGISTRY_ADDRESS + '/' + name
+                        docker_api.tag(name, newName)
+                        docker_api.push(newName)
                     except docker.errors.DockerException as e:
-                        result['error'] = 'Dockerfile build error' + e.__context__
+                        result['error'] = 'Image load error: ' + str(e)
                         return JsonResponse(result)
                     result['condition'] = 'OK'
                 except Exception as e:
