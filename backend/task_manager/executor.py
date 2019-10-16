@@ -18,16 +18,21 @@ LOGGER = logging.getLogger(__name__)
 
 
 def config_checker(json_config):
-    if 'image' not in json_config.keys():
+    try:
+        pre_check_fail = ('image' not in json_config.keys() or
+                          'persistent_volume' not in json_config.keys() or
+                          'name' not in json_config['persistent_volume'].keys() or
+                          'mount_path' not in json_config['persistent_volume'].keys())
+        if pre_check_fail:
+            return False
+        elif 'exec' in json_config.keys():
+            # check exec part
+            return ('shell' in json_config['exec'].keys() and isinstance(json_config['exec']['shell'], str)
+                    and 'commands' in json_config['exec'].keys() and isinstance(json_config['exec']['commands'], list))
+        else:
+            return True
+    except Exception as _:
         return False
-    elif 'persistent_volume' not in json_config.keys():
-        return False
-    elif 'name' not in json_config['persistent_volume'].keys():
-        return False
-    elif 'mount_path' not in json_config['persistent_volume'].keys():
-        return False
-    else:
-        return True
 
 
 class TaskExecutor:
@@ -35,22 +40,60 @@ class TaskExecutor:
         self.worker_fire_task = Thread(target=self.fire_task)
         self.worker_stop_task = Thread(target=self.stop_task)
         self.worker_monitor_task = Thread(target=self.monitor_task)
+        self.worker_get_log = Thread(target=self.get_task_log)
         LOGGER.info("Task executor initialized.")
 
     def start(self):
         self.worker_fire_task.start()
         self.worker_stop_task.start()
         self.worker_monitor_task.start()
+        self.worker_get_log.start()
         LOGGER.info("Task executor started.")
+
+    @staticmethod
+    def get_task_log():
+        try:
+            api = CoreV1Api(getKubernetesAPIClient())
+            api_batch = BatchV1Api(getKubernetesAPIClient())
+            while True:
+                for item in Task.objects.filter((Q(status=TASK.SUCCEEDED) | Q(status=TASK.FAILED)) & Q(logs_get=False)):
+                    # obtain log
+                    try:
+                        common_name = "task-{}".format(item.uuid)
+                        response = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE,
+                                                           label_selector="app={}".format(common_name))
+                        if response.items:
+                            name = response.items[0].metadata.name
+                            response = api.read_namespaced_pod_log(name=name,
+                                                                   namespace=KUBERNETES_NAMESPACE)
+                            if response:
+                                item.logs = response
+                            item.logs_get = True
+                            item.save(force_update=True)
+                            # delete this job gracefully
+                            try:
+                                api_batch.delete_namespaced_job(name=common_name, namespace=KUBERNETES_NAMESPACE)
+                            except ApiException as ex:
+                                if ex.status != 404:
+                                    LOGGER.warning(ex)
+                            try:
+                                api.delete_namespaced_pod(name=name, namespace=KUBERNETES_NAMESPACE)
+                            except ApiException as ex:
+                                if ex.status != 404:
+                                    LOGGER.warning(ex)
+                    except ApiException as ex:
+                        LOGGER.warning(ex)
+                time.sleep(1)
+        except OperationalError:
+            pass
 
     @staticmethod
     def monitor_task():
         try:
             api = CoreV1Api(getKubernetesAPIClient())
             while True:
-                has_item = False
-                for item in Task.objects.filter(Q(status=TASK.RUNNING) | Q(status=TASK.PENDING)).order_by("create_time"):
-                    has_item = True
+                for item in Task.objects.filter(Q(status=TASK.RUNNING) | Q(status=TASK.PENDING)).order_by(
+                        "create_time"):
                     common_name = "task-{}".format(item.uuid)
                     try:
                         response = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE,
@@ -60,7 +103,7 @@ class TaskExecutor:
                             new_status = item.status
                             if status == 'Running':
                                 new_status = TASK.RUNNING
-                            elif status == 'Succeed':
+                            elif status == 'Succeeded':
                                 new_status = TASK.SUCCEEDED
                             elif status == 'Pending':
                                 new_status = TASK.PENDING
@@ -69,9 +112,12 @@ class TaskExecutor:
                             if new_status != item.status:
                                 item.status = new_status
                                 item.save(force_update=True)
+                        else:
+                            item.status = TASK.FAILED
+                            item.save(force_update=True)
                     except ApiException as ex:
                         LOGGER.warning(ex)
-                time.sleep(1 if not has_item else 0.01)
+                time.sleep(1)
         except OperationalError:
             pass
 
@@ -80,9 +126,9 @@ class TaskExecutor:
         try:
             api = BatchV1Api(getKubernetesAPIClient())
             while True:
-                fired = False
                 for item in Task.objects.filter(status=TASK.SCHEDULED).order_by("create_time"):
-                    running_count = Task.objects.filter(settings=item.settings, status=TASK.RUNNING).count()
+                    running_count = Task.objects.filter(Q(settings=item.settings) &
+                                                        (Q(status=TASK.PENDING) | Q(status=TASK.RUNNING))).count()
                     # 0 for no limit
                     if item.settings.concurrency == 0 or running_count < item.settings.concurrency:
                         # fire task
@@ -94,6 +140,7 @@ class TaskExecutor:
                             if not config_checker(conf):
                                 raise ValueError("Invalid config for TaskSettings: {}".format(item.settings.uuid))
                             # kubernetes part
+                            exe = conf.get('exec', {})
                             volume_mount = client.V1VolumeMount(mount_path=conf['persistent_volume']['mount_path'],
                                                                 name=storage_name)
                             env_username = client.V1EnvVar(name="CLOUD_SCHEDULER_USER", value=item.user.username)
@@ -101,7 +148,12 @@ class TaskExecutor:
                             container = client.V1Container(name='task-container',
                                                            image=conf['image'],
                                                            volume_mounts=[volume_mount],
-                                                           env=[env_username, env_user_uuid])
+                                                           env=[env_username, env_user_uuid]) if not exe \
+                                else client.V1Container(name='task-container', image=conf['image'],
+                                                        volume_mounts=[volume_mount],
+                                                        env=[env_username, env_user_uuid],
+                                                        command=[exe['shell'], '-c'],
+                                                        args=[';'.join(exe['commands'])])
                             persistent_volume_claim = client.V1PersistentVolumeClaimVolumeSource(
                                 claim_name=conf['persistent_volume']['name'],
                                 read_only=True
@@ -123,7 +175,6 @@ class TaskExecutor:
                             )
                             item.status = TASK.PENDING
                             item.save(force_update=True)
-                            fired = True
                         except ApiException as ex:
                             LOGGER.warning("Kubernetes ApiException %d: %s", ex.status, ex.reason)
                         except ValueError as ex:
@@ -134,9 +185,7 @@ class TaskExecutor:
                             LOGGER.error(ex)
                             item.status = TASK.FAILED
                             item.save(force_update=True)
-                        break
-                if not fired:
-                    time.sleep(1)
+                time.sleep(1)
         except OperationalError:
             pass
 
@@ -145,7 +194,6 @@ class TaskExecutor:
         try:
             api = BatchV1Api(getKubernetesAPIClient())
             while True:
-                deleted = False
                 for item in Task.objects.filter(status=TASK.DELETING):
                     common_name = "task-{}".format(item.uuid)
                     try:
@@ -155,19 +203,15 @@ class TaskExecutor:
                                                           propagation_policy='Foreground',
                                                           grace_period_seconds=5
                                                       ))
-                        deleted = True
                         LOGGER.info("The kubernetes job of Task: %s deleted successfully", item.uuid)
                         item.delete()
                     except ApiException as ex:
                         if ex.status == 404:
-                            deleted = True
                             item.delete()
                         else:
                             LOGGER.warning("Kubernetes ApiException %d: %s", ex.status, ex.reason)
                     except Exception as ex:
                         LOGGER.error(ex)
-                    break
-                if not deleted:
-                    time.sleep(1)
+                time.sleep(1)
         except OperationalError:
             pass

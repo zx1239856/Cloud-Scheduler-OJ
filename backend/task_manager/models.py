@@ -31,3 +31,5 @@ class Task(models.Model):
     settings = models.ForeignKey(TaskSettings, on_delete=models.CASCADE)
     status = models.PositiveSmallIntegerField(default=TASK.SCHEDULED)
     create_time = models.DateTimeField(auto_now_add=True)
+    logs = models.TextField()
+    logs_get = models.BooleanField(default=False)
