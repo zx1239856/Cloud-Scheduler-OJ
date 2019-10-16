@@ -12,6 +12,7 @@ from django.views import View
 from django.utils.decorators import method_decorator
 from django.db.utils import IntegrityError
 from user_model.models import UserModel, UserType
+from task_manager.views import getUUID
 from api.common import RESPONSE
 from config import USER_TOKEN_EXPIRE_TIME
 
@@ -262,7 +263,7 @@ class UserHandler(View):
                 md5 = hashlib.md5()
                 md5.update((password + salt).encode('utf-8'))
                 password = md5.hexdigest()
-                user = UserModel(username=username, password=password, salt=salt, email=email)
+                user = UserModel(uuid=str(getUUID()), username=username, password=password, salt=salt, email=email)
                 user.save()
                 response = RESPONSE.SUCCESS
         except IntegrityError:

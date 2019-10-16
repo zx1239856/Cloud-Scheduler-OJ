@@ -5,11 +5,12 @@ from user_model import models as user_models
 
 class TASK:
     """TASK Status"""
-    PENDING = 0
-    RUNNING = 1
-    FINISH = 2
+    SCHEDULED = 0  # waiting to get a pod
+    RUNNING = 1  # pod created and running
+    SUCCEEDED = 2
     FAILED = 3
-    DELETING = 4
+    DELETING = 4  # waiting to delete the pod
+    PENDING = 5  # waiting the pod initializing
 
 
 class TaskSettings(models.Model):
@@ -28,5 +29,5 @@ class Task(models.Model):
     uuid = models.CharField(max_length=50, unique=True, db_index=True)
     user = models.ForeignKey(user_models.UserModel, on_delete=models.CASCADE)
     settings = models.ForeignKey(TaskSettings, on_delete=models.CASCADE)
-    status = models.PositiveSmallIntegerField(default=TASK.PENDING)
+    status = models.PositiveSmallIntegerField(default=TASK.SCHEDULED)
     create_time = models.DateTimeField(auto_now_add=True)

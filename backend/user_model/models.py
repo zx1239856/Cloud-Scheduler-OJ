@@ -12,6 +12,7 @@ class UserType:
 
 class UserModel(models.Model):
     """user model"""
+    uuid = models.CharField(max_length=50, db_index=True, unique=True)
     username = models.CharField(max_length=255, db_index=True, unique=True)
     password = models.CharField(max_length=255)
     salt = models.CharField(max_length=255)

@@ -30,7 +30,7 @@ class DockerfileHandler(View):
             'error': '',
         }
         try:
-            if len(request.FILES) == 0:
+            if not request.FILES:
                 return JsonResponse({'error': "File is empty!"})
             f = request.FILES['file']
             file_name = ""
@@ -73,7 +73,7 @@ class ImageHandler(View):
             'error': '',
         }
         try:
-            if len(request.FILES) == 0:
+            if not request.FILES:
                 return JsonResponse({'error': "File is empty!"})
             f = request.FILES['file']
             tar_pattern = "[.](tar)$"

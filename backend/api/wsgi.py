@@ -14,3 +14,8 @@ from django.core.wsgi import get_wsgi_application
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'api.settings')
 
 application = get_wsgi_application()
+# pylint: disable=C0413
+from task_manager.executor import TaskExecutor
+
+executor = TaskExecutor()
+executor.start()
