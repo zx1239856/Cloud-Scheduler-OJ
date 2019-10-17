@@ -59,7 +59,7 @@ class TestStorage(TestCase):
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
-    """
+
     def testCreateDuplicatedPVC(self):
         response = self.client.post('/storage/', data=json.dumps({'name':'test-pvc', 'capacity':'10Mi'}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
@@ -71,11 +71,10 @@ class TestStorage(TestCase):
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
-        response = self.client.delete('/storage/', data=json.dumps({'name': 'test-pvc'}))
+        response = self.client.delete('/storage/', data=json.dumps({'name': 'test-pvc'}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
-    """
 
     # test deleting PVC
 
@@ -90,21 +89,23 @@ class TestStorage(TestCase):
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
-    """
+
+
     def testCreateAndDeletePVC(self):
         response = self.client.post('/storage/', data=json.dumps({'name':'test-pvc', 'capacity':'10Mi'}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
 
-        response = self.client.delete('/storage/', data=json.dumps({'name': 'test-pvc'}))
+        response = self.client.delete('/storage/', data=json.dumps({'name': 'test-pvc'}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
-    """
+
+
 
     # test uploading files
-    """
+
     def testUplaodFileRequestError(self):
         response = self.client.post('/storage/upload_file/', data=json.dumps({}), content_type='multipart/form-data')
         self.assertEqual(response.status_code, 200)
@@ -122,7 +123,7 @@ class TestStorage(TestCase):
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
-
+    """
     def testUplaodFilePVCNotExists(self):
         response = self.client.post('/storage/upload_file/', data=json.dumps({'file': 'D:\\hw3.txt', 'pvcName': 'notexistspvc', 'mountPath': 'test/'}), content_type='multipart/form-data')
         self.assertEqual(response.status_code, 200)
