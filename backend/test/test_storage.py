@@ -2,6 +2,7 @@
 Unit Test for Storage
 """
 import json
+import os
 from django.test import TestCase, Client
 from api.common import RESPONSE
 # from flask import abort, jsonify, Flask, request, Response
@@ -107,42 +108,56 @@ class TestStorage(TestCase):
     # test uploading files
 
     def testUplaodFileRequestError(self):
-        response = self.client.post('/storage/upload_file/', data=json.dumps({}), content_type='multipart/form-data')
+        response = self.client.post('/storage/upload_file/', data={})
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
     def testUplaodFileRequestError2(self):
-        response = self.client.post('/storage/upload_file/', data=json.dumps({'name':'xxx'}), content_type='multipart/form-data')
+        response = self.client.post('/storage/upload_file/', data={'name':'xxx'})
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
     def testUplaodFileRequestError3(self):
-        response = self.client.post('/storage/upload_file/', data=json.dumps({'file': 'xxx', 'pvcName': 'pvc'}), content_type='multipart/form-data')
+        f = open('test.txt', 'w')
+        f.close()
+        f = open('test.txt', 'r')
+        response = self.client.post('/storage/upload_file/', data={'file': f, 'pvcName': 'pvc'})
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
-    """
+        f.close()
+        os.remove('test.txt')
+
     def testUplaodFilePVCNotExists(self):
-        response = self.client.post('/storage/upload_file/', data=json.dumps({'file': 'D:\\hw3.txt', 'pvcName': 'notexistspvc', 'mountPath': 'test/'}), content_type='multipart/form-data')
+        f = open('test2.txt', 'w')
+        f.close()
+        f = open('test2.txt', 'r')
+        response = self.client.post('/storage/upload_file/', data={'file': f, 'pvcName': "invalidpvc", 'mountPath': "test/"})
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+        f.close()
+        os.remove('test2.txt')
 
     def testUplaodFile(self):
-        response = self.client.post('/storage/', data=json.dumps({'name':'test-pvc', 'capacity':'10Mi'}), content_type='application/json')
+        response = self.client.post('/storage/', data={'name':'test-pvc', 'capacity':'10Mi'}, content_type='application/json')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
 
-        response = self.client.post('/storage/upload_file/', data=json.dumps({'file': 'D:\\hw3.txt', 'pvcName': 'test-pvc', 'mountPath': 'test/'}), content_type='multipart/form-data')
+        f = open('test3.txt', 'w')
+        f.close()
+        f = open('test3.txt', 'r')
+        response = self.client.post('/storage/upload_file/', data={'file': f, 'pvcName': 'test-pvc', 'mountPath': 'test/'})
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
+        f.close()
+        os.remove('test3.txt')
 
-        response = self.client.delete('/storage/', data=json.dumps({'name': 'test-pvc'}))
+        response = self.client.delete('/storage/', data=json.dumps({'name': 'test-pvc'}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
-    """

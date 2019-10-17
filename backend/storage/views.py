@@ -143,7 +143,7 @@ class StorageHandler(View):
         try:
             self.api_instance.delete_namespaced_persistent_volume_claim(name=pvc_name, namespace=KUBERNETES_NAMESPACE)
             response = RESPONSE.SUCCESS
-        except Exception as e:
+        except Exception:
             response = RESPONSE.OPERATION_FAILED
             response['message'] += " PVC {} not found.".format(pvc_name)
 
