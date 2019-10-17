@@ -8,10 +8,11 @@ export function createTaskSettings(data) {
     });
 }
 
-export function getTaskSettingsList() {
+export function getTaskSettingsList(page) {
     return request({
         url: '/task_settings/',
-        method: 'get'
+        method: 'get',
+        params: { page: page }
     });
 }
 

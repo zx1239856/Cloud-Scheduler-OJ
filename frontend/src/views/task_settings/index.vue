@@ -14,8 +14,8 @@
       <el-button v-waves class="filter-item" type="primary" icon="el-icon-search" @click="handleFilter">
         Search
       </el-button> -->
-      <el-button v-if="permission=='admin'" class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleCreate">
-        Add
+      <el-button v-if="permission==='admin'" class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleCreate">
+        New Settings
       </el-button>
     </div>
 
@@ -29,7 +29,7 @@
       style="width: 100%;"
       @sort-change="sortChange"
     >
-      <el-table-column label="UUID" width="400" align="center">
+      <el-table-column label="UUID" width="300" align="center">
         <template slot-scope="scope">
           <span>{{ scope.row.uuid }}</span>
         </template>
@@ -49,12 +49,15 @@
           <span>{{ scope.row.concurrency }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" align="center" width="250" class-name="small-padding fixed-width">
+      <el-table-column label="Actions" align="center" width="400" class-name="small-padding fixed-width">
         <template slot-scope="{row}">
-          <el-button type="primary" size="small" icon="el-icon-edit" style="width: 90px; align: center;" @click="handleUpdate(row)">
+          <el-button type="primary" size="small" icon="el-icon-plus" @click="handleAddTask(row)">
+            Add Task
+          </el-button>
+          <el-button type="warning" size="small" icon="el-icon-edit" @click="handleUpdate(row)">
             Edit
           </el-button>
-          <el-button type="danger" size="small" icon="el-icon-delete" style="width: 100px; align: center;" @click="handleDelete(row)">
+          <el-button type="danger" size="small" icon="el-icon-delete" @click="handleDelete(row)">
             Delete
           </el-button>
         </template>
@@ -101,6 +104,7 @@
 
 <script>
 import { createTaskSettings, getTaskSettingsList, updateTaskSettings, deleteTaskSettings } from '@/api/task_settings';
+import { createTask } from '@/api/task';
 import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 import { mapGetters } from 'vuex';
@@ -169,7 +173,7 @@ export default {
         getList() {
             this.listLoading = true;
 
-            getTaskSettingsList(this.listQuery).then(response => {
+            getTaskSettingsList(this.listQuery.page).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
                 this.listLoading = false;
@@ -242,6 +246,16 @@ export default {
                 } else {
                     return false;
                 }
+            });
+        },
+        handleAddTask(row) {
+            console.log(row.uuid);
+            createTask(row.uuid).then(response => {
+                this.$message({
+                    showClose: true,
+                    message: 'Task Created',
+                    type: 'success'
+                });
             });
         },
         sortChange(data) {
