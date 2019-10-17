@@ -1,49 +1,127 @@
 """
 Unit Test for Registry
 """
-from io import BytesIO
-import mock
+import os
+import json
+import docker
 from django.test import TestCase, Client
-
-def create_dockerfile(file_path):
-    with open('/data/'+file_path) as f:
-        return f.read()
+from api.common import RESPONSE
+import registry.views as registry_views
 
 class TestRegistry(TestCase):
     def setUp(self):
         self.url = '/image_registry/'
         self.client = Client()
+        self.local_client = docker.from_env()
 
-    @mock.patch("registry.views.DockerfileHandler.post", create=True)
-    def test_dockerfile_upload(self, mock_open):
+    def test_docker_is_running(self):
+        self.assertEqual(registry_views.docker_connection(), True)
+
+    def test_docker_error_connection(self):
+        self.assertEqual(registry_views.docker_connection("https://registry.malform.address:30000"), False)
+
+    # def test_dockerfile_upload1(self):
+    #     url = self.url + 'dockerfile/'
+    #     filename = 'Dockerfile'
+    #     f = open('Dockerfile', 'w')
+    #     f.write('FROM hello-world')
+    #     f.close()
+    #     f = open('Dockerfile', 'r')
+    #     response = self.client.post(url, data={'file': f})
+    #     f.close()
+    #     os.remove(filename)
+    #     self.assertEqual(response.status_code, 200)
+    #     response = json.loads(response.content)
+    #     # self.assertEqual(response['message'], RESPONSE.SUCCESS['message'])
+    #     self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
+
+    def test_dockerfile_upload2(self):
         url = self.url + 'dockerfile/'
-        with mock.patch('__main__.open', mock_open(read_data='dockerfile')) as m:
-            response = self.client.post(url, data={'file': m})
-            self.assertTrue(response.status_code, 200)
+        filename = 'Dockerfile'
+        f = open(filename, 'w')
+        f.close()
+        f = open(filename, 'r')
+        response = self.client.post(url, data={'file': f})
+        f.close()
+        os.remove(filename)
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        # self.assertEqual(response['message'], RESPONSE.SERVER_ERROR['message'])
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
-        dockerfile = BytesIO()
-        dockerfile.name = 'Dockerfile'
-        response = self.client.post(url, {'file': dockerfile})
-        # self.assertTrue(response.context, 'dat')
-        # json_resp = json.loads(response.content)
-        self.assertTrue(response.status_code, 200)
-        # self.assertTrue('data' in json_resp)
-        # with mock.patch('__main__.open', mock_open(read_data='dockerfile')) as m:
-        #     response = self.client.post(url, data={'file': m}, HTTP_X_REQUESTED_WITH='XMLHttpRequest')
-        #     self.assertEqual(response.status_code, 200)
-            # json_resp = json.loads(response.data)
-            # self.assertTrue('condition' in json_resp)
+    def test_dockerfile_upload3(self):
+        url = self.url + 'dockerfile/'
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
-    @mock.patch("registry.views.ImageHandler.post", create=True)
-    def test_image_upload(self, mock_open):
+    # def test_dockerfile_upload4(self):
+    #     url = self.url + 'dockerfile/'
+    #     filename = 'Dockerfile'
+    #     f = open(filename, 'w')
+    #     f.write("FROM hello-world")
+    #     f.close()
+    #     f = open(filename, 'r')
+    #     response = self.client.post(url, data={'file': f})
+    #     f.close()
+    #     os.remove(filename)
+    #     self.assertEqual(response.status_code, 200)
+    #     response = json.loads(response.content)
+    #     self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+
+    def test_image_upload1(self):
         url = self.url + 'image/'
-        with mock.patch('__main__.open', mock_open(read_data='image')) as m:
-            response = self.client.post(url, data={'file': m})
-            self.assertTrue(response.status_code, 200)
+        imagename = 'hello-world'
+        filename = 'hello-world.tar'
+        registry_views.client.images.pull(imagename)
+        image = registry_views.docker_api.get_image(imagename)
+        f = open(filename, 'wb+')
+        for chunk in image:
+            f.write(chunk)
+        f.close()
+        f = open(filename, 'rb+')
+        response = self.client.post(url, data={'file': f})
+        f.close()
+        os.remove(filename)
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
 
-    # def test_upload_file(self):
-    #     with open('test/testfiles/Dockerfile', 'rb') as fp:
-    #         response = self.client.post(self.url, data={'file': fp})
-    #         json_resp = json.loads(response.content)
-    #         self.assertEqual(json_resp['condition'], "OK")
-    #         self.assertTrue('filename' in json_resp)
+    def test_image_upload2(self):
+        url = self.url + 'image/'
+        filename = 'hello-world.tar'
+        f = open(filename, 'wb+')
+        f.close()
+        f = open(filename, 'rb+')
+        response = self.client.post(url, data={'file': f})
+        f.close()
+        os.remove(filename)
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SERVER_ERROR['status'])
+
+    def test_image_upload3(self):
+        url = self.url + 'image/'
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
+
+    # def test_image_upload4(self):
+    #     url = self.url + 'image/'
+    #     imagename = 'hello-world'
+    #     filename = 'hello-world.tar'
+    #     registry_views.client.images.pull(imagename)
+    #     image = registry_views.docker_api.get_image(imagename)
+    #     f = open(filename, 'wb+')
+    #     for chunk in image:
+    #         f.write(chunk)
+    #     f.close()
+    #     f = open(filename, 'r')
+    #     response = self.client.post(url, data={'file': f})
+    #     f.close()
+    #     os.remove(filename)
+    #     self.assertEqual(response.status_code, 200)
+    #     response = json.loads(response.content)
+    #     self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])

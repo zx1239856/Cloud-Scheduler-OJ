@@ -1,5 +1,4 @@
 """View handlers for RegistryManager"""
-import os
 import re
 import logging
 import docker
@@ -12,12 +11,18 @@ client = docker.DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
 docker_api = docker.APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
 LOGGER = logging.getLogger(__name__)
 
-# def test_docker_is_running():
-#     try:
-#         client.ping()
-#         return True
-#     except (requests.exceptions.ConnectionError, docker.errors.APIError):
-#         return False
+def docker_connection(address=None):
+    try:
+        client_test = client
+        docker_api_test = docker_api
+        if address is not None:
+            client_test = docker.DockerClient(base_url=address, tls=False)
+            docker_api_test = docker.APIClient(base_url=address, tls=False)
+        client_test.ping()
+        docker_api_test.ping()
+        return True
+    except Exception:
+        return False
 
 class DockerfileHandler(View):
     http_method_names = ['post']
@@ -43,31 +48,27 @@ class DockerfileHandler(View):
         try:
             if not request.FILES:
                 return JsonResponse(RESPONSE.INVALID_REQUEST)
+            paramfile = request.FILES['file'].read().decode()
             f = request.FILES['file']
-            file_name = ""
-            path = "registry/data/"
             dockerfile_pattern = "Dockerfile"
             searched_dockerfile = re.search(dockerfile_pattern, f.name, re.M|re.I)
             if searched_dockerfile:
                 try:
-                    if not os.path.exists(path):
-                        os.makedirs(path)
-                    file_name = path + f.name
-                    destination = open(file_name, 'wb+')
-                    for chunk in f.chunks():
-                        destination.write(chunk)
-                    destination.close()
-                    image = client.images.build(path='registry/data')[0]
+                    image = client.images.build(fileobj=paramfile, custom_context=True)[0]
                     name = image.tags[0]
                     newName = REGISTRY_ADDRESS + '/' + name
                     docker_api.tag(name, newName)
                     docker_api.push(newName)
                     return JsonResponse(RESPONSE.SUCCESS)
-                except Exception:
-                    return JsonResponse(RESPONSE.SERVER_ERROR)
-        except Exception:
-            return JsonResponse(RESPONSE.INVALID_REQUEST)
-        return JsonResponse(RESPONSE.OPERATION_FAILED)
+                except docker.errors.DockerException as e:
+                    response = RESPONSE.SERVER_ERROR
+                    response['message'] += str(e)
+                    return JsonResponse(response)
+        except Exception as e:
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += str(e)
+            return JsonResponse(response)
+        return JsonResponse(RESPONSE.NOT_IMPLEMENTED)
 
 class ImageHandler(View):
     http_method_names = ['post']
@@ -98,17 +99,18 @@ class ImageHandler(View):
             searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
             if searched_tar:
                 try:
-                    try:
-                        image = client.images.load(f)[0]
-                        name = image.tags[0]
-                        newName = REGISTRY_ADDRESS + '/' + name
-                        docker_api.tag(name, newName)
-                        docker_api.push(newName)
-                        return JsonResponse(RESPONSE.SUCCESS)
-                    except docker.errors.DockerException as e:
-                        return JsonResponse(RESPONSE.SERVER_ERROR)
-                except Exception as e:
-                    LOGGER.error(e)
-        except Exception:
-            return JsonResponse(RESPONSE.INVALID_REQUEST)
-        return JsonResponse(RESPONSE.OPERATION_FAILED)
+                    image = client.images.load(f)[0]
+                    name = image.tags[0]
+                    newName = REGISTRY_ADDRESS + '/' + name
+                    docker_api.tag(name, newName)
+                    docker_api.push(newName)
+                    return JsonResponse(RESPONSE.SUCCESS)
+                except docker.errors.DockerException as e:
+                    response = RESPONSE.SERVER_ERROR
+                    response['payload']['docker exception'] = str(e)
+                    return JsonResponse(response)
+        except Exception as e:
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += str(e)
+            return JsonResponse(response)
+        return JsonResponse(RESPONSE.NOT_IMPLEMENTED)
