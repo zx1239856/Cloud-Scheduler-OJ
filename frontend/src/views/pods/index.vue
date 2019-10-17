@@ -63,8 +63,9 @@ export default {
         statusFilter(status) {
             const statusMap = {
                 Succeeded: 'success',
-                Failed: 'danger'
-                // Running: 'info',
+                Failed: 'danger',
+                Unknown: 'info',
+                Pending: 'warning'
             };
             return statusMap[status];
         }

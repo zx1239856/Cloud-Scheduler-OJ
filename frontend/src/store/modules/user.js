@@ -1,14 +1,13 @@
 import { login, logout, getInfo, signup } from '@/api/user';
-import { getToken, setToken, removeToken, getUsername, setUsername, removeUsername,
-    getAvatar, removeAvatar, setAvatar } from '@/utils/auth';
 // import { resetRouter } from '@/router';
 
 const md5 = require('js-md5');
 
 const state = {
-    token: getToken(),
-    name: getUsername(),
-    avatar: getAvatar()
+    token: '',
+    name: '',
+    avatar: '',
+    permission: ''
 };
 
 const mutations = {
@@ -20,6 +19,9 @@ const mutations = {
     },
     SET_AVATAR: (state, avatar) => {
         state.avatar = avatar;
+    },
+    SET_PERMISSION: (state, permission) => {
+        state.permission = permission;
     }
 };
 
@@ -34,9 +36,7 @@ const actions = {
                 commit('SET_TOKEN', payload.token);
                 commit('SET_NAME', payload.username);
                 commit('SET_AVATAR', payload.avatar);
-                setToken(payload.token);
-                setUsername(payload.username);
-                setAvatar(payload.avatar);
+                commit('SET_PERMISSION', payload.permission);
                 resolve();
             }).catch(error => {
                 reject(error);
@@ -88,9 +88,7 @@ const actions = {
                 commit('SET_TOKEN', '');
                 commit('SET_AVATAR', '');
                 commit('SET_NAME', '');
-                removeToken();
-                removeUsername();
-                removeAvatar();
+                commit('SET_PERMISSION', '');
                 // resetRouter();
                 resolve();
             }).catch(error => {
@@ -105,9 +103,7 @@ const actions = {
             commit('SET_TOKEN', '');
             commit('SET_AVATAR', '');
             commit('SET_NAME', '');
-            removeToken();
-            removeUsername();
-            removeAvatar();
+            commit('SET_PERMISSION', '');
             resolve();
         });
     }

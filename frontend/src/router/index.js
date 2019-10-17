@@ -83,7 +83,7 @@ export const constantRoutes = [
                 path: 'task-settings',
                 name: 'task-settings',
                 component: () => import('@/views/task_settings/index'),
-                meta: { title: 'Task Settings', icon: 'component' }
+                meta: { title: 'Task Settings', icon: 'settings' }
             }
         ]
     },

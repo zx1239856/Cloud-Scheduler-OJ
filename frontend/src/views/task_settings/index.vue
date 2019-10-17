@@ -14,7 +14,7 @@
       <el-button v-waves class="filter-item" type="primary" icon="el-icon-search" @click="handleFilter">
         Search
       </el-button> -->
-      <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleCreate">
+      <el-button v-if="permission=='admin'" class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleCreate">
         Add
       </el-button>
     </div>
@@ -51,7 +51,7 @@
       </el-table-column>
       <el-table-column label="Actions" align="center" width="150" class-name="small-padding fixed-width">
         <template slot-scope="{row}">
-          <el-button type="primary" icon="el-icon-edit" @click="handleUpdate(row)">
+          <el-button type="primary" size="small" icon="el-icon-edit" @click="handleUpdate(row)">
             Edit
           </el-button>
         </template>
@@ -61,28 +61,26 @@
     <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
 
     <el-dialog :title="dialogType" :visible.sync="dialogFormVisible">
-      <el-form ref="dataForm" :rules="dialogRules" :model="createFromData" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
+      <el-form ref="dialogForm" :rules="dialogRules" :model="dialogData" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
         <el-form-item label="Name" prop="name">
-          <el-input v-model="createFromData.name" />
+          <el-input v-model="dialogData.name" />
         </el-form-item>
-        <el-form-item label="Concurrency">
-          <el-slider v-model="createFromData.concurrency" show-input />
+        <el-form-item label="Concurrency" prop="concurrency">
+          <el-slider v-model="dialogData.concurrency" show-input />
         </el-form-item>
         <el-form-item label="Config" prop="task_config">
-          <el-input v-model="createFromData.task_config" :autosize="{ minRows: 4, maxRows: 10}" type="textarea" />
+          <el-input v-model="dialogData.task_config" :autosize="{ minRows: 4, maxRows: 10}" type="textarea" />
         </el-form-item>
       </el-form>
-
       <div slot="footer" class="dialog-footer">
         <el-button @click="dialogFormVisible = false">
           Cancel
         </el-button>
-        <el-button type="primary" @click="dialogType==='Create'?createTask():updateTask()">
+        <el-button type="primary" @click="handleDialogConfirm">
           Confirm
         </el-button>
       </div>
     </el-dialog>
-
   </div>
 </template>
 
@@ -90,21 +88,13 @@
 import { createTask, getTaskList, updateTask } from '@/api/tasks';
 import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
+import { mapGetters } from 'vuex';
 
 export default {
     name: 'PodList',
     components: { Pagination },
     directives: { waves },
-    filters: {
-        statusFilter(status) {
-            const statusMap = {
-                Succeeded: 'success',
-                Failed: 'danger'
-                // Running: 'info',
-            };
-            return statusMap[status];
-        }
-    },
+
     data() {
         const validConfig = (rule, value, callback) => {
             try {
@@ -126,22 +116,35 @@ export default {
                 page: 1,
                 limit: 25
             },
-            createFromData: {
+            dialogData: {
                 uuid: undefined,
                 concurrency: 5,
                 name: '',
                 task_config: '{}'
             },
             dialogRules: {
-                name: [{ required: true, message: 'name is required', trigger: 'blur' }],
+                name: [{
+                    required: true,
+                    message: 'name is required',
+                    trigger: 'change'
+                }],
+                concurrency: [{
+                    required: true,
+                    message: 'concurrency is required'
+                }],
                 task_config: [{
                     required: true,
                     message: 'invalid config',
-                    trigger: 'blur',
+                    trigger: 'change',
                     validator: validConfig
                 }]
             }
         };
+    },
+    computed: {
+        ...mapGetters([
+            'permission'
+        ])
     },
     created() {
         this.getList();
@@ -156,16 +159,12 @@ export default {
                 this.listLoading = false;
             });
         },
-        handleTerminal(row) {
-            const routeData = this.$router.resolve({ name: 'webssh', query: { pod: row.name, namespace: row.namespace }});
-            window.open(routeData.href, '_blank');
-        },
         handleCreate() {
             this.dialogFormVisible = true;
             this.dialogType = 'Create';
         },
         handleUpdate(row) {
-            this.createFromData.uuid = row.uuid;
+            this.dialogData = Object.assign({}, row);
             this.dialogFormVisible = true;
             this.dialogType = 'Update';
         },
@@ -173,13 +172,13 @@ export default {
             this.dialogFormVisible = false;
 
             createTask({
-                concurrency: this.createFromData.concurrency,
-                name: this.createFromData.name,
-                task_config: JSON.parse(this.createFromData.task_config) }
+                concurrency: this.dialogData.concurrency,
+                name: this.dialogData.name,
+                task_config: JSON.parse(this.dialogData.task_config) }
             ).then(response => {
                 this.$message({
                     showClose: true,
-                    message: 'Task Created',
+                    message: 'Task Settings Created',
                     type: 'success'
                 });
                 this.getList();
@@ -188,17 +187,30 @@ export default {
         updateTask() {
             this.dialogFormVisible = false;
 
-            updateTask(this.createFromData.uuid, {
-                concurrency: this.createFromData.concurrency,
-                name: this.createFromData.name,
-                task_config: JSON.parse(this.createFromData.task_config) }
+            updateTask(this.dialogData.uuid, {
+                concurrency: this.dialogData.concurrency,
+                name: this.dialogData.name,
+                task_config: JSON.parse(this.dialogData.task_config) }
             ).then(response => {
                 this.$message({
                     showClose: true,
-                    message: 'Task Updated',
+                    message: 'Task Settings Updated',
                     type: 'success'
                 });
                 this.getList();
+            });
+        },
+        handleDialogConfirm() {
+            this.$refs.dialogForm.validate(valid => {
+                if (valid) {
+                    if (this.dialogType === 'Create') {
+                        this.createTask();
+                    } else {
+                        this.updateTask();
+                    }
+                } else {
+                    return false;
+                }
             });
         },
         sortChange(data) {

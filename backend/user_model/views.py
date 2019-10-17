@@ -183,7 +183,8 @@ class UserLogin(View):
                     'username': user.username,
                     'uuid': user.uuid,
                     'token': token,
-                    'avatar': 'https://fdn.geekzu.org/avatar/{}'.format(md5.hexdigest())
+                    'avatar': 'https://fdn.geekzu.org/avatar/{}'.format(md5.hexdigest()),
+                    'permission': 'admin' if user.user_type else 'user'
                 }
             else:
                 raise UserModel.DoesNotExist()
