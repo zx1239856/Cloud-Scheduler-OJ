@@ -1,5 +1,6 @@
 import { login, logout, getInfo, signup } from '@/api/user';
-import { getToken, setToken, removeToken, getUsername, setUsername, removeUsername } from '@/utils/auth';
+import { getToken, setToken, removeToken, getUsername, setUsername, removeUsername,
+    getAvatar, removeAvatar, setAvatar } from '@/utils/auth';
 // import { resetRouter } from '@/router';
 
 const md5 = require('js-md5');
@@ -7,7 +8,7 @@ const md5 = require('js-md5');
 const state = {
     token: getToken(),
     name: getUsername(),
-    avatar: ''
+    avatar: getAvatar()
 };
 
 const mutations = {
@@ -35,6 +36,7 @@ const actions = {
                 commit('SET_AVATAR', payload.avatar);
                 setToken(payload.token);
                 setUsername(payload.username);
+                setAvatar(payload.avatar);
                 resolve();
             }).catch(error => {
                 reject(error);
@@ -84,8 +86,11 @@ const actions = {
         return new Promise((resolve, reject) => {
             logout(state.token).then(() => {
                 commit('SET_TOKEN', '');
+                commit('SET_AVATAR', '');
+                commit('SET_NAME', '');
                 removeToken();
                 removeUsername();
+                removeAvatar();
                 // resetRouter();
                 resolve();
             }).catch(error => {
@@ -98,7 +103,11 @@ const actions = {
     resetToken({ commit }) {
         return new Promise(resolve => {
             commit('SET_TOKEN', '');
+            commit('SET_AVATAR', '');
+            commit('SET_NAME', '');
             removeToken();
+            removeUsername();
+            removeAvatar();
             resolve();
         });
     }

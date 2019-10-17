@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie';
 
-const TokenKey = 'vue_admin_template_token';
+const TokenKey = 'admin_token';
 
 export function getToken() {
     return Cookies.get(TokenKey);
@@ -11,6 +11,20 @@ export function setToken(token) {
 }
 
 export function removeToken() {
+    return Cookies.remove(TokenKey);
+}
+
+const AvatarKey = 'avatar_url';
+
+export function setAvatar(avatar) {
+    return Cookies.set(AvatarKey, avatar);
+}
+
+export function getAvatar() {
+    return Cookies.get(AvatarKey);
+}
+
+export function removeAvatar() {
     return Cookies.remove(TokenKey);
 }
 

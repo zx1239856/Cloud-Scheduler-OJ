@@ -27,7 +27,7 @@
       </el-table-column>
       <el-table-column label="Created Time" width="200" align="center">
         <template slot-scope="scope">
-          <span>{{ scope.row.create_time }}</span>
+          <span>{{ new Date(scope.row.create_time).toLocaleString() }}</span>
         </template>
       </el-table-column>
       <el-table-column label="Status" class-name="status-col" width="150" align="center">
@@ -97,11 +97,7 @@ export default {
             getPodList(this.listQuery).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
-
-                // Just to simulate the time of the request
-                setTimeout(() => {
-                    this.listLoading = false;
-                }, 0.5 * 1000);
+                this.listLoading = false;
             });
         },
         handleTerminal(row) {

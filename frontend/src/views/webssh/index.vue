@@ -26,9 +26,9 @@ export default {
 </script>
 
 <style lang="scss">
-.terminal {
-    min-height: inherit;
-    height: 100%;
-    width: 100%;
-}
+    .terminal {
+        min-height: inherit;
+        height: 100%;
+        width: 100%;
+    }
 </style>

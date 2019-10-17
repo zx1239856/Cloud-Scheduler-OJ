@@ -61,16 +61,10 @@ export const constantRoutes = [
     {
         path: '/demo',
         component: Layout,
-        redirect: '/demo/webssh',
+        redirect: '/demo/webide',
         name: 'Demo',
         meta: { title: 'Demo', icon: 'example' },
         children: [
-            {
-                path: 'webssh',
-                name: 'WebSSH',
-                component: () => import('@/views/webssh/index'),
-                meta: { title: 'Web SSH', icon: 'table' }
-            },
             {
                 path: 'webide',
                 name: 'Tree',
@@ -91,7 +85,6 @@ export const constantRoutes = [
             meta: { title: 'Pod List', icon: 'dashboard' }
         }]
     },
-
     {
         path: '/webssh/',
         name: 'webssh',
