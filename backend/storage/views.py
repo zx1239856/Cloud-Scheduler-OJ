@@ -141,7 +141,7 @@ class StorageHandler(View):
             return JsonResponse(RESPONSE.INVALID_REQUEST)
 
         try:
-            self.api_instance.delete_namespaced_persistent_volume_claim(name=pvc_name, namespace='storage-manage')
+            self.api_instance.delete_namespaced_persistent_volume_claim(name=pvc_name, namespace=KUBERNETES_NAMESPACE)
             response = RESPONSE.SUCCESS
         except Exception:
             response = RESPONSE.OPERATION_FAILED
@@ -166,7 +166,7 @@ class StorageFileHandler(View):
         @apiVersion 0.1.0
         @apiParamExample {json} Request-Example:
         {
-            "fileDirectory": "../test.txt",
+            "file": [FILE],
             "pvcName": "mypvc",
             "mountPath": "data/"
         }
