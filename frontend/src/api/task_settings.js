@@ -1,6 +1,6 @@
 import request from '@/utils/request';
 
-export function createTask(data) {
+export function createTaskSettings(data) {
     return request({
         url: '/task_settings/',
         method: 'post',
@@ -8,17 +8,24 @@ export function createTask(data) {
     });
 }
 
-export function getTaskList() {
+export function getTaskSettingsList() {
     return request({
         url: '/task_settings/',
         method: 'get'
     });
 }
 
-export function updateTask(uuid, data) {
+export function updateTaskSettings(uuid, data) {
     return request({
         url: '/task_settings/' + uuid + '/',
         method: 'put',
         data
+    });
+}
+
+export function deleteTaskSettings(uuid) {
+    return request({
+        url: '/task_settings/' + uuid + '/',
+        method: 'delete'
     });
 }

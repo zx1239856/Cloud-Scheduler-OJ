@@ -49,10 +49,13 @@
           <span>{{ scope.row.concurrency }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" align="center" width="150" class-name="small-padding fixed-width">
+      <el-table-column label="Actions" align="center" width="250" class-name="small-padding fixed-width">
         <template slot-scope="{row}">
-          <el-button type="primary" size="small" icon="el-icon-edit" @click="handleUpdate(row)">
+          <el-button type="primary" size="small" icon="el-icon-edit" style="width: 90px; align: center;" @click="handleUpdate(row)">
             Edit
+          </el-button>
+          <el-button type="danger" size="small" icon="el-icon-delete" style="width: 100px; align: center;" @click="handleDelete(row)">
+            Delete
           </el-button>
         </template>
       </el-table-column>
@@ -81,11 +84,23 @@
         </el-button>
       </div>
     </el-dialog>
+
+    <el-dialog
+      title="Warning"
+      :visible.sync="deleteDialogVisible"
+      width="30%"
+    >
+      <span>Are you sure to delete this settings?</span>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="deleteDialogVisible = false">Cancel</el-button>
+        <el-button type="danger" @click="deleteTaskSettings">Delete</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-import { createTask, getTaskList, updateTask } from '@/api/tasks';
+import { createTaskSettings, getTaskSettingsList, updateTaskSettings, deleteTaskSettings } from '@/api/task_settings';
 import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 import { mapGetters } from 'vuex';
@@ -107,6 +122,7 @@ export default {
         return {
             dialogType: 'Create',
             dialogFormVisible: false,
+            deleteDialogVisible: false,
             tableKey: 0,
             list: null,
             total: 0,
@@ -153,7 +169,7 @@ export default {
         getList() {
             this.listLoading = true;
 
-            getTaskList(this.listQuery).then(response => {
+            getTaskSettingsList(this.listQuery).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
                 this.listLoading = false;
@@ -168,10 +184,14 @@ export default {
             this.dialogFormVisible = true;
             this.dialogType = 'Update';
         },
-        createTask() {
+        handleDelete(row) {
+            this.deleteDialogVisible = true;
+            this.dialogData = Object.assign({}, row);
+        },
+        createTaskSettings() {
             this.dialogFormVisible = false;
 
-            createTask({
+            createTaskSettings({
                 concurrency: this.dialogData.concurrency,
                 name: this.dialogData.name,
                 task_config: JSON.parse(this.dialogData.task_config) }
@@ -184,10 +204,10 @@ export default {
                 this.getList();
             });
         },
-        updateTask() {
+        updateTaskSettings() {
             this.dialogFormVisible = false;
 
-            updateTask(this.dialogData.uuid, {
+            updateTaskSettings(this.dialogData.uuid, {
                 concurrency: this.dialogData.concurrency,
                 name: this.dialogData.name,
                 task_config: JSON.parse(this.dialogData.task_config) }
@@ -200,13 +220,24 @@ export default {
                 this.getList();
             });
         },
+        deleteTaskSettings() {
+            this.deleteDialogVisible = false;
+            deleteTaskSettings(this.dialogData.uuid).then(response => {
+                this.$message({
+                    showClose: true,
+                    message: 'Task Settings Deleted',
+                    type: 'success'
+                });
+                this.getList();
+            });
+        },
         handleDialogConfirm() {
             this.$refs.dialogForm.validate(valid => {
                 if (valid) {
                     if (this.dialogType === 'Create') {
-                        this.createTask();
+                        this.createTaskSettings();
                     } else {
-                        this.updateTask();
+                        this.updateTaskSettings();
                     }
                 } else {
                     return false;
