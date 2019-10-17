@@ -21,6 +21,7 @@ __pycache__
 db.sqlite3
 backend/.coverage
 backend/htmlcov/
+backend/storage/data/
 
 /apidocs/
 .coverage

@@ -83,7 +83,7 @@ class TestStorage(TestCase):
     """
 
     # test uploading files
-
+    """
     def testUplaodFileRequestError(self):
         response = self.client.post('/storage/upload_file/', data=json.dumps({}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
@@ -101,15 +101,8 @@ class TestStorage(TestCase):
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
-
-
     """
-    def testUplaodFileInvalidFileDirectory(self):
-        response = self.client.post('/storage/upload_file/', data=json.dumps({'fileDirectory': 'invalidPath', 'pvcName': 'test-pvc', 'mountPath': 'test/'}), content_type='application/json')
-        self.assertEqual(response.status_code, 200)
-        response = json.loads(response.content)
-        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
-
+    """
     def testUplaodFilePVCNotExists(self):
         response = self.client.post('/storage/upload_file/', data=json.dumps({'fileDirectory': 'D:\\hw3.txt', 'pvcName': 'notexistspvc', 'mountPath': 'test/'}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
