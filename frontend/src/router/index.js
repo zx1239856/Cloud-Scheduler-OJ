@@ -73,16 +73,28 @@ export const constantRoutes = [
             }
         ]
     },
-
+    {
+        path: '/task',
+        name: 'task',
+        component: Layout,
+        meta: { title: 'Task', icon: 'list' },
+        children: [
+            {
+                path: 'task-settings',
+                name: 'task-settings',
+                component: () => import('@/views/task_settings/index'),
+                meta: { title: 'Task Settings', icon: 'component' }
+            }
+        ]
+    },
     {
         path: '/pods',
         component: Layout,
-        // redirect: '/pods',
         children: [{
             path: 'index',
             name: 'pods',
             component: () => import('@/views/pods/index'),
-            meta: { title: 'Pod List', icon: 'dashboard' }
+            meta: { title: 'Pod List', icon: 'list' }
         }]
     },
     {
@@ -90,6 +102,7 @@ export const constantRoutes = [
         name: 'webssh',
         component: () => import('@/views/webssh/index')
     },
+
     // {
     //   path: '/form',
     //   component: Layout,
