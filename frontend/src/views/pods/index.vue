@@ -85,19 +85,24 @@ export default {
                 type: [{ required: true, message: 'type is required', trigger: 'change' }],
                 timestamp: [{ type: 'date', required: true, message: 'timestamp is required', trigger: 'change' }],
                 title: [{ required: true, message: 'title is required', trigger: 'blur' }]
-            }
+            },
+            polling: undefined
         };
     },
     created() {
+        this.polling = window.setInterval(this.getList, 5 * 1000);
         this.getList();
+    },
+    beforeDestroy() {
+        clearInterval(this.polling);
     },
     methods: {
         getList() {
-            this.listLoading = true;
-
             getPodList(this.listQuery).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
+                this.listLoading = false;
+            }).catch(() => {
                 this.listLoading = false;
             });
         },
