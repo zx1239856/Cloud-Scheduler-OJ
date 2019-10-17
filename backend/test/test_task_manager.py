@@ -4,9 +4,10 @@ Unit Test for TaskManager
 from uuid import uuid1
 import json
 import hashlib
-from django.test import TestCase, Client
+from django.test import TestCase, Client, RequestFactory
 from task_manager.models import TaskSettings
 from task_manager.views import getUUID
+import task_manager.views as views
 from user_model.models import UserModel, UserType
 from api.common import RESPONSE
 
@@ -21,6 +22,105 @@ def loginTestUser(user):
     response = json.loads(response.content)
     assert response['status'] == 200
     return response['payload']['token']
+
+
+class TestTask(TestCase):
+    def setUp(self):
+        self.client = Client()
+        # create 3o objects
+        self.item_list = []
+        md5 = hashlib.md5()
+        md5.update('adminadmin_salt'.encode('utf8'))
+        UserModel.objects.create(uuid=str(getUUID()), username='admin', password=md5.hexdigest(),
+                                 email='example@example.com', user_type=UserType.ADMIN, salt='admin_salt')
+        md5 = hashlib.md5()
+        md5.update('useruser_salt'.encode('utf8'))
+        UserModel.objects.create(uuid=str(getUUID()), username='user', password=md5.hexdigest(),
+                                 email='example@example.com', user_type=UserType.USER, salt='user_salt')
+
+    def testGetTaskInvalidReq(self):
+        token = loginTestUser('admin')
+        response = self.client.get('/task/?page=invalid', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
+
+    def testCreateTaskFailures(self):
+        token = loginTestUser('admin')
+        response = self.client.post('/task/', data='invalid_json',
+                                    content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
+                                    HTTP_X_ACCESS_TOKEN=token,
+                                    HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
+        response = self.client.post('/task/', data=json.dumps({'settings_uuid': 'not_exist'}),
+                                    content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
+                                    HTTP_X_ACCESS_TOKEN=token,
+                                    HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+
+    def testGetTaskItemFailures(self):
+        token = loginTestUser('admin')
+        response = self.client.get('/task/{}/'.format('invalid_uuid'),
+                                   HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+
+    def testDelTaskItemFailures(self):
+        token = loginTestUser('admin')
+        response = self.client.delete('/task/{}/'.format('invalid_uuid'),
+                                      HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+
+    def testTaskCRUD(self):
+        TaskSettings.objects.create(name='test', task_config='test_config', concurrency=3, uuid='my_uuid')
+        token = loginTestUser('admin')
+        task_list = []
+        # add 30 tasks
+        for _ in range(0, 30):
+            response = self.client.post('/task/', data=json.dumps({
+                'settings_uuid': 'my_uuid'
+            }), content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
+                                        HTTP_X_ACCESS_TOKEN=token,
+                                        HTTP_X_ACCESS_USERNAME='admin')
+            self.assertEqual(response.status_code, 200)
+            response = json.loads(response.content)
+            self.assertEqual(response['status'], 200)
+            task_list.append(response['payload']['uuid'])
+        # get task list
+        response = self.client.get('/task/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], 200)
+        self.assertEqual(response['payload']['count'], 30)
+        self.assertEqual(len(response['payload']['entry']), 25)
+        response = self.client.get('/task/?page=2', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], 200)
+        self.assertEqual(response['payload']['count'], 30)
+        self.assertEqual(len(response['payload']['entry']), 5)
+        # get specific task
+        for uuid in task_list:
+            response = self.client.get('/task/{}/'.format(uuid),
+                                       HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
+            self.assertEqual(response.status_code, 200)
+            response = json.loads(response.content)
+            self.assertEqual(response['status'], 200)
+            self.assertEqual(response['payload']['uuid'], uuid)
+        # delete all tasks
+        for uuid in task_list:
+            response = self.client.delete('/task/{}/'.format(uuid),
+                                          HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
+            self.assertEqual(response.status_code, 200)
+            response = json.loads(response.content)
+            self.assertEqual(response['status'], 200)
 
 
 class TestTaskSettings(TestCase):
@@ -250,3 +350,55 @@ class TestTaskSettings(TestCase):
         response = json.loads(response.content)
         self.assertEqual(response['status'], 200)
         self.assertEqual(response['payload']['task_config'], '{}')
+
+    # Test for server error
+    def testServerError(self):
+        factory = RequestFactory()
+        get = factory.get('/')
+        post = factory.post('/')
+        put = factory.put('/')
+        delete = factory.delete('/')
+
+        view = views.TaskSettingsListHandler.as_view()
+        response = view(get)
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SERVER_ERROR['status'])
+        response = view(post, __user=UserModel(user_type=UserType.USER))
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.PERMISSION_DENIED['status'])
+        response = view(post)
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SERVER_ERROR['status'])
+
+        view = views.TaskSettingsItemHandler.as_view()
+        response = view(get)
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SERVER_ERROR['status'])
+        response = view(put)
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SERVER_ERROR['status'])
+
+        view = views.ConcreteTaskListHandler.as_view()
+        response = view(get)
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SERVER_ERROR['status'])
+        response = view(post)
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SERVER_ERROR['status'])
+
+        view = views.ConcreteTaskHandler.as_view()
+        response = view(get)
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SERVER_ERROR['status'])
+        response = view(delete)
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SERVER_ERROR['status'])

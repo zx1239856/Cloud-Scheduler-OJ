@@ -15,7 +15,7 @@ class MockWSClient:
         self.open = True
 
     def write_stdin(self, data, **_):
-        assert data == 'Hello world'
+        pass
 
     def read_stdout(self, **_):
         if self.counter > 0:
