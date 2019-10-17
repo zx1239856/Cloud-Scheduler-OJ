@@ -14,7 +14,7 @@
       <el-button v-waves class="filter-item" type="primary" icon="el-icon-search" @click="handleFilter">
         Search
       </el-button> -->
-      <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleCreate">
+      <el-button v-if="permission=='admin'" class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleCreate">
         Add
       </el-button>
     </div>
@@ -65,7 +65,7 @@
         <el-form-item label="Name" prop="name">
           <el-input v-model="dialogData.name" />
         </el-form-item>
-        <el-form-item label="Concurrency">
+        <el-form-item label="Concurrency" prop="concurrency">
           <el-slider v-model="dialogData.concurrency" show-input />
         </el-form-item>
         <el-form-item label="Config" prop="task_config">
@@ -88,6 +88,7 @@
 import { createTask, getTaskList, updateTask } from '@/api/tasks';
 import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
+import { mapGetters } from 'vuex';
 
 export default {
     name: 'PodList',
@@ -127,6 +128,10 @@ export default {
                     message: 'name is required',
                     trigger: 'change'
                 }],
+                concurrency: [{
+                    required: true,
+                    message: 'concurrency is required'
+                }],
                 task_config: [{
                     required: true,
                     message: 'invalid config',
@@ -135,6 +140,11 @@ export default {
                 }]
             }
         };
+    },
+    computed: {
+        ...mapGetters([
+            'permission'
+        ])
     },
     created() {
         this.getList();

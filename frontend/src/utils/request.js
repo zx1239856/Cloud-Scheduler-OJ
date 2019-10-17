@@ -1,7 +1,6 @@
 import axios from 'axios';
 import { MessageBox, Message } from 'element-ui';
 import store from '@/store';
-import { getToken, getUsername } from '@/utils/auth';
 
 // create an axios instance
 const service = axios.create({
@@ -19,8 +18,8 @@ service.interceptors.request.use(
             // let each request carry token
             // ['X-Token'] is a custom headers key
             // please modify it according to the actual situation
-            config.headers['X-ACCESS-TOKEN'] = getToken();
-            config.headers['X-ACCESS-USERNAME'] = getUsername();
+            config.headers['X-ACCESS-TOKEN'] = store.getters.token;
+            config.headers['X-ACCESS-USERNAME'] = store.getters.name;
         }
         return config;
     },
