@@ -3,41 +3,15 @@ Unit Test for TaskManager
 """
 from uuid import uuid1
 import json
-import hashlib
-from django.test import TestCase, Client, RequestFactory
+from django.test import RequestFactory
 from task_manager.models import TaskSettings
-from task_manager.views import getUUID
 import task_manager.views as views
 from user_model.models import UserModel, UserType
 from api.common import RESPONSE
+from .common import loginTestUser, TestCaseWithBasicUser
 
 
-def loginTestUser(user):
-    client = Client()
-    response = client.post('/user/login/', data=json.dumps({
-        'username': user,
-        'password': user,
-    }), content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest')
-    assert response.status_code == 200
-    response = json.loads(response.content)
-    assert response['status'] == 200
-    return response['payload']['token']
-
-
-class TestTask(TestCase):
-    def setUp(self):
-        self.client = Client()
-        # create 3o objects
-        self.item_list = []
-        md5 = hashlib.md5()
-        md5.update('adminadmin_salt'.encode('utf8'))
-        UserModel.objects.create(uuid=str(getUUID()), username='admin', password=md5.hexdigest(),
-                                 email='example@example.com', user_type=UserType.ADMIN, salt='admin_salt')
-        md5 = hashlib.md5()
-        md5.update('useruser_salt'.encode('utf8'))
-        UserModel.objects.create(uuid=str(getUUID()), username='user', password=md5.hexdigest(),
-                                 email='example@example.com', user_type=UserType.USER, salt='user_salt')
-
+class TestTask(TestCaseWithBasicUser):
     def testGetTaskInvalidReq(self):
         token = loginTestUser('admin')
         response = self.client.get('/task/?page=invalid', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
@@ -123,19 +97,9 @@ class TestTask(TestCase):
             self.assertEqual(response['status'], 200)
 
 
-class TestTaskSettings(TestCase):
+class TestTaskSettings(TestCaseWithBasicUser):
     def setUp(self):
-        self.client = Client()
-        # create 3o objects
-        self.item_list = []
-        md5 = hashlib.md5()
-        md5.update('adminadmin_salt'.encode('utf8'))
-        UserModel.objects.create(uuid=str(getUUID()), username='admin', password=md5.hexdigest(),
-                                 email='example@example.com', user_type=UserType.ADMIN, salt='admin_salt')
-        md5 = hashlib.md5()
-        md5.update('useruser_salt'.encode('utf8'))
-        UserModel.objects.create(uuid=str(getUUID()), username='user', password=md5.hexdigest(),
-                                 email='example@example.com', user_type=UserType.USER, salt='user_salt')
+        super().setUp()
         for i in range(0, 30):
             item = TaskSettings.objects.create(uuid=str(uuid1()), name="task_{}".format(i), concurrency=30 - i,
                                                task_config={"meta": "meta_string_{}".format(i)})
