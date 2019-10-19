@@ -53,7 +53,10 @@ class TestTask(TestCaseWithBasicUser):
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
     def testTaskCRUD(self):
-        TaskSettings.objects.create(name='test', task_config='test_config', concurrency=3, uuid='my_uuid')
+        TaskSettings.objects.create(uuid='my_uuid', name="task_name",
+                                    description="test",
+                                    container_config=json.dumps({"meta": "meta_string_{}".format(1)}),
+                                    ttl_interval=3, replica=3, time_limit=5, max_sharing_users=1)
         token = loginTestUser('admin')
         task_list = []
         # add 30 tasks
@@ -101,8 +104,10 @@ class TestTaskSettings(TestCaseWithBasicUser):
     def setUp(self):
         super().setUp()
         for i in range(0, 30):
-            item = TaskSettings.objects.create(uuid=str(uuid1()), name="task_{}".format(i), concurrency=30 - i,
-                                               task_config={"meta": "meta_string_{}".format(i)})
+            item = TaskSettings.objects.create(uuid=str(uuid1()), name="task_{}".format(i),
+                                               description="test",
+                                               container_config=json.dumps({"meta": "meta_string_{}".format(i)}),
+                                               ttl_interval=3, replica=i+1, time_limit=5, max_sharing_users=1)
             self.item_list.append(item)
 
     def testPermission(self):
@@ -112,8 +117,8 @@ class TestTaskSettings(TestCaseWithBasicUser):
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], 200)
-        self.assertTrue('task_config' not in response['payload']['entry'][0].keys())
-        self.assertTrue('concurrency' not in response['payload']['entry'][0].keys())
+        self.assertTrue('container_config' not in response['payload']['entry'][0].keys())
+        self.assertTrue('ttl_interval' not in response['payload']['entry'][0].keys())
 
     def testGetListInvalidReq(self):
         token = loginTestUser('admin')
@@ -158,7 +163,7 @@ class TestTaskSettings(TestCaseWithBasicUser):
     def testCreateItemInvalidReq2(self):
         token = loginTestUser('admin')
         response = self.client.post('/task_settings/',
-                                    data=json.dumps({'concurrency': 3, 'task_config': {}}),
+                                    data=json.dumps({'replica': 3, 'container_config': {}}),
                                     content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
                                     HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -167,15 +172,18 @@ class TestTaskSettings(TestCaseWithBasicUser):
 
     def testCreateDuplicateItem(self):
         token = loginTestUser('admin')
+        data = {"name": "task_name", "description": "This is a demo test.",
+                "container_config": {}, "time_limit": 900, "replica": 2,
+                "ttl_interval": 5, "max_sharing_users": 1}
         response = self.client.post('/task_settings/',
-                                    data=json.dumps({'name': 'name', 'concurrency': 3, 'task_config': {}}),
+                                    data=json.dumps(data),
                                     content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
                                     HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], 200)
         response = self.client.post('/task_settings/',
-                                    data=json.dumps({'name': 'name', 'concurrency': 3, 'task_config': {}}),
+                                    data=json.dumps(data),
                                     content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
                                     HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -193,13 +201,13 @@ class TestTaskSettings(TestCaseWithBasicUser):
     def testCreateAndDeleteItem(self):
         token = loginTestUser('admin')
         for i in range(0, 20):
-            response = self.client.post('/task_settings/', data=json.dumps({
-                'name': 'unique_name_{}'.format(i),
-                'concurrency': i + 1,
-                'task_config': {
-                    'meta': 'my_meta_{}'.format(i)
-                }
-            }), content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest', HTTP_X_ACCESS_TOKEN=token,
+            response = self.client.post('/task_settings/',
+                                        data=json.dumps({"name": "task_name_{}".format(i),
+                                                         "description": "This is a demo test.",
+                                                         "container_config": {}, "time_limit": 900, "replica": 2,
+                                                         "ttl_interval": 5, "max_sharing_users": 1}),
+                                        content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
+                                        HTTP_X_ACCESS_TOKEN=token,
                                         HTTP_X_ACCESS_USERNAME='admin')
             self.assertEqual(response.status_code, 200)
             response = json.loads(response.content)
@@ -236,8 +244,8 @@ class TestTaskSettings(TestCaseWithBasicUser):
             self.assertEqual(response['status'], 200)
             self.assertEqual(response['payload']['uuid'], self.item_list[i].uuid)
             self.assertEqual(response['payload']['name'], self.item_list[i].name)
-            self.assertEqual(response['payload']['concurrency'], self.item_list[i].concurrency)
-            self.assertEqual(response['payload']['task_config'], str(self.item_list[i].task_config))
+            self.assertEqual(response['payload']['replica'], self.item_list[i].replica)
+            self.assertEqual(response['payload']['container_config'], json.loads(self.item_list[i].container_config))
 
     def testUpdateInvalidReq(self):
         token = loginTestUser('admin')
@@ -254,8 +262,7 @@ class TestTaskSettings(TestCaseWithBasicUser):
         token = loginTestUser('admin')
         response = self.client.put('/task_settings/{}/'.format(self.item_list[0].uuid),
                                    data=json.dumps({
-                                       'name': self.item_list[1].name,
-                                       'concurrency': 1
+                                       'name': self.item_list[1].name
                                    }), content_type='application/json',
                                    HTTP_X_REQUEST_WITH='XMLHttpRequest',
                                    HTTP_X_ACCESS_TOKEN=token,
@@ -268,8 +275,7 @@ class TestTaskSettings(TestCaseWithBasicUser):
         token = loginTestUser('admin')
         response = self.client.put('/task_settings/{}/'.format('invalid_uuid'),
                                    data=json.dumps({
-                                       'name': self.item_list[1].name,
-                                       'concurrency': 1
+                                       'name': self.item_list[1].name
                                    }), content_type='application/json',
                                    HTTP_X_REQUEST_WITH='XMLHttpRequest',
                                    HTTP_X_ACCESS_TOKEN=token,
@@ -284,7 +290,7 @@ class TestTaskSettings(TestCaseWithBasicUser):
             response = self.client.put('/task_settings/{}/'.format(self.item_list[i].uuid),
                                        data=json.dumps({
                                            'name': 'changed_name_{}'.format(i),
-                                           'concurrency': i
+                                           'replica': i
                                        }), content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
                                        HTTP_X_ACCESS_TOKEN=token,
                                        HTTP_X_ACCESS_USERNAME='admin')
@@ -297,11 +303,11 @@ class TestTaskSettings(TestCaseWithBasicUser):
             self.assertEqual(response.status_code, 200)
             response = json.loads(response.content)
             self.assertEqual(response['status'], 200)
-            self.assertEqual(response['payload']['task_config'], str(self.item_list[i].task_config))
+            self.assertEqual(response['payload']['container_config'], json.loads(self.item_list[i].container_config))
 
         response = self.client.put('/task_settings/{}/'.format(self.item_list[0].uuid),
                                    data=json.dumps({
-                                       'task_config': {}
+                                       'container_config': {}
                                    }), content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
                                    HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
@@ -313,7 +319,7 @@ class TestTaskSettings(TestCaseWithBasicUser):
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], 200)
-        self.assertEqual(response['payload']['task_config'], '{}')
+        self.assertEqual(response['payload']['container_config'], {})
 
     # Test for server error
     def testServerError(self):

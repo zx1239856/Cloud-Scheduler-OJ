@@ -18,9 +18,14 @@ class TaskSettings(models.Model):
     uuid = models.CharField(max_length=50, unique=True, db_index=True)
     # fetch runner pod according to uuid
     name = models.CharField(max_length=255, unique=True, db_index=True)
-    concurrency = models.PositiveIntegerField(default=1)
-    # task concurrency, such as image name, scripts, etc.
-    task_config = models.TextField()  # stores detailed JSON
+    description = models.TextField(max_length=1024)
+    # container config, including image, pvc, shell, commands, working_dir, memory limit
+    container_config = models.TextField()
+    time_limit = models.PositiveIntegerField(default=0)
+    replica = models.PositiveIntegerField(default=1)
+    ttl_interval = models.PositiveIntegerField(default=2)
+    max_sharing_users = models.PositiveIntegerField(default=1)
+    # meta data
     create_time = models.DateTimeField(auto_now_add=True, db_index=True)
 
 

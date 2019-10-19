@@ -11,8 +11,10 @@ class TestTaskSettings(TestCaseWithBasicUser):
     def setUp(self):
         super().setUp()
         for i in range(0, 30):
-            item = TaskSettings.objects.create(uuid=str(uuid1()), name="task_{}".format(i), concurrency=30 - i,
-                                               task_config={"meta": "meta_string_{}".format(i)})
+            item = TaskSettings.objects.create(uuid=str(uuid1()), name="task_{}".format(i),
+                                               description="test",
+                                               container_config=json.dumps({"meta": "meta_string_{}".format(i)}),
+                                               ttl_interval=3, replica=30 - i, time_limit=5, max_sharing_users=1)
             self.item_list.append(item)
 
     def testGetPostListInvalidReq(self):
