@@ -5,21 +5,19 @@ import task_manager.executor as executor
 class TestTaskExecutor(TestCase):
     def testConfigChecker(self):
         config_correct = {
-            'name': 'task_test',
-            'image': 'image',
-            'persistent_volume': {
-                'name': 'pvc',
-                'mount_path': '/var/mount/'
+            "image": "nginx:latest",
+            "persistent_volume": {
+                "name": "ceph-pvc",
+                "mount_path": "/var/image/"
             },
-            'exec': {
-                'shell': '/bin/sh',
-                'commands': ['echo hello', 'echo hello2']
-            }
+            "shell": "/bin/bash",
+            "commands": ["echo hello world", "echo $CLOUD_SCHEDULER_USER"],
+            "memory_limit": "128M"
         }
         self.assertEqual(executor.config_checker(config_correct), True)
-        config_correct['exec']['shell'] = []
+        config_correct['commands'] = ''
         self.assertEqual(executor.config_checker(config_correct), False)
-        config_correct.pop('exec')
+        config_correct['commands'] = []
         self.assertEqual(executor.config_checker(config_correct), True)
         config_correct.pop('persistent_volume')
         self.assertEqual(executor.config_checker(config_correct), False)

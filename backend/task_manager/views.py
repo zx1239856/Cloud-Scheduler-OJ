@@ -37,8 +37,12 @@ class TaskSettingsListHandler(View):
         @apiSuccess {Object[]} payload.entry List of TaskSettings Object
         @apiSuccess {String} payload.entry.uuid Task uuid
         @apiSuccess {String} payload.entry.name Task name
-        @apiSuccess {Number} [payload.entry.concurrency] Task concurrency (admin only)
-        @apiSuccess {Object} [payload.entry.task_config] Detailed task config (admin only)
+        @apiSuccess {String} payload.entry.description Task description
+        @apiSuccess {Object} [payload.entry.container_config] Detailed container config (admin only)
+        @apiSuccess {Number} payload.entry.time_limit Task time limit
+        @apiSuccess {Number} [payload.entry.replica] Replicas of containers (admin only)
+        @apiSuccess {Number} [payload.entry.ttl_interval] Health check interval (admin only)
+        @apiSuccess {Number} [payload.max_sharing_users] Max number of shared users (admin only)
         @apiSuccess {String} payload.entry.create_time Create time of task settings
         @apiUse APIHeader
         @apiUse Success
@@ -62,10 +66,14 @@ class TaskSettingsListHandler(View):
             payload['page_count'] = all_pages.num_pages if all_pages.count > 0 else 0
             payload['entry'] = []
             for item in curr_page.object_list:
-                entry = {'uuid': item.uuid, 'name': item.name, 'create_time': item.create_time}
+                entry = {'uuid': item.uuid, 'name': item.name,
+                         'description': item.description, 'create_time': item.create_time,
+                         'time_limit': item.time_limit}
                 if user.user_type == UserType.ADMIN:
-                    entry['concurrency'] = item.concurrency
-                    entry['task_config'] = item.task_config
+                    entry['container_config'] = json.loads(item.container_config)
+                    entry['replica'] = item.replica
+                    entry['ttl_interval'] = item.ttl_interval
+                    entry['max_sharing_users'] = item.max_sharing_users
                 payload['entry'].append(entry)
             response['payload'] = payload
         except ValueError:
@@ -85,13 +93,30 @@ class TaskSettingsListHandler(View):
         @apiPermission admin
         @apiParamExample {json} Request-Example:
         {
-            "name": "123456",
-            "concurrency": 3,
-            "task_config": {}
+            "name": "task_name",
+            "description": "This is a demo test.",
+            "container_config": {
+                    "image": "nginx:latest",
+                    "persistent_volume": {
+                            "name": "ceph-pvc",
+                            "mount_path": "/var/image/"
+                    },
+                    "shell": "/bin/bash",
+                    "commands": ["echo hello world", "echo $CLOUD_SCHEDULER_USER"],
+                    "memory_limit": "128M"
+            },
+            "time_limit": 900,
+            "replica": 2,
+            "ttl_interval": 5,
+            "max_sharing_users": 1
         }
-        @apiParam {String} name Name of the task
-        @apiParam {Number} concurrency Number of concurrent works of the task
-        @apiParam {Object} task_config Task configuration
+        @apiParam {String} name Task name
+        @apiParam {String} description Task description
+        @apiParam {Object} container_config Detailed container config
+        @apiParam {Number} time_limit Task time limit
+        @apiParam {Number} replica Replicas of containers
+        @apiParam {Number} ttl_interval Health check interval
+        @apiParam {Number} max_sharing_users Max number of shared users
         @apiSuccess {Object} payload Success payload is empty
         @apiUse APIHeader
         @apiUse Success
@@ -110,12 +135,22 @@ class TaskSettingsListHandler(View):
                 response = RESPONSE.PERMISSION_DENIED
             else:
                 query = json.loads(request.body)
-                if 'name' not in query.keys() or 'concurrency' not in query.keys() or 'task_config' not in query.keys():
+                invalid = 'name' not in query.keys() or 'description' not in query.keys() or \
+                          'container_config' not in query.keys() or 'time_limit' not in query.keys() or \
+                          'replica' not in query.keys() or 'ttl_interval' not in query.keys() or \
+                          'max_sharing_users' not in query.keys() or not isinstance(query['container_config'], dict) or \
+                          not isinstance(query['time_limit'], int) or \
+                          not isinstance(query['replica'], int) or not isinstance(query['ttl_interval'], int) or \
+                          not isinstance(query['max_sharing_users'], int)
+                if invalid:
                     response = RESPONSE.INVALID_REQUEST
                 else:
                     TaskSettings.objects.create(uuid=str(getUUID()), name=query['name'],
-                                                concurrency=query['concurrency'],
-                                                task_config=query['task_config'])
+                                                description=query['description'],
+                                                container_config=json.dumps(query['container_config']),
+                                                time_limit=query['time_limit'], replica=query['replica'],
+                                                ttl_interval=query['ttl_interval'],
+                                                max_sharing_users=query['max_sharing_users'])
                     response = RESPONSE.SUCCESS
         except ValueError:
             response = RESPONSE.INVALID_REQUEST
@@ -143,9 +178,13 @@ class TaskSettingsItemHandler(View):
         @apiSuccess {Object} payload Response object
         @apiSuccess {String} payload.uuid Task uuid
         @apiSuccess {String} payload.name Task name
-        @apiSuccess {Number} payload.concurrency Task concurrency
-        @apiSuccess {Object} payload.task_config Detailed task config
-        @apiSuccess {String} payload.create_time Create time of task settings
+        @apiSuccess {String} payload.description Task description
+        @apiSuccess {Object} payload.container_config Detailed container configs
+        @apiSuccess {Number} payload.time_limit Task time limit
+        @apiSuccess {Number} payload.replica Replicas of containers
+        @apiSuccess {Number} payload.ttl_interval Health check interval
+        @apiSuccess {Number} payload.max_sharing_users Max number of shared users
+        @apiSuccess {String} payload.create_time Create time of task setting
         @apiUse APIHeader
         @apiUse Success
         @apiUse ServerError
@@ -160,8 +199,10 @@ class TaskSettingsItemHandler(View):
             assert uuid is not None
             response = RESPONSE.SUCCESS
             item = TaskSettings.objects.get(uuid=uuid)
-            response['payload'] = {'uuid': item.uuid, 'name': item.name, 'concurrency': item.concurrency,
-                                   'task_config': item.task_config, 'create_time': item.create_time}
+            response['payload'] = {'uuid': item.uuid, 'name': item.name, 'description': item.description,
+                                   'container_config': json.loads(item.container_config), 'time_limit': item.time_limit,
+                                   'replica': item.replica, 'ttl_interval': item.ttl_interval,
+                                   'max_sharing_users': item.max_sharing_users, 'create_time': item.create_time}
         except TaskSettings.DoesNotExist:
             response = RESPONSE.OPERATION_FAILED
             response['message'] += " {}".format("Object does not exist.")
@@ -181,11 +222,15 @@ class TaskSettingsItemHandler(View):
         @apiDescription Leave optional params empty to keep them as the original value
         @apiParamExample {json} Request-Example:
         {
-            "concurrency": 3
+            "name": "33"
         }
-        @apiParam {String} [name] Name of the task
-        @apiParam {Number} [concurrency] Number of concurrent works of the task
-        @apiParam {Object} [task_config] Task configuration
+        @apiParam {String} [name] Task name
+        @apiParam {String} [description] Task description
+        @apiParam {Object} [container_config] Detailed container config
+        @apiParam {Number} [time_limit] Task time limit
+        @apiParam {Number} [replica] Replicas of containers
+        @apiParam {Number} [ttl_interval] Health check interval
+        @apiParam {Number} [max_sharing_users] Max number of shared users
         @apiSuccess {Object} payload Success payload is empty
         @apiUse APIHeader
         @apiUse Success
@@ -204,10 +249,18 @@ class TaskSettingsItemHandler(View):
             item = TaskSettings.objects.get(uuid=uuid)
             if 'name' in query.keys():
                 item.name = str(query['name'])
-            if 'concurrency' in query.keys():
-                item.concurrency = int(query['concurrency'])
-            if 'task_config' in query.keys():
-                item.task_config = dict(query['task_config'])
+            if 'description' in query.keys():
+                item.description = str(query['description'])
+            if 'container_config' in query.keys():
+                item.container_config = json.dumps(dict(query['container_config']))
+            if 'time_limit' in query.keys():
+                item.time_limit = int(query['time_limit'])
+            if 'replica' in query.keys():
+                item.replica = int(query['replica'])
+            if 'ttl_interval' in query.keys():
+                item.ttl_interval = int(query['ttl_interval'])
+            if 'max_sharing_users' in query.keys():
+                item.max_sharing_users = int(query['max_sharing_users'])
             item.save(force_update=True)
         except ValueError:
             response = RESPONSE.INVALID_REQUEST
