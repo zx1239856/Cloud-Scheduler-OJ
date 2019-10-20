@@ -58,7 +58,6 @@ class StorageHandler(View):
             response = RESPONSE.SERVER_ERROR
         return JsonResponse(response)
 
-
     def post(self, request, **_):
         """
         @api {post} /storage/ Create a PVC

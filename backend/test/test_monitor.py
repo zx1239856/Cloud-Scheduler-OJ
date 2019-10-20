@@ -58,6 +58,27 @@ class MockCoreV1Api:
             }))
         return MockCoreV1Api.ReturnItems(item_list)
 
+    @staticmethod
+    def list_namespaced_persistent_volume_claim(namespace, **_):
+        namespace = 'test-ns'
+        item_list = []
+        for i in range(0, 51):
+            item_list.append(DotDict({
+                'metadata':
+                    DotDict({
+                        'namespace': namespace,
+                        'name': 'pvc_{}'.format(i),
+                    }),
+                'spec':
+                    DotDict({
+                        'resources':
+                            DotDict({
+                                'requests': {'storage': '100Mi'}
+                            })
+                    })
+            }))
+        return MockCoreV1Api.ReturnItems(item_list)
+
 
 class TestTaskSettings(TestCase):
     def setUp(self):
