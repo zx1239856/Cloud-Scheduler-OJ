@@ -15,6 +15,7 @@
 
 <script>
 export default {
+    name: 'Tree',
     data() {
         return {
             filterText: '',

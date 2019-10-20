@@ -35,7 +35,6 @@ import 'codemirror/mode/vue/vue.js';
 const CodeMirror = window.CodeMirror || _CodeMirror;
 
 export default {
-    name: 'InCoder',
     props: {
         // 外部传入的内容，用于实现双向绑定
         value: {
@@ -193,7 +192,7 @@ export default {
 
     .CodeMirror {
         z-index: 1;
-        height: 85vh;
+        height: 80vh;
         .CodeMirror-code {
             line-height: 19px;
         }
