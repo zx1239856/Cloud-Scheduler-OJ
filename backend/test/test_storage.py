@@ -7,8 +7,7 @@ import mock
 from django.test import TestCase, Client
 from api.common import RESPONSE
 import storage.views
-from test_monitor import MockCoreV1Api
-from test_monitor import mockGetK8sClient
+from .common import MockCoreV1Api, mockGetK8sClient
 
 class TestStorage(TestCase):
     def setUp(self):

@@ -1,101 +1,19 @@
 from uuid import uuid1
 import json
-import hashlib
 import mock
-from django.test import TestCase, Client
 from task_manager.models import TaskSettings
-from task_manager.views import getUUID
-from user_model.models import UserModel, UserType
 from api.common import RESPONSE
 import monitor.views
+from .common import loginTestUser, TestCaseWithBasicUser, MockCoreV1Api, mockGetK8sClient
 
-
-def loginTestUser(user):
-    client = Client()
-    response = client.post('/user/login/', data=json.dumps({
-        'username': user,
-        'password': user,
-    }), content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest')
-    assert response.status_code == 200
-    response = json.loads(response.content)
-    assert response['status'] == 200
-    return response['payload']['token']
-
-
-def mockGetK8sClient():
-    return 1
-
-
-class DotDict(dict):
-    """dot.notation access to dictionary attributes"""
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-
-
-class MockCoreV1Api:
-    class ReturnItems:
-        def __init__(self, item_list):
-            self.items = item_list
-
-    def __init__(self, _):
-        pass
-
-    @staticmethod
-    def list_pod_for_all_namespaces(**_):
-        item_list = []
-        for i in range(0, 51):
-            item_list.append(DotDict({
-                'status': DotDict({'pod_ip': 'ip_{}'.format(i), 'phase': 'Running'}),
-                'metadata':
-                    DotDict({
-                        'namespace': 'test_ns',
-                        'name': 'pod_{}'.format(i),
-                        'creation_timestamp': str(i),
-                        'uid': 'uid_{}'.format(i),
-                    }),
-                'spec': DotDict({'node_name': 'test_node'})
-            }))
-        return MockCoreV1Api.ReturnItems(item_list)
-
-    @staticmethod
-    def list_namespaced_persistent_volume_claim(namespace, **_):
-        namespace = 'test-ns'
-        item_list = []
-        for i in range(0, 51):
-            item_list.append(DotDict({
-                'metadata':
-                    DotDict({
-                        'namespace': namespace,
-                        'name': 'pvc_{}'.format(i),
-                    }),
-                'spec':
-                    DotDict({
-                        'resources':
-                            DotDict({
-                                'requests': {'storage': '100Mi'}
-                            })
-                    })
-            }))
-        return MockCoreV1Api.ReturnItems(item_list)
-
-
-class TestTaskSettings(TestCase):
+class TestTaskSettings(TestCaseWithBasicUser):
     def setUp(self):
-        self.client = Client()
-        # create 3o objects
-        self.item_list = []
-        md5 = hashlib.md5()
-        md5.update('adminadmin_salt'.encode('utf8'))
-        UserModel.objects.create(uuid=str(getUUID()), username='admin', password=md5.hexdigest(),
-                                 email='example@example.com', user_type=UserType.ADMIN, salt='admin_salt')
-        md5 = hashlib.md5()
-        md5.update('useruser_salt'.encode('utf8'))
-        UserModel.objects.create(uuid=str(getUUID()), username='user', password=md5.hexdigest(),
-                                 email='example@example.com', user_type=UserType.USER, salt='user_salt')
+        super().setUp()
         for i in range(0, 30):
-            item = TaskSettings.objects.create(uuid=str(uuid1()), name="task_{}".format(i), concurrency=30 - i,
-                                               task_config={"meta": "meta_string_{}".format(i)})
+            item = TaskSettings.objects.create(uuid=str(uuid1()), name="task_{}".format(i),
+                                               description="test",
+                                               container_config=json.dumps({"meta": "meta_string_{}".format(i)}),
+                                               ttl_interval=3, replica=30 - i, time_limit=5, max_sharing_users=1)
             self.item_list.append(item)
 
     def testGetPostListInvalidReq(self):
