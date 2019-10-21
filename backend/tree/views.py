@@ -3,10 +3,9 @@ View handler for tree
 """
 
 import logging
-from threading import Thread
-from django.http import JsonResponse, HttpResponse
+import json
+from django.http import JsonResponse
 from django.views import View
-from django.shortcuts import render
 from kubernetes.client import Configuration, ApiClient, configuration
 from kubernetes.client.apis import core_v1_api
 from kubernetes.stream import stream
@@ -14,6 +13,13 @@ from api.common import RESPONSE
 from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL
 
 LOGGER = logging.getLogger(__name__)
+
+def addPropertiesToJsonResponse(jsonResponse):
+    jsonResponse['payload']['directories'] = []
+    jsonResponse['payload']['linux'] = []
+    jsonResponse['payload']['files'] = []
+    jsonResponse['payload']['filecontent'] = ""
+    return jsonResponse
 
 class SSH:
     def __init__(self):
@@ -27,10 +33,6 @@ class SSH:
 
     def connect(self, pod, command, namespace='default'):
         try:
-            print(pod)
-            print(namespace)
-            resp = self.api_client.read_namespaced_pod(name=pod, namespace=namespace)
-            # print(resp)
             self.api_response = stream(
                 self.api_client.connect_get_namespaced_pod_exec,
                 name=pod,
@@ -48,8 +50,120 @@ class SSH:
             LOGGER.warning(ex)
             return 1
 
-# class TreeFilesHandler:
-#     """tree file ports"""
+class TreeFilesHandler(View):
+    """tree file ports"""
+    http_method_names = ['get', 'post', 'put', 'delete']
+
+    def get(self, request):
+        podName = request.GET.get('pod')
+        namespace = request.GET.get('namespace')
+        path = request.GET.get('path')
+        filename = request.GET.get('filename')
+        print(filename)
+        exec_command = [
+            '/bin/sh',
+            '-c',
+            'cd ' + path + '; cat ' + filename
+        ]
+        ssh = SSH()
+        response = ssh.connect(pod=podName, command=exec_command, namespace=namespace)
+        jsonResponse = addPropertiesToJsonResponse(RESPONSE.SUCCESS)
+        jsonResponse['payload']['filecontent'] = response
+        return JsonResponse(jsonResponse)
+
+    def post(self, request):
+        try:
+            query = json.loads(request.body)
+            podName = query.get('pod', None)
+            namespace = query.get('namespace', 'default')
+            path = query.get('path', '.')
+            filename = query.get('filename', '')
+            exec_command = [
+                '/bin/sh',
+                '-c',
+                'cd ' + path + '; touch ' + filename
+            ]
+            ssh = SSH()
+            ssh.connect(pod=podName, command=exec_command, namespace=namespace)
+            jsonResponse = addPropertiesToJsonResponse(RESPONSE.SUCCESS)
+            return JsonResponse(jsonResponse)
+        except Exception as ex:
+            LOGGER.warning(ex)
+            return 1
+
+    def put(self, request):
+        query = json.loads(request.body)
+        podName = query.get('pod', None)
+        namespace = query.get('namespace', 'default')
+        path = query.get('path', '.')
+        filename = query.get('filename', '')
+        filecontent = query.get('filecontent', '')
+        exec_command = [
+            '/bin/sh',
+            '-c',
+            'cd ' + path + ';' +
+            'rm ' + filename + ';' +
+            'touch ' + filename + ';' +
+            'echo ' + '"' + filecontent + '"' + ' >> ' + filename
+        ]
+        ssh = SSH()
+        ssh.connect(pod=podName, command=exec_command, namespace=namespace)
+        jsonResponse = addPropertiesToJsonResponse(RESPONSE.SUCCESS)
+        return JsonResponse(jsonResponse)
+
+    def delete(self, request):
+        query = json.loads(request.body)
+        podName = query.get('pod', None)
+        namespace = query.get('namespace', 'default')
+        path = query.get('path', '.')
+        filename = query.get('filename', '')
+        exec_command = [
+            '/bin/sh',
+            '-c',
+            'cd ' + path + ';' +
+            'rm ' + filename
+        ]
+        ssh = SSH()
+        ssh.connect(pod=podName, command=exec_command, namespace=namespace)
+        jsonResponse = addPropertiesToJsonResponse(RESPONSE.SUCCESS)
+        return JsonResponse(jsonResponse)
+
+class TreeDirectoriesHandler(View):
+    http_method_names = ['post', 'delete']
+
+    def post(self, request):
+        query = json.loads(request.body)
+        podName = query.get('pod', None)
+        namespace = query.get('namespace', 'default')
+        path = query.get('path', '.')
+        directoryname = query.get('directoryname', '')
+        exec_command = [
+            '/bin/sh',
+            '-c',
+            'cd ' + path + ';' +
+            'mkdir ' + directoryname
+        ]
+        ssh = SSH()
+        ssh.connect(pod=podName, command=exec_command, namespace=namespace)
+        jsonResponse = addPropertiesToJsonResponse(RESPONSE.SUCCESS)
+        return JsonResponse(jsonResponse)
+
+    def delete(self, request):
+        query = json.loads(request.body)
+        podName = query.get('pod', None)
+        namespace = query.get('namespace', 'default')
+        path = query.get('path', '.')
+        directoryname = query.get('directoryname', '')
+        exec_command = [
+            '/bin/sh',
+            '-c',
+            'cd ' + path + ';' +
+            'rm -rf' + directoryname
+        ]
+        ssh = SSH()
+        ssh.connect(pod=podName, command=exec_command, namespace=namespace)
+        jsonResponse = addPropertiesToJsonResponse(RESPONSE.SUCCESS)
+        return JsonResponse(jsonResponse)
 
 class TreeHandler(View):
     http_method_names = ['get']
@@ -57,23 +171,21 @@ class TreeHandler(View):
     def get(self, request):
         podName = request.GET.get('pod')
         namespace = request.GET.get('namespace')
+        path = request.GET.get('path')
         exec_command = [
             '/bin/sh',
             '-c',
-            'ls -F'
+            'cd ' + path + '; ls -F'
         ]
         ssh = SSH()
         response = ssh.connect(pod=podName, command=exec_command, namespace=namespace)
-        jsonResponse = RESPONSE.SUCCESS
-        jsonResponse['payload']['directory'] = []
-        jsonResponse['payload']['linux'] = []
-        jsonResponse['payload']['file'] = []
+        jsonResponse = addPropertiesToJsonResponse(RESPONSE.SUCCESS)
         nameList = response.split()
         for name in nameList:
             if name[-1] == '/':
-                jsonResponse['payload']['directory'].append({'name': name})
+                jsonResponse['payload']['directories'].append(name)
             elif name[-1] == '@':
-                jsonResponse['payload']['linux'].append({'name': name})
+                jsonResponse['payload']['linux'].append(name)
             else:
-                jsonResponse['payload']['file'].append({'name': name})
+                jsonResponse['payload']['files'].append(name)
         return JsonResponse(jsonResponse)

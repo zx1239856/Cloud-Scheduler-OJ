@@ -43,7 +43,9 @@ urlpatterns = [
     path('pods/', monitor_views.PodListHandler.as_view()),
     path('storage/', storage_views.StorageHandler.as_view()),
     path('storage/upload_file/', storage_views.StorageFileHandler.as_view()),
-    path('tree/', tree_views.TreeHandler.as_view())
+    path('tree/', tree_views.TreeHandler.as_view()),
+    path('tree/file/', tree_views.TreeFilesHandler.as_view()),
+    path('tree/directory/', tree_views.TreeDirectoriesHandler.as_view())
 ]
 
 

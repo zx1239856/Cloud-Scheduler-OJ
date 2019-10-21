@@ -10,7 +10,7 @@ export function getTree(query) {
 
 export function getFile(path, filename) {
     return request({
-        url: '/tree/file' + path + '/' + filename + '/',
+        url: '/tree/file/' + path + '/' + filename + '/',
         method: 'get'
     });
 }
