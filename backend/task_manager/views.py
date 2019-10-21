@@ -9,6 +9,7 @@ from django.core.paginator import Paginator
 from api.common import RESPONSE
 from user_model.models import UserType
 from .models import TaskSettings, Task, TASK
+from .executor import TaskExecutor
 
 LOGGER = logging.getLogger(__name__)
 
@@ -129,6 +130,9 @@ class TaskSettingsListHandler(View):
         response = None
         try:
             user = kwargs.get('__user', None)
+            executor = TaskExecutor.instance(new=False)
+            if executor is None or not executor.ready:
+                raise Exception("Task executor is not initialized, please wait...")
             if user is None:
                 raise Exception("Internal exception raised when trying to get `User` object.")
             elif user.user_type == UserType.USER:
@@ -138,20 +142,22 @@ class TaskSettingsListHandler(View):
                 invalid = 'name' not in query.keys() or 'description' not in query.keys() or \
                           'container_config' not in query.keys() or 'time_limit' not in query.keys() or \
                           'replica' not in query.keys() or 'ttl_interval' not in query.keys() or \
-                          'max_sharing_users' not in query.keys() or not isinstance(query['container_config'], dict) or \
+                          'max_sharing_users' not in query.keys() or \
+                          not isinstance(query['container_config'], dict) or \
                           not isinstance(query['time_limit'], int) or \
                           not isinstance(query['replica'], int) or not isinstance(query['ttl_interval'], int) or \
                           not isinstance(query['max_sharing_users'], int)
                 if invalid:
                     response = RESPONSE.INVALID_REQUEST
                 else:
-                    TaskSettings.objects.create(uuid=str(getUUID()), name=query['name'],
-                                                description=query['description'],
-                                                container_config=json.dumps(query['container_config']),
-                                                time_limit=query['time_limit'], replica=query['replica'],
-                                                ttl_interval=query['ttl_interval'],
-                                                max_sharing_users=query['max_sharing_users'])
+                    item = TaskSettings.objects.create(uuid=str(getUUID()), name=query['name'],
+                                                       description=query['description'],
+                                                       container_config=json.dumps(query['container_config']),
+                                                       time_limit=query['time_limit'], replica=query['replica'],
+                                                       ttl_interval=max(query['ttl_interval'], 1),
+                                                       max_sharing_users=query['max_sharing_users'])
                     response = RESPONSE.SUCCESS
+                    executor.scheduleTaskSettings(item)
         except ValueError:
             response = RESPONSE.INVALID_REQUEST
         except IntegrityError as ex:
@@ -244,6 +250,10 @@ class TaskSettingsItemHandler(View):
         try:
             uuid = kwargs.get('uuid', None)
             assert uuid is not None
+            executor = TaskExecutor.instance(new=False)
+            if executor is None or not executor.ready:
+                raise Exception("Task executor is not initialized, please wait...")
+            need_reschedule = False
             query = json.loads(request.body)
             response = RESPONSE.SUCCESS
             item = TaskSettings.objects.get(uuid=uuid)
@@ -258,10 +268,13 @@ class TaskSettingsItemHandler(View):
             if 'replica' in query.keys():
                 item.replica = int(query['replica'])
             if 'ttl_interval' in query.keys():
-                item.ttl_interval = int(query['ttl_interval'])
+                item.ttl_interval = max(1, int(query['ttl_interval']))
+                need_reschedule = True
             if 'max_sharing_users' in query.keys():
                 item.max_sharing_users = int(query['max_sharing_users'])
             item.save(force_update=True)
+            if need_reschedule:
+                executor.scheduleTaskSettings(item)
         except ValueError:
             response = RESPONSE.INVALID_REQUEST
         except IntegrityError:

@@ -32,9 +32,15 @@ class TaskSettings(models.Model):
 class Task(models.Model):
     """Tasks"""
     uuid = models.CharField(max_length=50, unique=True, db_index=True)
-    user = models.ForeignKey(user_models.UserModel, on_delete=models.CASCADE)
-    settings = models.ForeignKey(TaskSettings, on_delete=models.CASCADE)
+    user = models.ForeignKey(user_models.UserModel, on_delete=models.PROTECT)
+    settings = models.ForeignKey(TaskSettings, on_delete=models.PROTECT)
     status = models.PositiveSmallIntegerField(default=TASK.SCHEDULED)
     create_time = models.DateTimeField(auto_now_add=True)
     logs = models.TextField()
     logs_get = models.BooleanField(default=False)
+
+
+class TaskStorage(models.Model):
+    user = models.ForeignKey(user_models.UserModel, on_delete=models.PROTECT, db_index=True)
+    settings = models.ForeignKey(TaskSettings, on_delete=models.PROTECT, db_index=True)
+    pod_name = models.CharField(max_length=255)

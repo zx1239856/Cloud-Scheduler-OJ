@@ -48,5 +48,5 @@ urlpatterns = [
 RUNNING_DEV_SERVER = (len(sys.argv) > 1 and sys.argv[1] == 'runserver')
 if RUNNING_DEV_SERVER:
     from task_manager.executor import TaskExecutor
-    executor = TaskExecutor()
+    executor = TaskExecutor.instance()
     executor.start()

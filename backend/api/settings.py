@@ -68,7 +68,7 @@ MIDDLEWARE = [
 
 LOGGING_CONSOLE_HANDLER = {
     'handlers': ['console'],
-    'level': 'INFO',
+    'level': 'DEBUG' if DEBUG else 'INFO',
     'propagate': True,
 }
 

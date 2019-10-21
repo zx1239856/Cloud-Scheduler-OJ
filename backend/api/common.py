@@ -15,6 +15,8 @@ All users can access this API
 @apiHeader {String} X-Access-Username username
 """
 
+USERSPACE_NAME = "cloud-scheduler-userspace"
+
 
 def getKubernetesAPIClient():
     conf = Configuration()
