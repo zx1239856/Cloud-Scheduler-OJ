@@ -2,6 +2,7 @@ import json
 import hashlib
 import random
 from django.test import Client, TestCase
+from kubernetes.client.rest import ApiException
 from user_model.models import UserModel, UserType
 from task_manager.views import getUUID
 
@@ -60,6 +61,7 @@ class MockThread:
 class MockCoreV1Api:
     def __init__(self, _):
         self.pod_dict = {}
+        self.pvc_list = []
 
     def list_namespaced_pod(self, **kwargs):
         label_selector = kwargs['label_selector']
@@ -108,14 +110,13 @@ class MockCoreV1Api:
         return ReturnItemsList(item_list)
 
     @staticmethod
-    def list_namespaced_persistent_volume_claim(namespace, **_):
-        namespace = 'test-ns'
+    def list_namespaced_persistent_volume_claim(**_):
         item_list = []
         for i in range(0, 51):
             item_list.append(DotDict({
                 'metadata':
                     DotDict({
-                        'namespace': namespace,
+                        'namespace': 'test-ns',
                         'name': 'pvc_{}'.format(i),
                     }),
                 'spec':
@@ -128,6 +129,36 @@ class MockCoreV1Api:
             }))
         return ReturnItemsList(item_list)
 
+    @staticmethod
+    def delete_namespaced_persistent_volume_claim(name, **_):
+        if name == 'nonexistent-pvc':
+            raise ApiException
+
+    @staticmethod
+    def create_namespace(**_):
+        pass
+
+    @staticmethod
+    def create_namespaced_persistent_volume_claim(body, **_):
+        if body.metadata.name == 'existing-pvc':
+            raise ApiException
+
+    @staticmethod
+    def read_namespaced_persistent_volume_claim_status(name, **_):
+        if name == 'nonexistent-pvc':
+            raise ApiException
+
+    @staticmethod
+    def create_namespaced_pod(**_):
+        pass
+
+    @staticmethod
+    def read_namespaced_pod_status(**_):
+        return DotDict({'status': DotDict({'phase': 'Running'})})
+
+    @staticmethod
+    def connect_get_namespaced_pod_exec(**_):
+        pass
 
 class MockBatchV1Api:
     def __init__(self, _):

@@ -46,7 +46,7 @@ class StorageHandler(View):
         @apiUse PermissionDenied
         """
         try:
-            pvc_list = self.api_instance.list_namespaced_persistent_volume_claim(KUBERNETES_NAMESPACE).items
+            pvc_list = self.api_instance.list_namespaced_persistent_volume_claim(namespace=KUBERNETES_NAMESPACE).items
             payload = {}
             payload['count'] = len(pvc_list)
             payload['entry'] = []
@@ -102,7 +102,7 @@ class StorageHandler(View):
                                             metadata=client.V1ObjectMeta(name=pvc_name, namespace=KUBERNETES_NAMESPACE), \
                                             spec=client.V1PersistentVolumeClaimSpec(access_modes=["ReadWriteMany"], resources=client.V1ResourceRequirements(requests={"storage": pvc_capacity}), storage_class_name="csi-cephfs"))
         try:
-            self.api_instance.create_namespaced_persistent_volume_claim(KUBERNETES_NAMESPACE, PVC_body)
+            self.api_instance.create_namespaced_persistent_volume_claim(namespace=KUBERNETES_NAMESPACE, body=PVC_body)
             response = RESPONSE.SUCCESS
         except Exception:
             response = RESPONSE.OPERATION_FAILED
@@ -142,9 +142,10 @@ class StorageHandler(View):
         try:
             self.api_instance.delete_namespaced_persistent_volume_claim(name=pvc_name, namespace=KUBERNETES_NAMESPACE)
             response = RESPONSE.SUCCESS
-        except Exception:
+        except Exception as e:
             response = RESPONSE.OPERATION_FAILED
             response['message'] += " PVC {} not found.".format(pvc_name)
+            response['info'] = str(e)
 
         return JsonResponse(response)
 
