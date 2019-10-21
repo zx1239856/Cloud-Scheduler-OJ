@@ -6,7 +6,6 @@ from api.common import RESPONSE
 import monitor.views
 from .common import loginTestUser, TestCaseWithBasicUser, MockCoreV1Api, mockGetK8sClient
 
-
 class TestTaskSettings(TestCaseWithBasicUser):
     def setUp(self):
         super().setUp()
