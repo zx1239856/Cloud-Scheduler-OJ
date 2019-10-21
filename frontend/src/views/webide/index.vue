@@ -2,7 +2,7 @@
   <div class="container">
     <el-container>
       <el-aside width="300px">
-        <tree />
+        <tree class="tree" :tree="tree" />
       </el-aside>
       <el-main>
         <tabs />
@@ -21,7 +21,7 @@
 
 <script>
 import inCoder from './Codemirror';
-import tree from '../tree/index';
+import tree from '@/components/tree/index';
 import tabs from './tabs';
 import 'codemirror/mode/python/python.js';
 import 'codemirror/addon/fold/foldcode.js';
@@ -46,6 +46,12 @@ export default {
                 tabSize: 4,
                 mode: 'text/javascript',
                 lineNumbers: true
+            },
+            tree: {
+                pid: 1,
+                podName: this.$route.query.pod,
+                namespace: this.$route.query.namespace,
+                name: 'webide'
             }
         };
     },

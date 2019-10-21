@@ -57,21 +57,10 @@ export const constantRoutes = [
             meta: { title: 'Dashboard', icon: 'dashboard' }
         }]
     },
-
     {
-        path: '/demo',
-        component: Layout,
-        redirect: '/demo/webide',
-        name: 'Demo',
-        meta: { title: 'Demo', icon: 'example' },
-        children: [
-            {
-                path: 'webide',
-                name: 'Tree',
-                component: () => import('@/views/webide/index'),
-                meta: { title: 'Web IDE', icon: 'tree' }
-            }
-        ]
+        path: '/webide/',
+        name: 'Tree',
+        component: () => import('@/views/webide/index')
     },
     {
         path: '/task',
