@@ -15,6 +15,7 @@
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { AttachAddon } from 'xterm-addon-attach';
+import { getToken, getUsername } from '@/utils/auth';
 import 'xterm/css/xterm.css';
 
 const fitAddon = new FitAddon();
@@ -51,7 +52,7 @@ export default {
         fitAddon.fit();
 
         this.terminalSocket = new WebSocket(
-            wsRoot + 'terminals/?shell=/bin/sh&pod=' + this.terminal.podName + '&namespace=' + this.terminal.namespace
+            wsRoot + 'terminals/?shell=/bin/sh&pod=' + this.terminal.podName + '&namespace=' + this.terminal.namespace + '&cols=' + this.term.cols + '&rows=' + this.term.rows
         );
         this.terminalSocket.onopen = this.runRealTerminal;
         this.terminalSocket.onclose = this.closeRealTerminal;
@@ -59,7 +60,6 @@ export default {
         const attachAddon = new AttachAddon(this.terminalSocket);
         this.term.loadAddon(attachAddon);
         this.term._initialized = true;
-        console.log('mounted is going on');
     },
     beforeDestroy() {
         this.terminalSocket.close();
@@ -67,7 +67,7 @@ export default {
     },
     methods: {
         runRealTerminal() {
-            console.log('webSocket is finished');
+            this.terminalSocket.send(getUsername() + '@' + getToken());
         },
         errorRealTerminal() {
             console.log('error');
