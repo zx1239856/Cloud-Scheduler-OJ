@@ -76,7 +76,7 @@ class TreeFilesHandler(View):
             query = json.loads(request.body)
             podName = query.get('pod', None)
             namespace = query.get('namespace', 'default')
-            path = query.get('path', '.')
+            path = query.get('path', './')
             filename = query.get('filename', '')
             exec_command = [
                 '/bin/sh',
@@ -95,7 +95,7 @@ class TreeFilesHandler(View):
         query = json.loads(request.body)
         podName = query.get('pod', None)
         namespace = query.get('namespace', 'default')
-        path = query.get('path', '.')
+        path = query.get('path', './')
         filename = query.get('filename', '')
         filecontent = query.get('filecontent', '')
         exec_command = [
@@ -115,7 +115,7 @@ class TreeFilesHandler(View):
         query = json.loads(request.body)
         podName = query.get('pod', None)
         namespace = query.get('namespace', 'default')
-        path = query.get('path', '.')
+        path = query.get('path', './')
         filename = query.get('filename', '')
         exec_command = [
             '/bin/sh',
@@ -135,7 +135,7 @@ class TreeDirectoriesHandler(View):
         query = json.loads(request.body)
         podName = query.get('pod', None)
         namespace = query.get('namespace', 'default')
-        path = query.get('path', '.')
+        path = query.get('path', './')
         directoryname = query.get('directoryname', '')
         exec_command = [
             '/bin/sh',
@@ -152,7 +152,7 @@ class TreeDirectoriesHandler(View):
         query = json.loads(request.body)
         podName = query.get('pod', None)
         namespace = query.get('namespace', 'default')
-        path = query.get('path', '.')
+        path = query.get('path', './')
         directoryname = query.get('directoryname', '')
         exec_command = [
             '/bin/sh',
@@ -169,9 +169,9 @@ class TreeHandler(View):
     http_method_names = ['get']
 
     def get(self, request):
-        podName = request.GET.get('pod')
-        namespace = request.GET.get('namespace')
-        path = request.GET.get('path')
+        podName = request.GET.get('pod', None)
+        namespace = request.GET.get('namespace', 'default')
+        path = request.GET.get('path', './')
         exec_command = [
             '/bin/sh',
             '-c',
