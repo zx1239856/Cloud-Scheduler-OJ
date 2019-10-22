@@ -47,22 +47,15 @@ export default {
             filterText: '',
             listQuery: {
                 pod: this.tree.podName,
-                namespace: this.tree.namespace
+                namespace: this.tree.namespace,
+                path: this.path
             },
-            basepath: this.tree.podName + '/' + this.tree.namespaces + '/',
-            data: [{
-                label: '一级 1',
-                children: [{
-                    label: '二级 1-1',
-                    children: [{
-                        label: '三级 1-1-1'
-                    }]
-                }]
-            }],
-            // data2: null,
+            pathToId: {},
+            data: [],
             defaultProps: {
                 children: 'children',
-                label: 'label'
+                label: 'label',
+                path: ''
             }
         };
     },
@@ -72,19 +65,79 @@ export default {
         }
     },
     created() {
-        this.data = getTree(this.listQuery);
-    },
-    mounted() {
-        console.log('pid: ' + this.tree.pid + ' is on ready');
-        this.data = getTree(this.listQuery);
+        this.getCurrentTree('.');
     },
     methods: {
+        getCurrentTree(path, nodeId) {
+            console.log(path);
+            console.log(nodeId);
+            this.listQuery.path = path;
+            console.log(this.listQuery);
+            getTree(this.listQuery).then(response => {
+                const resp_data = response.payload;
+                const data = [];
+                for (let i = 0; i < resp_data.directories.length; i++) {
+                    let name = resp_data.directories[i];
+                    if (name != null && name.length > 0 && name.charAt(name.length - 1) === '/') {
+                        name = name.substring(0, name.length - 1);
+                    }
+                    data.push({ label: name, children: [{}], path: path });
+                }
+                for (let i = 0; i < resp_data.files.length; i++) {
+                    let name = resp_data.files[i];
+                    if (name != null && name.length > 0 && name.charAt(name.length - 1) === '/') {
+                        name = name.substring(0, name.length - 1);
+                    }
+                    data.push({ label: name, path: path });
+                }
+                console.log(data);
+                const pathList = path.split('/');
+                if (data.length !== 0) {
+                    this.data = this.addData(this.data, data, pathList, 0, nodeId);
+                }
+            });
+        },
+        addData(currentDirectory, data, pathList, index, nodeId) {
+            console.log(index);
+            if (index === pathList.length - 1) {
+                return data;
+            }
+            // if (index === 0) {
+            //     if (currentDirectory.length === 0) {
+            //         return data;
+            //     }
+            //     index++;
+            //     for (let i = 0; i < currentDirectory.length; i++) {
+            //         if (currentDirectory[i].label === pathList[index]) {
+            //             currentDirectory[i].children = this.addData(currentDirectory[i].children, data, pathList, index, nodeId);
+            //             return currentDirectory;
+            //         }
+            //     }
+            // }
+            // console.log('here');
+            if (currentDirectory.length === 0) {
+                return data;
+            }
+            index++;
+            for (let i = 0; i < currentDirectory.length; i++) {
+                console.log(currentDirectory[i]);
+                if (currentDirectory[i].label === pathList[index] && 'children' in currentDirectory[i]) {
+                    currentDirectory[i].children = this.addData(currentDirectory[i].children, data, pathList, index, nodeId);
+                    return currentDirectory;
+                }
+            }
+        },
         filterNode(value, data) {
             if (!value) return true;
             return data.label.indexOf(value) !== -1;
         },
         handleNodeClick(data) {
+            console.log(data.label);
             console.log(data);
+            console.log('children' in data);
+            if ('children' in data && data.children.length === 1) {
+                this.getCurrentTree(data.path + '/' + data.label, data.$treeNodeId);
+            }
         }
     }
 };

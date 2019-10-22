@@ -171,7 +171,7 @@ class TreeHandler(View):
     def get(self, request):
         podName = request.GET.get('pod', None)
         namespace = request.GET.get('namespace', 'default')
-        path = request.GET.get('path', './')
+        path = request.GET.get('path')
         exec_command = [
             '/bin/sh',
             '-c',
