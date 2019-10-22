@@ -15,7 +15,7 @@
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { AttachAddon } from 'xterm-addon-attach';
-import { getToken, getUsername } from '@/utils/auth';
+import store from '@/store';
 import 'xterm/css/xterm.css';
 
 const fitAddon = new FitAddon();
@@ -67,7 +67,7 @@ export default {
     },
     methods: {
         runRealTerminal() {
-            this.terminalSocket.send(getUsername() + '@' + getToken());
+            this.terminalSocket.send(store.getters.name + '@' + store.getters.token);
         },
         errorRealTerminal() {
             console.log('error');
