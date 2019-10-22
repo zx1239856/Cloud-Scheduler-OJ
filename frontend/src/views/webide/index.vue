@@ -1,27 +1,13 @@
 <template>
   <div class="container">
-    <!--div>
-      <el-button plain @click="showDirDialog">打开</el-button>
-    </div-->
     <el-container>
-      <el-container>
-        <!--左侧侧边栏-->
-        <!--el-aside width="300px">
-          <el-tree
-            ref="dirTree"
-            :data="dirTree"
-            :load="loadSubFile"
-            :props="defaultProps"
-            lazy
-            @node-click="treeNodeClick"
-          />
-        </el-aside-->
-        <!--主-->
-        <el-main>
-          <!--编辑器-->
-          <inCoder :options="cmOptions" :value="code" />
-        </el-main>
-      </el-container>
+      <el-aside width="300px">
+        <tree class="tree" :tree="tree" />
+      </el-aside>
+      <el-main>
+        <tabs />
+        <inCoder :options="cmOptions" :value="code" />
+      </el-main>
     </el-container>
   </div>
 </template>
@@ -34,8 +20,9 @@
 </style>
 
 <script>
-// import { codemirror } from 'vue-codemirror';
 import inCoder from './Codemirror';
+import tree from '@/components/tree/index';
+import tabs from './tabs';
 import 'codemirror/mode/python/python.js';
 import 'codemirror/addon/fold/foldcode.js';
 import 'codemirror/addon/fold/foldgutter.js';
@@ -48,7 +35,9 @@ import 'codemirror/addon/fold/comment-fold.js';
 export default {
     name: 'WebIDE',
     components: {
-        inCoder
+        inCoder,
+        tree,
+        tabs
     },
     data() {
         return {
@@ -57,6 +46,12 @@ export default {
                 tabSize: 4,
                 mode: 'text/javascript',
                 lineNumbers: true
+            },
+            tree: {
+                pid: 1,
+                podName: this.$route.query.pod,
+                namespace: this.$route.query.namespace,
+                name: 'webide'
             }
         };
     },
