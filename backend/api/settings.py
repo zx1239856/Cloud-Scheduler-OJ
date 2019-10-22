@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'django.contrib.auth',
     'channels',
     'user_model',
+    'user_space',
     'monitor',
     'task_manager',
     'storage',
@@ -77,7 +78,7 @@ LOGGING = {
     'disable_existing_loggers': True,
     'formatters': {
         'default': {
-            'format': '{asctime} - {name}:{module} - {levelname} - {message}',
+            'format': '{asctime} - {name}:{module}:{funcName} - {levelname} - {message}',
             'style': '{',
         }
     },
@@ -96,6 +97,7 @@ LOGGING = {
         'api': LOGGING_CONSOLE_HANDLER,
         'task_manager': LOGGING_CONSOLE_HANDLER,
         'user_model': LOGGING_CONSOLE_HANDLER,
+        'user_space': LOGGING_CONSOLE_HANDLER,
         'monitor': LOGGING_CONSOLE_HANDLER,
         'storage': LOGGING_CONSOLE_HANDLER,
     },
