@@ -12,7 +12,7 @@ from django.http.request import QueryDict
 from kubernetes.client import Configuration, ApiClient
 from kubernetes.client.apis import core_v1_api
 from kubernetes.stream import stream, ws_client
-from user_model.models import UserModel, UserType
+from user_model.models import UserModel
 from user_model.views import TokenManager
 from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL
 

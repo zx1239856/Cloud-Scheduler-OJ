@@ -10,7 +10,6 @@ from concurrent.futures import ThreadPoolExecutor
 import schedule
 from django.db.models import Q
 from kubernetes import client
-from kubernetes.stream import stream
 from kubernetes.client import CoreV1Api, BatchV1Api
 from kubernetes.client.rest import ApiException
 from api.common import getKubernetesAPIClient, USERSPACE_NAME
@@ -54,9 +53,8 @@ def create_userspace_pvc():
 def get_userspace_pvc():
     api_instance = CoreV1Api(getKubernetesAPIClient())
     try:
-        ret = api_instance.list_namespaced_persistent_volume_claim(KUBERNETES_NAMESPACE,
-                                                                   label_selector='name={}'.format(USERSPACE_NAME))
-        return ret.items > 0
+        _ = api_instance.read_namespaced_persistent_volume_claim(namespace=KUBERNETES_NAMESPACE, name=USERSPACE_NAME)
+        return True
     except ApiException:
         return False
 
@@ -159,7 +157,7 @@ class TaskExecutor:
                     elif status == 'Failed':
                         new_status = TASK.FAILED
                     if new_status != item.status:
-                        if status == 'Succeeded' or status == 'Failed':
+                        if status in ('Succeeded', 'Failed'):
                             response = api.read_namespaced_pod_log(name=response.items[0].metadata.name,
                                                                    namespace=KUBERNETES_NAMESPACE)
                             if response:
@@ -234,7 +232,7 @@ class TaskExecutor:
                     )
                     user_volume_claim = client.V1PersistentVolumeClaimVolumeSource(
                         claim_name=USERSPACE_NAME,
-                        read_only=False
+                        read_only=True
                     )
                     volume = client.V1Volume(name=shared_storage_name,
                                              persistent_volume_claim=persistent_volume_claim)
@@ -273,24 +271,27 @@ class TaskExecutor:
 
         def expand_container(num):
             for _ in range(0, num):
-                pod_name = "task-{}-{}".format(item.uuid, get_short_uuid())
+                pod_name = "task-storage-{}-{}".format(item.uuid, get_short_uuid())
                 shared_pvc_name = "shared-{}".format(item.uuid)
                 shared_pvc = client.V1VolumeMount(mount_path=conf['persistent_volume']['mount_path'],
                                                   name=shared_pvc_name)
+                user_storage_name = "user-{}".format(item.uuid)
+                user_mount = client.V1VolumeMount(mount_path='/cloud_scheduler_userspace/', name=user_storage_name)
                 container_settings = {
-                    'name': 'task-container',
-                    'image': conf['image'],
-                    'volume_mounts': [shared_pvc],
+                    'name': 'task-storage-container',
+                    'image': 'registry.dropthu.online:30443/ubuntu:19.10',
+                    'volume_mounts': [shared_pvc, user_mount],
                 }
-                if conf['memory_limit']:
-                    container_settings['resources'] = client.V1ResourceRequirements(
-                        limits={'memory': conf['memory_limit']})
                 container = client.V1Container(**container_settings)
                 pvc = client.V1PersistentVolumeClaimVolumeSource(claim_name=conf['persistent_volume']['name'],
                                                                  read_only=True)
+                user_volume_claim = client.V1PersistentVolumeClaimVolumeSource(claim_name=USERSPACE_NAME,
+                                                                               read_only=False)
                 volume = client.V1Volume(name=shared_pvc_name, persistent_volume_claim=pvc)
+                user_volume = client.V1Volume(name=user_storage_name,
+                                              persistent_volume_claim=user_volume_claim)
                 metadata = client.V1ObjectMeta(name=pod_name, labels={'task': uuid, 'occupied': '0'})
-                spec = client.V1PodSpec(containers=[container], restart_policy='Always', volumes=[volume])
+                spec = client.V1PodSpec(containers=[container], restart_policy='Always', volumes=[volume, user_volume])
                 pod = client.V1Pod(api_version='v1', kind='Pod', metadata=metadata, spec=spec)
                 try:
                     api.create_namespaced_pod(namespace=KUBERNETES_NAMESPACE, body=pod)
@@ -312,6 +313,11 @@ class TaskExecutor:
                 delete_single_container(item)
 
         response = None
+        create_namespace()
+        create_userspace_pvc()
+        if not get_userspace_pvc():
+            LOGGER.error("Failed to obtain user space persistent volume.")
+            return
         try:
             response = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE, label_selector="task={}".format(uuid))
             item = TaskSettings.objects.get(uuid=uuid)
