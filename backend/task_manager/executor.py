@@ -13,7 +13,7 @@ from kubernetes import client
 from kubernetes.client import CoreV1Api, BatchV1Api
 from kubernetes.client.rest import ApiException
 from api.common import getKubernetesAPIClient, USERSPACE_NAME
-from config import DAEMON_WORKERS, KUBERNETES_NAMESPACE, CEPH_STORAGE_CLASS_NAME
+from config import DAEMON_WORKERS, KUBERNETES_NAMESPACE, CEPH_STORAGE_CLASS_NAME, GLOBAL_TASK_TIME_LIMIT
 from .models import TaskSettings, Task, TASK
 
 LOGGER = logging.getLogger(__name__)
@@ -123,6 +123,8 @@ class TaskExecutor:
         self.ttl_checker = ThreadPoolExecutor(max_workers=DAEMON_WORKERS,
                                               thread_name_prefix='cloud_scheduler_k8s_worker_ttl')
         self.scheduler_thread = Thread(target=self.dispatch)
+        self.job_dispatch_thread = Thread(target=self._job_dispatch)
+        self.job_monitor_thread = Thread(target=self._job_monitor)
         self.ready = False
         LOGGER.info("Task executor initialized.")
 
@@ -132,6 +134,10 @@ class TaskExecutor:
             LOGGER.info("Task executor started.")
         else:
             LOGGER.info("Task executor already started")
+        if not self.job_dispatch_thread.isAlive():
+            self.job_dispatch_thread.start()
+        if not self.job_monitor_thread.isAlive():
+            self.job_monitor_thread.start()
 
     def _run_job(self, fn, **kwargs):
         self.ttl_checker.submit(fn, **kwargs)
@@ -139,131 +145,173 @@ class TaskExecutor:
     @staticmethod
     def _job_monitor():
         api = CoreV1Api(getKubernetesAPIClient())
-        for item in Task.objects.filter(Q(status=TASK.RUNNING) | Q(status=TASK.PENDING)).order_by(
-                "create_time"):
-            common_name = "task-{}".format(item.uuid)
+        job_api = BatchV1Api(getKubernetesAPIClient())
+        while True:
+            idle = True
             try:
-                response = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE,
-                                                   label_selector="task={}".format(common_name))
-                if response.items:
-                    status = response.items[0].status.phase
-                    new_status = item.status
-                    if status == 'Running':
-                        new_status = TASK.RUNNING
-                    elif status == 'Succeeded':
-                        new_status = TASK.SUCCEEDED
-                    elif status == 'Pending':
-                        new_status = TASK.PENDING
-                    elif status == 'Failed':
-                        new_status = TASK.FAILED
-                    if new_status != item.status:
-                        if status in ('Succeeded', 'Failed'):
-                            response = api.read_namespaced_pod_log(name=response.items[0].metadata.name,
-                                                                   namespace=KUBERNETES_NAMESPACE)
-                            if response:
-                                item.logs = response
+                for item in Task.objects.filter(Q(status=TASK.RUNNING) | Q(status=TASK.PENDING)).order_by(
+                        "create_time"):
+                    common_name = "task-exec-{}".format(item.uuid)
+                    try:
+                        response = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE,
+                                                           label_selector="app={}".format(item.uuid))
+                        if response.items:
+                            status = response.items[0].status.phase
+                            new_status = item.status
+                            if status == 'Running':
+                                new_status = TASK.RUNNING
+                            elif status == 'Succeeded':
+                                new_status = TASK.SUCCEEDED
+                            elif status == 'Pending':
+                                new_status = TASK.PENDING
+                            elif status == 'Failed':
+                                new_status = TASK.FAILED
+                            if new_status != item.status:
+                                if status in ('Succeeded', 'Failed'):
+                                    response = api.read_namespaced_pod_log(name=response.items[0].metadata.name,
+                                                                           namespace=KUBERNETES_NAMESPACE)
+                                    if response:
+                                        item.logs = response
+                                    item.logs_get = True
+
+                                item.status = new_status
+                                item.save(force_update=True)
+                                job_api.delete_namespaced_job(name=common_name,
+                                                              namespace=KUBERNETES_NAMESPACE,
+                                                              body=client.V1DeleteOptions(
+                                                                  propagation_policy='Foreground',
+                                                                  grace_period_seconds=5
+                                                              ))
+                        else:
+                            item.status = TASK.FAILED
                             item.logs_get = True
+                            item.logs = "Unable to find corresponding pod."
+                            item.save(force_update=True)
+                    except ApiException as ex:
+                        LOGGER.warning(ex)
+                for item in Task.objects.filter(status=TASK.DELETING):
+                    common_name = "task-exec-{}".format(item.uuid)
+                    try:
+                        _ = job_api.delete_namespaced_job(name=common_name,
+                                                          namespace=KUBERNETES_NAMESPACE,
+                                                          body=client.V1DeleteOptions(
+                                                              propagation_policy='Foreground',
+                                                              grace_period_seconds=5
+                                                          ))
+                        LOGGER.info("The kubernetes job of Task: %s deleted successfully", item.uuid)
+                        item.delete()
+                    except ApiException as ex:
+                        if ex.status == 404:
+                            item.delete()
+                        else:
+                            LOGGER.warning("Kubernetes ApiException %d: %s", ex.status, ex.reason)
+                    except Exception as ex:
+                        LOGGER.error(ex)
 
-                        item.status = new_status
-                        item.save(force_update=True)
-
-                else:
-                    item.status = TASK.FAILED
-                    item.logs_get = True
-                    item.logs = "Unable to find corresponding pod."
-                    item.save(force_update=True)
-            except ApiException as ex:
-                LOGGER.warning(ex)
+            except Exception as ex:
+                LOGGER.error(ex)
+            if idle:
+                time.sleep(1)
 
     @staticmethod
     def _job_dispatch():
         api = BatchV1Api(getKubernetesAPIClient())
-        for item in Task.objects.filter(status=TASK.SCHEDULED).order_by("create_time"):
-            conf = json.loads(item.settings.container_config)
-            common_name = "task-{}".format(item.uuid)
-            shared_storage_name = "shared-{}".format(item.uuid)
-            user_storage_name = "user-{}".format(item.uuid)
-            create_namespace()
-            create_userspace_pvc()
-            if not get_userspace_pvc():
-                item.status = TASK.FAILED
-                item.logs_get = True
-                item.logs = "Failed to get user space storage"
-                item.save(force_update=True)
-            else:
-                try:
-                    if not config_checker(conf):
-                        raise ValueError("Invalid config for TaskSettings: {}".format(item.settings.uuid))
-                    # kubernetes part
-                    shell = conf['shell']
-                    commands = conf['commands']
-                    mem_limit = conf['memory_limit']
-                    working_dir = conf['working_path']
-                    image = conf['image']
-                    shared_pvc = conf['persistent_volume']['name']
-                    shared_mount_path = conf['persistent_volume']['mount_path']
+        while True:
+            idle = True
+            try:
+                for item in Task.objects.filter(status=TASK.SCHEDULED).order_by("create_time"):
+                    idle = False
+                    conf = json.loads(item.settings.container_config)
+                    common_name = "task-exec-{}".format(item.uuid)
+                    shared_storage_name = "shared-{}".format(item.uuid)
+                    user_storage_name = "user-{}".format(item.uuid)
+                    create_namespace()
+                    create_userspace_pvc()
+                    if not get_userspace_pvc():
+                        item.status = TASK.FAILED
+                        item.logs_get = True
+                        item.logs = "Failed to get user space storage"
+                        item.save(force_update=True)
+                    else:
+                        try:
+                            if not config_checker(conf):
+                                raise ValueError("Invalid config for TaskSettings: {}".format(item.settings.uuid))
+                            # kubernetes part
+                            shell = conf['shell']
+                            commands = conf['commands']
+                            mem_limit = conf['memory_limit']
+                            working_dir = conf['working_path']
+                            image = conf['image']
+                            shared_pvc = conf['persistent_volume']['name']
+                            shared_mount_path = conf['persistent_volume']['mount_path']
 
-                    commands.insert(0, 'mkdir {}'.format(working_dir))
-                    commands.insert(1, 'cp -r /cloud_scheduler_temp {}'.format(working_dir))
-                    # snapshot
-                    commands.insert(2, 'cp -r {} {}'.format(shared_mount_path, working_dir))
-                    # overwrite
+                            commands.insert(0, 'mkdir {}'.format(working_dir))
+                            commands.insert(1, 'cp -r /cloud_scheduler_temp {}'.format(working_dir))
+                            # snapshot
+                            commands.insert(2, 'cp -r {} {}'.format(shared_mount_path, working_dir))
+                            # overwrite
 
-                    shared_mount = client.V1VolumeMount(mount_path=shared_mount_path, name=shared_storage_name)
-                    user_mount = client.V1VolumeMount(mount_path='/cloud_scheduler_temp/', name=user_storage_name,
-                                                      sub_path="user_{}_task_{}".format(item.user_id, item.settings_id))
-                    env_username = client.V1EnvVar(name="CLOUD_SCHEDULER_USER", value=item.user.username)
-                    env_user_uuid = client.V1EnvVar(name="CLOUD_SCHEDULER_USER_UUID", value=item.user.uuid)
-                    container_settings = {
-                        'name': 'task-container',
-                        'image': image,
-                        'volume_mounts': [shared_mount, user_mount],
-                        'command': [shell],
-                        'args': ['-c', ';'.join(commands)],
-                        'env': [env_username, env_user_uuid]
-                    }
-                    if mem_limit:
-                        container_settings['resources'] = client.V1ResourceRequirements(
-                            limits={'memory': mem_limit})
-                    container = client.V1Container(**container_settings)
-                    persistent_volume_claim = client.V1PersistentVolumeClaimVolumeSource(
-                        claim_name=shared_pvc,
-                        read_only=True
-                    )
-                    user_volume_claim = client.V1PersistentVolumeClaimVolumeSource(
-                        claim_name=USERSPACE_NAME,
-                        read_only=True
-                    )
-                    volume = client.V1Volume(name=shared_storage_name,
-                                             persistent_volume_claim=persistent_volume_claim)
-                    user_volume = client.V1Volume(name=user_storage_name,
-                                                  persistent_volume_claim=user_volume_claim)
-                    template = client.V1PodTemplateSpec(
-                        metadata=client.V1ObjectMeta(labels={"task": common_name}),
-                        spec=client.V1PodSpec(restart_policy="Never",
-                                              containers=[container],
-                                              volumes=[volume, user_volume]))
-                    spec = client.V1JobSpec(template=template, backoff_limit=3,
-                                            active_deadline_seconds=item.settings.time_limit)
-                    job = client.V1Job(api_version="batch/v1", kind="Job",
-                                       metadata=client.V1ObjectMeta(name=common_name),
-                                       spec=spec)
-                    _ = api.create_namespaced_job(
-                        namespace=KUBERNETES_NAMESPACE,
-                        body=job
-                    )
-                    item.status = TASK.PENDING
-                    item.save(force_update=True)
-                except ApiException as ex:
-                    LOGGER.warning("Kubernetes ApiException %d: %s", ex.status, ex.reason)
-                except ValueError as ex:
-                    LOGGER.warning(ex)
-                    item.status = TASK.FAILED
-                    item.save(force_update=True)
-                except Exception as ex:
-                    LOGGER.error(ex)
-                    item.status = TASK.FAILED
-                    item.save(force_update=True)
+                            shared_mount = client.V1VolumeMount(mount_path=shared_mount_path, name=shared_storage_name)
+                            user_mount = client.V1VolumeMount(mount_path='/cloud_scheduler_temp/',
+                                                              name=user_storage_name,
+                                                              sub_path="user_{}_task_{}".format(item.user_id,
+                                                                                                item.settings_id))
+                            env_username = client.V1EnvVar(name="CLOUD_SCHEDULER_USER", value=item.user.username)
+                            env_user_uuid = client.V1EnvVar(name="CLOUD_SCHEDULER_USER_UUID", value=item.user.uuid)
+                            container_settings = {
+                                'name': 'task-container',
+                                'image': image,
+                                'volume_mounts': [shared_mount, user_mount],
+                                'command': [shell],
+                                'args': ['-c', ';'.join(commands)],
+                                'env': [env_username, env_user_uuid]
+                            }
+                            if mem_limit:
+                                container_settings['resources'] = client.V1ResourceRequirements(
+                                    limits={'memory': mem_limit})
+                            container = client.V1Container(**container_settings)
+                            persistent_volume_claim = client.V1PersistentVolumeClaimVolumeSource(
+                                claim_name=shared_pvc,
+                                read_only=True
+                            )
+                            user_volume_claim = client.V1PersistentVolumeClaimVolumeSource(
+                                claim_name=USERSPACE_NAME,
+                                read_only=True
+                            )
+                            volume = client.V1Volume(name=shared_storage_name,
+                                                     persistent_volume_claim=persistent_volume_claim)
+                            user_volume = client.V1Volume(name=user_storage_name,
+                                                          persistent_volume_claim=user_volume_claim)
+                            template = client.V1PodTemplateSpec(
+                                metadata=client.V1ObjectMeta(labels={"app": item.uuid}),
+                                spec=client.V1PodSpec(restart_policy="Never",
+                                                      containers=[container],
+                                                      volumes=[volume, user_volume]))
+                            spec = client.V1JobSpec(template=template, backoff_limit=3,
+                                                    active_deadline_seconds=GLOBAL_TASK_TIME_LIMIT)
+                            job = client.V1Job(api_version="batch/v1", kind="Job",
+                                               metadata=client.V1ObjectMeta(name=common_name),
+                                               spec=spec)
+                            _ = api.create_namespaced_job(
+                                namespace=KUBERNETES_NAMESPACE,
+                                body=job
+                            )
+                            item.status = TASK.PENDING
+                            item.save(force_update=True)
+                        except ApiException as ex:
+                            LOGGER.warning("Kubernetes ApiException %d: %s", ex.status, ex.reason)
+                        except ValueError as ex:
+                            LOGGER.warning(ex)
+                            item.status = TASK.FAILED
+                            item.save(force_update=True)
+                        except Exception as ex:
+                            LOGGER.error(ex)
+                            item.status = TASK.FAILED
+                            item.save(force_update=True)
+            except Exception as ex:
+                LOGGER.error(ex)
+            if idle:
+                time.sleep(1)
 
     @staticmethod
     def _ttl_check(uuid):
@@ -382,5 +430,4 @@ class TaskExecutor:
         self.ready = True
         while True:
             schedule.run_pending()
-            self._run_job(self._job_dispatch)
             time.sleep(0.01)
