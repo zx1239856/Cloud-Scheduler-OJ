@@ -68,13 +68,13 @@
 
     <el-dialog :title="dialogType" :visible.sync="dialogFormVisible">
       <el-form ref="dialogForm" :rules="dialogRules" :model="dialogData" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
-        <el-form-item label="Name" prop="name">
+        <el-form-item label="Name" prop="name" placeholder="Settings Name">
           <el-input v-model="dialogData.name" />
         </el-form-item>
         <el-form-item label="Concurrency" prop="concurrency">
           <el-slider v-model="dialogData.concurrency" show-input />
         </el-form-item>
-        <el-form-item label="Config" prop="task_config">
+        <el-form-item label="Config" prop="task_config" placeholder="Config">
           <el-input v-model="dialogData.task_config" :autosize="{ minRows: 4, maxRows: 10}" type="textarea" />
         </el-form-item>
       </el-form>
@@ -182,6 +182,12 @@ export default {
         handleCreate() {
             this.dialogFormVisible = true;
             this.dialogType = 'Create';
+            this.dialogData = {
+                uuid: undefined,
+                concurrency: 5,
+                name: '',
+                task_config: '{}'
+            };
         },
         handleUpdate(row) {
             this.dialogData = Object.assign({}, row);
