@@ -3,12 +3,25 @@ Unit Test for TaskManager
 """
 from uuid import uuid1
 import json
+import mock
 from django.test import RequestFactory
 from task_manager.models import TaskSettings
 import task_manager.views as views
 from user_model.models import UserModel, UserType
 from api.common import RESPONSE
 from .common import loginTestUser, TestCaseWithBasicUser
+
+
+class MockTaskExecutor:
+    def __init__(self):
+        self.ready = True
+
+    def scheduleTaskSettings(self, *_, **__):
+        pass
+
+    @classmethod
+    def instance(cls, **_):
+        return MockTaskExecutor()
 
 
 class TestTask(TestCaseWithBasicUser):
@@ -100,6 +113,7 @@ class TestTask(TestCaseWithBasicUser):
             self.assertEqual(response['status'], 200)
 
 
+@mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
 class TestTaskSettings(TestCaseWithBasicUser):
     def setUp(self):
         super().setUp()

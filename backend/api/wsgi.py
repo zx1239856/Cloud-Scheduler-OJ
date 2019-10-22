@@ -17,5 +17,5 @@ application = get_wsgi_application()
 # pylint: disable=C0413
 from task_manager.executor import TaskExecutor
 
-executor = TaskExecutor()
+executor = TaskExecutor.instance()
 executor.start()
