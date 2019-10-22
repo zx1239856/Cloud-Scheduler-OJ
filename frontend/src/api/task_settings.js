@@ -8,6 +8,13 @@ export function createTaskSettings(data) {
     });
 }
 
+export function getTaskSettings(uuid) {
+    return request({
+        url: '/task_settings/' + uuid + '/',
+        method: 'get'
+    });
+}
+
 export function getTaskSettingsList(page) {
     return request({
         url: '/task_settings/',
