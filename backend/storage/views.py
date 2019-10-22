@@ -7,6 +7,7 @@ import logging
 import tarfile
 from tempfile import TemporaryFile
 import json
+import hashlib
 from threading import Thread
 from django.views import View
 from django.http import JsonResponse
@@ -17,6 +18,7 @@ from kubernetes.client import CoreV1Api
 from api.common import RESPONSE
 from api.common import getKubernetesAPIClient
 from config import KUBERNETES_NAMESPACE
+from storage.models import FileModel, FileStatusCode
 
 LOGGER = logging.getLogger(__name__)
 
@@ -151,12 +153,50 @@ class StorageHandler(View):
 
 
 class StorageFileHandler(View):
-    http_method_names = ['post']
+    http_method_names = ['post', 'get']
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.save_dir = "storage/data/"
         self.api_instance = CoreV1Api(getKubernetesAPIClient())
+
+    def get(self, request, **_):
+        """
+        @api {post} /storage/upload_file/ get uploading file list
+        @apiName getUploadingFileList
+        @apiGroup StorageManager
+        @apiVersion 0.1.0
+        @apiSuccess {Object} payload Response Object
+        @apiSuccess {Number} payload.count Count of total files
+        @apiSuccess {Object[]} payload.entry List of files
+        @apiSuccess {String} payload.entry.id File hash ID
+        @apiSuccess {String} payload.entry.name Filename
+        @apiSuccess {String} payload.entry.pvc Target PVC
+        @apiSuccess {String} payload.entry.path Target path
+        @apiSuccess {Number} payload.entry.status File uploading status
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
+        """
+        file_list = FileModel.objects.all()
+        response = RESPONSE.SUCCESS
+        payload = {}
+        payload['count'] = len(file_list)
+        payload['entry'] = []
+        for f in file_list:
+            payload['entry'].append({'id': f.hashid,
+                                     'name': f.filename,
+                                     'pvc': f.targetpvc,
+                                     'path': f.targetpath,
+                                     'status': f.status
+                                     })
+        response['payload'] = payload
+        return JsonResponse(response)
+
 
     def post(self, request, **_):
         """
@@ -210,31 +250,45 @@ class StorageFileHandler(View):
         except Exception:
             pass
 
-        #save file
-        if not os.path.exists(self.save_dir):
-            os.makedirs(self.save_dir)
-        file_path = self.save_dir + file_upload.name
-        file_save = open(file_path, 'wb+')
-        for chunk in file_upload.chunks():
-            file_save.write(chunk)
-        file_save.close()
-        uploading = Thread(target=self.uploading, args=(file_upload.name, pvc_name, path))
+        # record file
+        identity = file_upload.name + pvc_name + path
+        md = hashlib.md5()
+        md.update(identity.encode('utf-8'))
+        md = md.hexdigest()
+        fileModel = FileModel(hashid=md, filename=file_upload.name, targetpath=path, targetpvc=pvc_name, status=FileStatusCode.PENDING)
+        fileModel.save()
+
+        uploading = Thread(target=self.uploading, args=(request.FILES.get('file'), pvc_name, path, md))
         uploading.start()
+        FileModel.objects.filter(hashid=md).update(status=FileStatusCode.CACHING)
         response = RESPONSE.SUCCESS
         return JsonResponse(response)
 
-    def uploading(self, file_upload, pvc_name, path):
-        """a new thread to create pod and upload file"""
+
+    def uploading(self, file_upload, pvc_name, path, md):
+        """a new thread to cachefile, create pod and upload file"""
+        # cache file
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
+        file_save = open(self.save_dir + file_upload.name, 'wb+')
+        for chunk in file_upload.chunks():
+            file_save.write(chunk)
+        file_save.close()
+        FileModel.objects.filter(hashid=md).update(status=FileStatusCode.CACHED)
+
         # create pod running a container with image nginx, bound pvc
+        volume_name = "file-upload-volume-" + md
+        container_name = "file-upload-container-" + md
+        pod_name = "file-upload-pod-" + md
         try:
-            volume = client.V1Volume(name="file-upload-volume", persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=pvc_name, read_only=False))
-            volume_mount = client.V1VolumeMount(name="file-upload-volume", mount_path='/cephfs-data/')
-            container = client.V1Container(name="file-upload-container", image="nginx:1.7.9", image_pull_policy="IfNotPresent", volume_mounts=[volume_mount])
+            volume = client.V1Volume(name=volume_name, persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=pvc_name, read_only=False))
+            volume_mount = client.V1VolumeMount(name=volume_name, mount_path='/cephfs-data/')
+            container = client.V1Container(name=container_name, image="nginx:1.7.9", image_pull_policy="IfNotPresent", volume_mounts=[volume_mount])
             pod = client.V1Pod(api_version="v1", kind="Pod",
-                               metadata=client.V1ObjectMeta(name="file-upload-pod", namespace=KUBERNETES_NAMESPACE), \
+                               metadata=client.V1ObjectMeta(name=pod_name, namespace=KUBERNETES_NAMESPACE), \
                                                             spec=client.V1PodSpec(containers=[container], volumes=[volume]))
             self.api_instance.create_namespaced_pod(namespace=KUBERNETES_NAMESPACE, body=pod)
-            while self.api_instance.read_namespaced_pod_status("file-upload-pod", KUBERNETES_NAMESPACE).status.phase != "Running":
+            while self.api_instance.read_namespaced_pod_status(pod_name, KUBERNETES_NAMESPACE).status.phase != "Running":
                 time.sleep(1)
         except ApiException as e:
             LOGGER.warning("Kubernetes ApiException %d: %s", e.status, e.reason)
@@ -243,38 +297,47 @@ class StorageFileHandler(View):
         except Exception as e:
             LOGGER.error(e)
 
-        # create filedir
-        exec_command = ['mkdir', '/cephfs-data/'+ path]
-        resp = stream(self.api_instance.connect_get_namespaced_pod_exec, "file-upload-pod", KUBERNETES_NAMESPACE, command=exec_command, \
-                        stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
+        try:
+            # create filedir
+            exec_command = ['mkdir', '/cephfs-data/'+ path]
+            resp = stream(self.api_instance.connect_get_namespaced_pod_exec, pod_name, KUBERNETES_NAMESPACE, command=exec_command, \
+                            stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
 
-        exec_command = ['tar', 'xvf', '-', '-C', '/cephfs-data/'+ path]
-        resp = stream(self.api_instance.connect_get_namespaced_pod_exec, "file-upload-pod", KUBERNETES_NAMESPACE, command=exec_command, \
-                        stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
+            FileModel.objects.filter(hashid=md).update(status=FileStatusCode.UPLOADING)
+            exec_command = ['tar', 'xvf', '-', '-C', '/cephfs-data/'+ path]
+            resp = stream(self.api_instance.connect_get_namespaced_pod_exec, pod_name, KUBERNETES_NAMESPACE, command=exec_command, \
+                            stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
 
-        with TemporaryFile() as tar_buffer:
-            with tarfile.open(fileobj=tar_buffer, mode='w') as tar:
-                tar.add(self.save_dir + file_upload, arcname=file_upload)
+            with TemporaryFile() as tar_buffer:
+                with tarfile.open(fileobj=tar_buffer, mode='w') as tar:
+                    tar.add(self.save_dir + file_upload.name, arcname=file_upload.name)
 
-            tar_buffer.seek(0)
-            commands = []
-            commands.append(tar_buffer.read())
+                tar_buffer.seek(0)
+                commands = []
+                commands.append(tar_buffer.read())
 
-            while resp.is_open():
-                resp.update(timeout=1)
-                #if resp.peek_stdout(): print("STDOUT: %s" % resp.read_stdout())
-                #if resp.peek_stderr(): print("STDERR: %s" % resp.read_stderr())
-                if commands:
-                    c = commands.pop(0)
-                    resp.write_stdin(c.decode())
-                else:
-                    break
-            resp.close()
+                while resp.is_open():
+                    resp.update(timeout=1)
+                    #if resp.peek_stdout(): print("STDOUT: %s" % resp.read_stdout())
+                    #if resp.peek_stderr(): print("STDERR: %s" % resp.read_stderr())
+                    if commands:
+                        c = commands.pop(0)
+                        resp.write_stdin(c.decode())
+                    else:
+                        break
+                resp.close()
+        except Exception as e:
+            LOGGER.error(e)
 
         # delete pod when finished
-        self.api_instance.delete_namespaced_pod("file-upload-pod", KUBERNETES_NAMESPACE)
-        # delete file in memory
-        if os.path.exists(self.save_dir + file_upload):
-            os.remove(self.save_dir + file_upload)
+        try:
+            self.api_instance.delete_namespaced_pod(pod_name, KUBERNETES_NAMESPACE)
+        except Exception:
+            pass
 
+        # delete file in memory
+        if os.path.exists(self.save_dir + file_upload.name):
+            os.remove(self.save_dir + file_upload.name)
+
+        FileModel.objects.filter(hashid=md).update(status=FileStatusCode.SUCCEEDED)
         LOGGER.info("File uploaded successfully.")
