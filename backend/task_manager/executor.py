@@ -10,11 +10,13 @@ from concurrent.futures import ThreadPoolExecutor
 import schedule
 from django.db.models import Q
 from kubernetes import client
+from kubernetes.stream import stream
 from kubernetes.client import CoreV1Api, BatchV1Api
 from kubernetes.client.rest import ApiException
 from api.common import getKubernetesAPIClient, USERSPACE_NAME
-from config import DAEMON_WORKERS, KUBERNETES_NAMESPACE, CEPH_STORAGE_CLASS_NAME, GLOBAL_TASK_TIME_LIMIT
-from .models import TaskSettings, Task, TASK
+from config import DAEMON_WORKERS, KUBERNETES_NAMESPACE, CEPH_STORAGE_CLASS_NAME, \
+    GLOBAL_TASK_TIME_LIMIT, USER_SPACE_POD_TIMEOUT
+from .models import TaskSettings, TaskStorage, Task, TASK
 
 LOGGER = logging.getLogger(__name__)
 
@@ -214,6 +216,86 @@ class TaskExecutor:
                 time.sleep(1)
 
     @staticmethod
+    def get_user_space_pod(uuid, user):
+        api = CoreV1Api(getKubernetesAPIClient())
+        result = None
+        try:
+            setting = TaskSettings.objects.get(uuid=uuid)
+            user_storage, created = TaskStorage.objects.get_or_create(settings=setting, user=user, defaults={
+                'settings': setting,
+                'user': user,
+                'pod_name': ''
+            })
+            if user_storage.pod_name:
+                # try get this pod
+                try:
+                    pod = api.read_namespaced_pod(name=user_storage.pod_name, namespace=KUBERNETES_NAMESPACE)
+                    if pod.status.phase == 'Running':
+                        result = pod
+                        user_storage.expire_time = round(time.time() + USER_SPACE_POD_TIMEOUT)
+                        user_storage.save(force_update=True)
+                except ApiException as ex:
+                    if ex.status != 404:
+                        raise Exception("Unhandled ApiException")
+            if result is None:
+                # if not available, try to allocate a new one
+                conf = json.loads(setting.container_config)
+                response = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE,
+                                                   label_selector="task={}".format(uuid))
+                available = None
+                # crunch available pods
+                for pod in response.items:
+                    num_in_use = int(pod.metadata.labels['occupied'])
+                    if pod.status.phase == 'Running' and num_in_use < setting.max_sharing_users:
+                        available = pod
+                        break
+                # allocate
+                if available:
+                    pod_name = available.metadata.name
+                    available.metadata.labels['occupied'] = str(int(available.metadata.labels['occupied']) + 1)
+                    try:
+                        username = '{}_{}'.format(user.username, setting.id)
+                        user_dir = "/cloud_scheduler_userspace/user_{}_task_{}".format(user.id, setting.id)
+                        LOGGER.debug("Create username %s", username)
+                        response = stream(api.connect_get_namespaced_pod_exec,
+                                          pod_name,
+                                          KUBERNETES_NAMESPACE,
+                                          command=
+                                          ['/bin/bash', '-c',
+                                           'chmod 711 /home;mkdir -p {user_dir};ln -s {user_dir} /home/{username};'
+                                           'useradd {username};'
+                                           'chown {username} /home/{username};chmod 700 /home/{username}'.format(
+                                               user_dir=user_dir,
+                                               username=username)],
+                                          stderr=True, stdin=False,
+                                          stdout=True, tty=False)
+                        LOGGER.debug(response)
+                        if created:
+                            response = stream(api.connect_get_namespaced_pod_exec,
+                                              pod_name,
+                                              KUBERNETES_NAMESPACE,
+                                              command=
+                                              ['/bin/bash', '-c',
+                                               'cp -r {mount_path}/* /home/{user};'
+                                               'chown -R {user}:{user} /home/{user}'.format(
+                                                   mount_path=conf['persistent_volume']['mount_path'],
+                                                   user=username)],
+                                              stderr=True, stdin=False,
+                                              stdout=True, tty=False)
+                            LOGGER.debug(response)
+                        api.patch_namespaced_pod(pod_name, KUBERNETES_NAMESPACE, available)
+                        result = available
+                        user_storage.pod_name = available.metadata.name
+                        user_storage.expire_time = round(time.time() + USER_SPACE_POD_TIMEOUT)
+                        user_storage.save(force_update=True)
+                    except ApiException as ex:
+                        LOGGER.warning(ex)
+        except Exception as ex:
+            LOGGER.warning(ex)
+        finally:
+            return result
+
+    @staticmethod
     def _job_dispatch():
         api = BatchV1Api(getKubernetesAPIClient())
         while True:
@@ -225,6 +307,7 @@ class TaskExecutor:
                     common_name = "task-exec-{}".format(item.uuid)
                     shared_storage_name = "shared-{}".format(item.uuid)
                     user_storage_name = "user-{}".format(item.uuid)
+                    user_dir = "/cloud_scheduler_userspace/user_{}_task_{}".format(item.user_id, item.settings_id)
                     create_namespace()
                     create_userspace_pvc()
                     if not get_userspace_pvc():
@@ -246,13 +329,13 @@ class TaskExecutor:
                             shared_mount_path = conf['persistent_volume']['mount_path']
 
                             commands.insert(0, 'mkdir {}'.format(working_dir))
-                            commands.insert(1, 'cp -r /cloud_scheduler_temp {}'.format(working_dir))
+                            commands.insert(1, 'cp -r {}/* {}'.format(user_dir, working_dir))
                             # snapshot
-                            commands.insert(2, 'cp -r {} {}'.format(shared_mount_path, working_dir))
+                            commands.insert(2, 'cp -r {}/* {}'.format(shared_mount_path, working_dir))
                             # overwrite
 
                             shared_mount = client.V1VolumeMount(mount_path=shared_mount_path, name=shared_storage_name)
-                            user_mount = client.V1VolumeMount(mount_path='/cloud_scheduler_temp/',
+                            user_mount = client.V1VolumeMount(mount_path='/cloud_scheduler_userspace/',
                                                               name=user_storage_name,
                                                               sub_path="user_{}_task_{}".format(item.user_id,
                                                                                                 item.settings_id))
