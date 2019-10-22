@@ -89,7 +89,7 @@ class UserSpaceHandler(View):
                 LOGGER.debug(err)
                 if err['status'] == 'Success':
                     response = RESPONSE.SUCCESS
-                    response['payload'] = res.split()
+                    response['payload'] = res.split() if path is not None else res
                 else:
                     response = RESPONSE.OPERATION_FAILED
             return response
@@ -112,7 +112,7 @@ class UserSpaceHandler(View):
                 if file is not None:
                     cmdlist.append("cat > {} <<EOF\n{}\nEOF\n".format(file, content))
                 elif path is not None:
-                    cmdlist.append('mkpath -p {}'.format(path))
+                    cmdlist.append('mkdir -p {}'.format(path))
                 command.append(';'.join(cmdlist))
                 LOGGER.debug(command)
                 client = stream(api.connect_get_namespaced_pod_exec,

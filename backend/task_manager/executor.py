@@ -127,6 +127,7 @@ class TaskExecutor:
         self.scheduler_thread = Thread(target=self.dispatch)
         self.job_dispatch_thread = Thread(target=self._job_dispatch)
         self.job_monitor_thread = Thread(target=self._job_monitor)
+        self.storage_pod_monitor_thread = Thread(target=self._storage_pod_monitor)
         self.ready = False
         LOGGER.info("Task executor initialized.")
 
@@ -140,9 +141,52 @@ class TaskExecutor:
             self.job_dispatch_thread.start()
         if not self.job_monitor_thread.isAlive():
             self.job_monitor_thread.start()
+        if not self.storage_pod_monitor_thread.isAlive():
+            self.storage_pod_monitor_thread.start()
 
     def _run_job(self, fn, **kwargs):
         self.ttl_checker.submit(fn, **kwargs)
+
+    @staticmethod
+    def _storage_pod_monitor():
+        api = CoreV1Api(getKubernetesAPIClient())
+        while True:
+            idle = True
+            try:
+                for item in TaskStorage.objects.exclude(expire_time=0).order_by('expire_time'):
+                    try:
+                        idle = False
+                        if item.expire_time <= round(time.time()):
+                            # release idled pod
+                            username = '{}_{}'.format(item.user.username, item.settings.id)
+                            pod = api.read_namespaced_pod(name=item.pod_name, namespace=KUBERNETES_NAMESPACE)
+                            if pod is not None and pod.status is not None and pod.status.phase == 'Running':
+                                response = stream(api.connect_get_namespaced_pod_exec,
+                                                  item.pod_name,
+                                                  KUBERNETES_NAMESPACE,
+                                                  command=
+                                                  ['/bin/bash', '-c',
+                                                   'unlink /home/{username};userdel {username}'.format(
+                                                       username=username)],
+                                                  stderr=True, stdin=False,
+                                                  stdout=True, tty=False)
+                                LOGGER.debug(response)
+                                pod.metadata.labels['occupied'] = str(max(int(pod.metadata.labels['occupied']) - 1, 0))
+                                api.patch_namespaced_pod(pod.metadata.name, KUBERNETES_NAMESPACE, pod)
+                            item.pod_name = ''
+                            item.expire_time = 0
+                            item.save(force_update=True)
+                    except ApiException as ex:
+                        if ex.status == 404:
+                            item.pod_name = ''
+                            item.expire_time = 0
+                            item.save(force_update=True)
+                        else:
+                            LOGGER.warning(ex)
+            except Exception as ex:
+                LOGGER.warning(ex)
+            if idle:
+                time.sleep(1)
 
     @staticmethod
     def _job_monitor():
