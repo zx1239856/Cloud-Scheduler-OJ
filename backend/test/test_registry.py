@@ -74,8 +74,9 @@ class TestRegistry(TestCase):
         url = self.url + 'image/'
         imagename = 'hello-world'
         filename = 'hello-world.tar'
-        registry_views.client.images.pull(imagename)
-        image = registry_views.docker_api.get_image(imagename)
+        registry = registry_views.RegistryHandler()
+        registry.client.images.pull(imagename)
+        image = registry.docker_api.get_image(imagename)
         f = open(filename, 'wb+')
         for chunk in image:
             f.write(chunk)

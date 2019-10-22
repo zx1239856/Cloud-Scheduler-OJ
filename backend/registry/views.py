@@ -7,14 +7,18 @@ from django.views import View
 from api.common import RESPONSE
 from config import DOCKER_ADDRESS, REGISTRY_ADDRESS
 
-client = docker.DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-docker_api = docker.APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
 LOGGER = logging.getLogger(__name__)
 
+class RegistryHandler:
+    def __init__(self):
+        self.client = docker.DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
+        self.docker_api = docker.APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
+
 def docker_connection(address=None):
+    registry = RegistryHandler()
     try:
-        client_test = client
-        docker_api_test = docker_api
+        client_test = registry.client
+        docker_api_test = registry.docker_api
         if address is not None:
             client_test = docker.DockerClient(base_url=address, tls=False)
             docker_api_test = docker.APIClient(base_url=address, tls=False)
@@ -26,6 +30,7 @@ def docker_connection(address=None):
 
 class DockerfileHandler(View):
     http_method_names = ['post']
+    registry = RegistryHandler()
 
     def post(self, request, **kwargs):
         """
@@ -54,11 +59,11 @@ class DockerfileHandler(View):
             searched_dockerfile = re.search(dockerfile_pattern, f.name, re.M|re.I)
             if searched_dockerfile:
                 try:
-                    image = client.images.build(fileobj=paramfile, custom_context=True)[0]
+                    image = self.registry.client.images.build(fileobj=paramfile, custom_context=True)[0]
                     name = image.tags[0]
                     newName = REGISTRY_ADDRESS + '/' + name
-                    docker_api.tag(name, newName)
-                    docker_api.push(newName)
+                    self.registry.docker_api.tag(name, newName)
+                    self.registry.docker_api.push(newName)
                     return JsonResponse(RESPONSE.SUCCESS)
                 except docker.errors.DockerException as e:
                     response = RESPONSE.SERVER_ERROR
@@ -72,6 +77,7 @@ class DockerfileHandler(View):
 
 class ImageHandler(View):
     http_method_names = ['post']
+    registry = RegistryHandler()
 
     def post(self, request, **kwargs):
         """
@@ -99,11 +105,11 @@ class ImageHandler(View):
             searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
             if searched_tar:
                 try:
-                    image = client.images.load(f)[0]
+                    image = self.registry.client.images.load(f)[0]
                     name = image.tags[0]
                     newName = REGISTRY_ADDRESS + '/' + name
-                    docker_api.tag(name, newName)
-                    docker_api.push(newName)
+                    self.registry.docker_api.tag(name, newName)
+                    self.registry.docker_api.push(newName)
                     return JsonResponse(RESPONSE.SUCCESS)
                 except docker.errors.DockerException as e:
                     response = RESPONSE.SERVER_ERROR
