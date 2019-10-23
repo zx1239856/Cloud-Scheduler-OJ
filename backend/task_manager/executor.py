@@ -230,11 +230,7 @@ class TaskExecutor:
                                                                   propagation_policy='Foreground',
                                                                   grace_period_seconds=5
                                                               ))
-                        else:
-                            item.status = TASK.FAILED
-                            item.logs_get = True
-                            item.logs = "Unable to find corresponding pod."
-                            item.save(force_update=True)
+                        # else wait for a period because it takes time for corresponding pod to be initialized
                     except ApiException as ex:
                         LOGGER.warning(ex)
                 for item in Task.objects.filter(status=TASK.DELETING):
@@ -308,10 +304,10 @@ class TaskExecutor:
                                     'chmod 711 /cloud_scheduler_userspace;'
                                     'chmod 711 /home;'
                                     'mkdir -p {user_dir};'
-                                    'chown {username} {user_dir}'
+                                    'useradd -u {uid} {username};'
+                                    'chown {username} {user_dir};'
                                     'chmod 700 {user_dir};'
                                     'ln -s {user_dir} /home/{username};'
-                                    'useradd -u {uid} {username};'
                                     'chown {username} /home/{username};'
                                     'chmod 700 /home/{username}'.format(
                                         user_dir=user_dir,

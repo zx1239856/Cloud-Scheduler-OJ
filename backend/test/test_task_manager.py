@@ -5,11 +5,11 @@ from uuid import uuid1
 import json
 import mock
 from django.test import RequestFactory
-from task_manager.models import TaskSettings
+from task_manager.models import TaskSettings, Task, TASK
 import task_manager.views as views
 from user_model.models import UserModel, UserType
 from api.common import RESPONSE
-from .common import loginTestUser, TestCaseWithBasicUser
+from .common import loginTestUser, TestCaseWithBasicUser, MockCoreV1Api
 
 
 class MockTaskExecutor:
@@ -25,6 +25,31 @@ class MockTaskExecutor:
 
 
 class TestTask(TestCaseWithBasicUser):
+    @mock.patch.object(views, 'CoreV1Api', MockCoreV1Api)
+    def testGetTaskLogs(self):
+        settings = TaskSettings.objects.create(uuid='unique_id', name="task_name",
+                                               description="test",
+                                               container_config=json.dumps({"meta": "meta_string_{}".format(1)}),
+                                               ttl_interval=3, replica=3, time_limit=5, max_sharing_users=1)
+        token = loginTestUser('admin')
+        response = self.client.post('/task/', data=json.dumps({
+            'settings_uuid': 'unique_id'
+        }), content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
+                                    HTTP_X_ACCESS_TOKEN=token,
+                                    HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], 200)
+        task = Task.objects.get(settings=settings)
+        task.status = TASK.RUNNING
+        task.save(force_update=True)
+        response = self.client.get('/task/{}/'.format(task.uuid), HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], 200)
+        self.assertTrue(response['payload']['log'].startswith('Hello world log from pod'))
+
     def testGetTaskInvalidReq(self):
         token = loginTestUser('admin')
         response = self.client.get('/task/?page=invalid', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
@@ -121,7 +146,7 @@ class TestTaskSettings(TestCaseWithBasicUser):
             item = TaskSettings.objects.create(uuid=str(uuid1()), name="task_{}".format(i),
                                                description="test",
                                                container_config=json.dumps({"meta": "meta_string_{}".format(i)}),
-                                               ttl_interval=3, replica=i+1, time_limit=5, max_sharing_users=1)
+                                               ttl_interval=3, replica=i + 1, time_limit=5, max_sharing_users=1)
             self.item_list.append(item)
 
     def testPermission(self):
@@ -334,6 +359,20 @@ class TestTaskSettings(TestCaseWithBasicUser):
         response = json.loads(response.content)
         self.assertEqual(response['status'], 200)
         self.assertEqual(response['payload']['container_config'], {})
+
+        response = self.client.put('/task_settings/{}/'.format(self.item_list[0].uuid),
+                                   data=json.dumps({
+                                       'description': 'new_description',
+                                       'time_limit': 3,
+                                       'replica': 2,
+                                       'ttl_interval': 100,
+                                       'max_sharing_users': 10
+                                   }), content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
+                                   HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], 200)
 
     # Test for server error
     def testServerError(self):

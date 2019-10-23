@@ -21,7 +21,7 @@ class UserSpaceHandler(View):
     http_method_names = ['get', 'post', 'put', 'delete']
 
     @staticmethod
-    def _safe_wrapper(fn, request, **kwargs):
+    def _safe_wrapper(request, op, **kwargs):
         response = None
         api = CoreV1Api(getKubernetesAPIClient())
         try:
@@ -42,7 +42,68 @@ class UserSpaceHandler(View):
                 response = RESPONSE.OPERATION_FAILED
                 response['message'] += " Failed to allocate pod."
             else:
-                response = fn(request, api=api, username=username, pod=pod, **kwargs)
+                params = request.GET
+                command = ['su', username, '-c']
+                cmdlist = []
+                file = params.get('file', None)
+                path = params.get('path', None)
+                if op != 'get':
+                    query = json.loads(request.body)
+                    file = query.get('file', None)
+                    path = query.get('path', None)
+                    content = query.get('content', '')
+                if op == 'put':
+                    old_file = query.get('old_file', None)
+                    old_path = query.get('old_path', None)
+                if not bool(file) ^ bool(path):
+                    response = RESPONSE.INVALID_REQUEST
+                else:
+                    if op == 'put' and not ((old_file and file and not path) or (old_path and path and not file
+                                                                                 and not content)):
+                        response = RESPONSE.INVALID_REQUEST
+                    else:
+                        if file is not None:
+                            if op == 'get':
+                                cmdlist.append('cat {}'.format(file))
+                            elif op == 'post':
+                                cmdlist.append("cat > {} <<EOF\n{}\nEOF\n".format(file, content))
+                            elif op == 'delete':
+                                cmdlist.append('rm -f {}'.format(file))
+                        elif path is not None:
+                            if op == 'get':
+                                cmdlist.append('ls -F {}'.format(path))
+                            elif op == 'post':
+                                cmdlist.append('mkdir -p {}'.format(path))
+                            elif op == 'delete':
+                                cmdlist.append('rm -rf {}'.format(path))
+                        if op == 'put':
+                            if old_file and old_file != file:
+                                cmdlist.append('mv {} {}'.format(old_file, file))
+                            elif old_path and old_path == path:
+                                cmdlist.append('mv {} {}'.format(old_path, path))
+                            if file and content:
+                                cmdlist.append("cat > {} <<EOF\n{}\nEOF\n".format(file, content))
+                        command.append(';'.join(cmdlist))
+                        LOGGER.debug(command)
+                        client = stream(api.connect_get_namespaced_pod_exec,
+                                        pod.metadata.name, KUBERNETES_NAMESPACE, command=command, stderr=True,
+                                        stdin=False,
+                                        stdout=True, tty=False, _preload_content=False)
+                        client.run_forever(timeout=20)
+                        try:
+                            err = json.loads(client.read_channel(ERROR_CHANNEL))
+                        except ValueError:
+                            err = {}
+                        res = client.read_stdout()
+                        LOGGER.debug(res)
+                        LOGGER.debug(err)
+                        if err['status'] == 'Success':
+                            response = RESPONSE.SUCCESS
+                            if op == 'get':
+                                response['payload'] = res.split() if path is not None else res
+                        else:
+                            response = RESPONSE.OPERATION_FAILED
+                return response
         except TaskSettings.DoesNotExist:
             response = RESPONSE.OPERATION_FAILED
         except ValueError:
@@ -54,173 +115,13 @@ class UserSpaceHandler(View):
             return JsonResponse(response)
 
     def get(self, request, **kwargs):
-        def handler(req, **_kwargs):
-            params = req.GET
-            username = _kwargs['username']
-            api = _kwargs['api']
-            pod = _kwargs['pod']
-            command = ['su', username, '-c']
-            cmdlist = []
-            file = params.get('file', None)
-            path = params.get('path', None)
-            if file and path:
-                response = RESPONSE.INVALID_REQUEST
-                response['message'] += ' You can only choose to list path or cat file.'
-            elif not file and not path:
-                response = RESPONSE.INVALID_REQUEST
-            else:
-                if file is not None:
-                    cmdlist.append('cat {}'.format(file))
-                elif path is not None:
-                    cmdlist.append('ls -F {}'.format(path))
-                command.append(';'.join(cmdlist))
-                LOGGER.debug(command)
-                client = stream(api.connect_get_namespaced_pod_exec,
-                                pod.metadata.name, KUBERNETES_NAMESPACE, command=command, stderr=True,
-                                stdin=False,
-                                stdout=True, tty=False, _preload_content=False)
-                client.run_forever(timeout=20)
-                try:
-                    err = json.loads(client.read_channel(ERROR_CHANNEL))
-                except ValueError:
-                    err = {}
-                res = client.read_stdout()
-                LOGGER.debug(res)
-                LOGGER.debug(err)
-                if err['status'] == 'Success':
-                    response = RESPONSE.SUCCESS
-                    response['payload'] = res.split() if path is not None else res
-                else:
-                    response = RESPONSE.OPERATION_FAILED
-            return response
-
-        return self._safe_wrapper(handler, request, **kwargs)
+        return self._safe_wrapper(request, 'get', **kwargs)
 
     def post(self, request, **kwargs):
-        def handler(req, **_kwargs):
-            query = json.loads(req.body)
-            username = _kwargs['username']
-            api = _kwargs['api']
-            pod = _kwargs['pod']
-            file = query.get('file', None)
-            path = query.get('path', None)
-            content = query.get('content', '')
-            if bool(file) ^ bool(path):
-                command = ['su', username, '-c']
-                cmdlist = []
-                LOGGER.debug(content)
-                if file is not None:
-                    cmdlist.append("cat > {} <<EOF\n{}\nEOF\n".format(file, content))
-                elif path is not None:
-                    cmdlist.append('mkdir -p {}'.format(path))
-                command.append(';'.join(cmdlist))
-                LOGGER.debug(command)
-                client = stream(api.connect_get_namespaced_pod_exec,
-                                pod.metadata.name, KUBERNETES_NAMESPACE, command=command, stderr=True,
-                                stdin=False,
-                                stdout=True, tty=False, _preload_content=False)
-                client.write_stdin(content.encode('unicode-escape').decode())
-                client.run_forever(timeout=20)
-                try:
-                    err = json.loads(client.read_channel(ERROR_CHANNEL))
-                except ValueError:
-                    err = {}
-                res = client.read_stdout()
-                LOGGER.debug(res)
-                LOGGER.debug(err)
-                if err['status'] == 'Success':
-                    response = RESPONSE.SUCCESS
-                    response['payload'] = res.split()
-                else:
-                    response = RESPONSE.OPERATION_FAILED
-            else:
-                response = RESPONSE.INVALID_REQUEST
-            return response
-
-        return self._safe_wrapper(handler, request, **kwargs)
+        return self._safe_wrapper(request, 'post', **kwargs)
 
     def put(self, request, **kwargs):
-        def handler(req, **_kwargs):
-            query = json.loads(req.body)
-            username = _kwargs['username']
-            api = _kwargs['api']
-            pod = _kwargs['pod']
-            old_file = query.get('old_file', None)
-            old_path = query.get('old_path', None)
-            file = query.get('file', None)
-            path = query.get('path', None)
-            content = query.get('content', None)
-            if bool(old_file) ^ bool(old_path) and ((old_file and file and not path) or (old_path and path and not file
-                                                                                         and not content)):
-                command = ['su', username, '-c']
-                cmdlist = []
-                if old_file:
-                    cmdlist.append('mv {} {}'.format(old_file, file))
-                else:
-                    cmdlist.append('mv {} {}'.format(old_path, path))
-                if content:
-                    cmdlist.append("cat > {} <<EOF\n{}\nEOF\n".format(file, content))
-                command.append(';'.join(cmdlist))
-                LOGGER.debug(command)
-                client = stream(api.connect_get_namespaced_pod_exec,
-                                pod.metadata.name, KUBERNETES_NAMESPACE, command=command, stderr=True,
-                                stdin=False,
-                                stdout=True, tty=False, _preload_content=False)
-                client.run_forever(timeout=20)
-                try:
-                    err = json.loads(client.read_channel(ERROR_CHANNEL))
-                except ValueError:
-                    err = {}
-                res = client.read_stdout()
-                LOGGER.debug(res)
-                LOGGER.debug(err)
-                if err['status'] == 'Success':
-                    response = RESPONSE.SUCCESS
-                    response['payload'] = res.split()
-                else:
-                    response = RESPONSE.OPERATION_FAILED
-            else:
-                response = RESPONSE.INVALID_REQUEST
-            return response
-
-        return self._safe_wrapper(handler, request, **kwargs)
+        return self._safe_wrapper(request, 'put', **kwargs)
 
     def delete(self, request, **kwargs):
-        def handler(req, **_kwargs):
-            query = json.loads(req.body)
-            username = _kwargs['username']
-            api = _kwargs['api']
-            pod = _kwargs['pod']
-            file = query.get('file', None)
-            path = query.get('path', None)
-            if bool(file) ^ bool(path):
-                command = ['su', username, '-c']
-                cmdlist = []
-                if file is not None:
-                    cmdlist.append('rm -f {}'.format(file))
-                elif path is not None:
-                    cmdlist.append('rm -rf {}'.format(path))
-                command.append(';'.join(cmdlist))
-                LOGGER.debug(command)
-                client = stream(api.connect_get_namespaced_pod_exec,
-                                pod.metadata.name, KUBERNETES_NAMESPACE, command=command, stderr=True,
-                                stdin=False,
-                                stdout=True, tty=False, _preload_content=False)
-                client.run_forever(timeout=20)
-                try:
-                    err = json.loads(client.read_channel(ERROR_CHANNEL))
-                except ValueError:
-                    err = {}
-                res = client.read_stdout()
-                LOGGER.debug(res)
-                LOGGER.debug(err)
-                if err['status'] == 'Success':
-                    response = RESPONSE.SUCCESS
-                    response['payload'] = res.split()
-                else:
-                    response = RESPONSE.OPERATION_FAILED
-            else:
-                response = RESPONSE.INVALID_REQUEST
-            return response
-
-        return self._safe_wrapper(handler, request, **kwargs)
+        return self._safe_wrapper(request, 'delete', **kwargs)
