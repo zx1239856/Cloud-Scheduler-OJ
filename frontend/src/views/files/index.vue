@@ -1,20 +1,60 @@
 <template>
-  <div class="dashboard-container">
-    <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleCreate">
-      Upload File
-    </el-button>
-    <div class="dashboard-text">Hello, {{ name }} !</div>
-    <!--
+  <div class="app-container">
+    <div class="filter-container" align="right">
+      <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleUpload">
+        Upload File
+      </el-button>
+    </div>
+
+    <el-table
+      :key="tableKey"
+      v-loading="listLoading"
+      :data="list"
+      border
+      fit
+      highlight-current-row
+      style="width: 100%;"
+      @sort-change="sortChange"
+    >
+      <el-table-column label="File Name" width="200" align="center">
+        <template slot-scope="scope">
+          <span>{{ scope.row.name }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Target PVC" min-width="300" align="center">
+        <template slot-scope="scope">
+          <span>{{ scope.row.pvc }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Target Path" min-width="300" align="center">
+        <template slot-scope="scope">
+          <span>{{ scope.row.path }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Status" width="200" align="center">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.status | statusFilter">{{ statusMap[scope.row.status] }}</el-tag>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
+
     <el-dialog :title="dialogType" :visible.sync="dialogFormVisible">
-      <el-form ref="dialogForm" :rules="dialogRules" :model="dialogData" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
-        <el-form-item label="Name" prop="name">
-          <el-input v-model="dialogData.name" />
+      <el-form ref="dialogForm" :rules="dialogRules" :model="dialogData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
+        <el-form-item label="file" prop="file">
+          <el-upload
+            action="no"
+            :http-request="getFile"
+          >
+            <i class="el-icon-plus" />
+          </el-upload>
         </el-form-item>
-        <el-form-item label="Concurrency" prop="concurrency">
-          <el-slider v-model="dialogData.concurrency" show-input />
+        <el-form-item label="pvc" prop="pvc">
+          <el-input v-model="dialogData.pvc" />
         </el-form-item>
-        <el-form-item label="Config" prop="task_config">
-          <el-input v-model="dialogData.task_config" :autosize="{ minRows: 4, maxRows: 10}" type="textarea" />
+        <el-form-item label="path" prop="path">
+          <el-input v-model="dialogData.path" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
@@ -22,41 +62,135 @@
           Cancel
         </el-button>
         <el-button type="primary" @click="handleDialogConfirm">
-          Confirm
+          Upload
         </el-button>
       </div>
     </el-dialog>
-    -->
   </div>
 </template>
 
 <script>
+import { getFileList, uploadFile } from '@/api/storage';
+import waves from '@/directive/waves'; // waves directive
+import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 import { mapGetters } from 'vuex';
 
 export default {
-    name: 'Dashboard',
+    name: 'FileList',
+    components: { Pagination },
+    directives: { waves },
+
+    data() {
+        return {
+            dialogType: 'Upload',
+            dialogFormVisible: false,
+            deleteDialogVisible: false,
+            tableKey: 0,
+            list: null,
+            total: 0,
+            listLoading: true,
+            pageSizes: [25],
+            listQuery: {
+                page: 1,
+                limit: 25
+            },
+            dialogData: {
+                file: '',
+                pvc: '',
+                path: ''
+            },
+            dialogRules: {
+                file: [{
+                    required: true,
+                    message: 'file is required',
+                    trigger: 'change'
+                }],
+                pvc: [{
+                    required: true,
+                    message: 'concurrency is required',
+                    trigger: 'change'
+                }],
+                path: [{
+                    required: true,
+                    message: 'path is required',
+                    trigger: 'change'
+                }]
+            },
+            statusMap: {
+                0: 'Pending',
+                1: 'Caching',
+                2: 'Cached',
+                3: 'Uploading',
+                4: 'Succeeded',
+                5: 'Failed'
+            },
+            filters: {
+                statusFilter(status) {
+                    const map = {
+                        'Pending': 'warning',
+                        'Caching': 'danger',
+                        'Cached': 'danger',
+                        'Uploading': 'danger',
+                        4: 'danger',
+                        'Failed': 'danger'
+                    };
+                    return map[status];
+                }
+            }
+        };
+    },
     computed: {
-        ...mapGetters(['name'])
+        ...mapGetters([
+            'permission'
+        ])
+    },
+    created() {
+        this.getList();
     },
     methods: {
-        handleCreate() {
+        getList() {
+            this.listLoading = true;
+            getFileList(this.listQuery.page).then(response => {
+                this.list = response.payload.entry;
+                this.total = response.payload.count;
+                this.listLoading = false;
+            });
+        },
+        handleUpload() {
             this.dialogFormVisible = true;
-            this.dialogType = 'Create';
+            this.dialogType = 'Upload';
+        },
+        uploading() {
+            this.dialogFormVisible = false;
+            var formData = new FormData();
+            formData.append('file', this.dialogData.file);
+            formData.append('pvcName', this.dialogData.pvc);
+            formData.append('mountPath', this.dialogData.path);
+            uploadFile(formData).then(response => {
+                this.$message({
+                    showClose: true,
+                    message: 'File Uploading',
+                    type: 'success'
+                });
+                this.getList();
+            });
+        },
+        handleDialogConfirm() {
+            this.$refs.dialogForm.validate(valid => {
+                if (valid) {
+                    if (this.dialogType === 'Upload') {
+                        this.uploading();
+                    } else {
+                        //
+                    }
+                } else {
+                    return false;
+                }
+            });
+        },
+        getFile(item) {
+            this.dialogData.file = item.file;
         }
     }
 };
 </script>
-
-<style lang="scss" scoped>
-.dashboard {
-    &-container {
-        margin: 30px;
-    }
-    &-text {
-        font-size: 30px;
-        line-height: 46px;
-        text-align: center;
-        margin-top: 40vh;
-    }
-}
-</style>

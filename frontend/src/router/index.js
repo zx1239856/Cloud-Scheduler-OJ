@@ -108,6 +108,24 @@ export const constantRoutes = [
         name: 'webssh',
         component: () => import('@/views/webssh/index')
     },
+    {
+        path: '/storage',
+        name: 'storage',
+        component: Layout,
+        meta: { title: 'Storage', icon: 'storage' },
+        children: [{
+            path: 'index',
+            name: 'files',
+            component: () => import('@/views/files/index'),
+            meta: { title: 'File List', icon: 'list' }
+        },
+        {
+            path: 'pvc',
+            name: 'PV claims',
+            component: () => import('@/views/storage/index'),
+            meta: { title: 'PV claims', icon: 'list' }
+        }]
+    },
 
     // {
     //   path: '/form',

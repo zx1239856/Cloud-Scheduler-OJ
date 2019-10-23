@@ -12,6 +12,33 @@ export function uploadFile(query) {
     return request({
         url: '/storage/upload_file/',
         method: 'post',
-        params: query
+        headers: {
+            'Content-Type': 'multipart/form-data'
+        },
+        data: query,
+        withCredentials: true
+    });
+}
+
+export function getPVCList(query) {
+    return request({
+        url: '/storage/',
+        method: 'get'
+    });
+}
+
+export function createPVC(query) {
+    return request({
+        url: '/storage/',
+        method: 'post',
+        data: query
+    });
+}
+
+export function deletePVC(query) {
+    return request({
+        url: '/storage/',
+        method: 'delete',
+        data: query
     });
 }

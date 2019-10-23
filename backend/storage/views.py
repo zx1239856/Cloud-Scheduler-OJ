@@ -235,7 +235,6 @@ class StorageFileHandler(View):
         except Exception:
             response = RESPONSE.INVALID_REQUEST
             return JsonResponse(response)
-
         # check if pvc exists
         try:
             self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name, namespace=KUBERNETES_NAMESPACE)
