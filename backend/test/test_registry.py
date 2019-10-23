@@ -70,24 +70,24 @@ class TestRegistry(TestCase):
     #     response = json.loads(response.content)
     #     self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
-    def test_image_upload1(self):
-        url = self.url + 'image/'
-        imagename = 'hello-world'
-        filename = 'hello-world.tar'
-        registry = registry_views.RegistryHandler()
-        registry.client.images.pull(imagename)
-        image = registry.docker_api.get_image(imagename)
-        f = open(filename, 'wb+')
-        for chunk in image:
-            f.write(chunk)
-        f.close()
-        f = open(filename, 'rb+')
-        response = self.client.post(url, data={'file': f})
-        f.close()
-        os.remove(filename)
-        self.assertEqual(response.status_code, 200)
-        response = json.loads(response.content)
-        self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
+    # def test_image_upload1(self):
+    #     url = self.url + 'image/'
+    #     imagename = 'hello-world'
+    #     filename = 'hello-world.tar'
+    #     registry = registry_views.RegistryHandler()
+    #     registry.client.images.pull(imagename)
+    #     image = registry.docker_api.get_image(imagename)
+    #     f = open(filename, 'wb+')
+    #     for chunk in image:
+    #         f.write(chunk)
+    #     f.close()
+    #     f = open(filename, 'rb+')
+    #     response = self.client.post(url, data={'file': f})
+    #     f.close()
+    #     os.remove(filename)
+    #     self.assertEqual(response.status_code, 200)
+    #     response = json.loads(response.content)
+    #     self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
 
     def test_image_upload2(self):
         url = self.url + 'image/'
