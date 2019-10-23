@@ -14,9 +14,9 @@ export default {
         return {
             terminal: {
                 pid: 1,
-                podName: this.$route.query.pod,
-                namespace: this.$route.query.namespace,
+                url: 'terminals/?shell=/bin/sh&pod=' + this.$route.query.pod + '&namespace=' + this.$route.query.namespace,
                 name: 'terminal',
+                isPodSsh: true,
                 cols: 400,
                 rows: 400
             }

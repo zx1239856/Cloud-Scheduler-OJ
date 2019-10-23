@@ -52,7 +52,7 @@ export default {
         fitAddon.fit();
 
         this.terminalSocket = new WebSocket(
-            wsRoot + 'terminals/?shell=/bin/sh&pod=' + this.terminal.podName + '&namespace=' + this.terminal.namespace + '&cols=' + this.term.cols + '&rows=' + this.term.rows
+            wsRoot + this.terminal.url + '&cols=' + this.term.cols + '&rows=' + this.term.rows
         );
         this.terminalSocket.onopen = this.runRealTerminal;
         this.terminalSocket.onclose = this.closeRealTerminal;
@@ -67,7 +67,9 @@ export default {
     },
     methods: {
         runRealTerminal() {
-            this.terminalSocket.send(store.getters.name + '@' + store.getters.token);
+            if (this.terminal.isPodSsh) {
+                this.terminalSocket.send(store.getters.name + '@' + store.getters.token);
+            }
         },
         errorRealTerminal() {
             console.log('error');
