@@ -135,7 +135,7 @@ class MockCoreV1Api:
             raise ApiException
 
     @staticmethod
-    def create_namespace(**_):
+    def create_namespace(name, **_):
         pass
 
     @staticmethod

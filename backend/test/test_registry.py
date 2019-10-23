@@ -35,19 +35,19 @@ class TestRegistry(TestCase):
     #     # self.assertEqual(response['message'], RESPONSE.SUCCESS['message'])
     #     self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
 
-    def test_dockerfile_upload2(self):
-        url = self.url + 'dockerfile/'
-        filename = 'Dockerfile'
-        f = open(filename, 'w')
-        f.close()
-        f = open(filename, 'r')
-        response = self.client.post(url, data={'file': f})
-        f.close()
-        os.remove(filename)
-        self.assertEqual(response.status_code, 200)
-        response = json.loads(response.content)
-        # self.assertEqual(response['message'], RESPONSE.SERVER_ERROR['message'])
-        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+    # def test_dockerfile_upload2(self):
+    #     url = self.url + 'dockerfile/'
+    #     filename = 'Dockerfile'
+    #     f = open(filename, 'w')
+    #     f.close()
+    #     f = open(filename, 'r')
+    #     response = self.client.post(url, data={'file': f})
+    #     f.close()
+    #     os.remove(filename)
+    #     self.assertEqual(response.status_code, 200)
+    #     response = json.loads(response.content)
+    #     # self.assertEqual(response['message'], RESPONSE.SERVER_ERROR['message'])
+    #     self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
     def test_dockerfile_upload3(self):
         url = self.url + 'dockerfile/'
