@@ -91,112 +91,57 @@ export const constantRoutes = [
     },
 
     {
-        path: '/pods',
-        component: Layout,
-        children: [{
-            path: 'index',
-            name: 'pods',
-            component: () => import('@/views/pods/index'),
-            meta: { title: 'Pod List', icon: 'list' }
-        }]
-    },
-
-    {
         path: '/webssh/',
         name: 'webssh',
         component: () => import('@/views/webssh/index')
     },
+    {
+        path: '/storage',
+        name: 'storage',
+        component: Layout,
+        meta: { title: 'Storage', icon: 'storage' },
+        children: [{
+            path: 'index',
+            name: 'files',
+            component: () => import('@/views/files/index'),
+            meta: { title: 'File Upload History', icon: 'list' }
+        },
+        {
+            path: 'pvc',
+            name: 'PV claims',
+            component: () => import('@/views/storage/index'),
+            meta: { title: 'PV claims', icon: 'list' }
+        }]
+    },
 
-    // {
-    //   path: '/form',
-    //   component: Layout,
-    //   children: [
-    //     {
-    //       path: 'index',
-    //       name: 'Form',
-    //       component: () => import('@/views/form/index'),
-    //       meta: { title: 'Form', icon: 'form' }
-    //     }
-    //   ]
-    // },
-
-    // {
-    //   path: '/nested',
-    //   component: Layout,
-    //   redirect: '/nested/menu1',
-    //   name: 'Nested',
-    //   meta: {
-    //     title: 'Nested',
-    //     icon: 'nested'
-    //   },
-    //   children: [
-    //     {
-    //       path: 'menu1',
-    //       component: () => import('@/views/nested/menu1/index'), // Parent router-view
-    //       name: 'Menu1',
-    //       meta: { title: 'Menu1' },
-    //       children: [
-    //         {
-    //           path: 'menu1-1',
-    //           component: () => import('@/views/nested/menu1/menu1-1'),
-    //           name: 'Menu1-1',
-    //           meta: { title: 'Menu1-1' }
-    //         },
-    //         {
-    //           path: 'menu1-2',
-    //           component: () => import('@/views/nested/menu1/menu1-2'),
-    //           name: 'Menu1-2',
-    //           meta: { title: 'Menu1-2' },
-    //           children: [
-    //             {
-    //               path: 'menu1-2-1',
-    //               component: () => import('@/views/nested/menu1/menu1-2/menu1-2-1'),
-    //               name: 'Menu1-2-1',
-    //               meta: { title: 'Menu1-2-1' }
-    //             },
-    //             {
-    //               path: 'menu1-2-2',
-    //               component: () => import('@/views/nested/menu1/menu1-2/menu1-2-2'),
-    //               name: 'Menu1-2-2',
-    //               meta: { title: 'Menu1-2-2' }
-    //             }
-    //           ]
-    //         },
-    //         {
-    //           path: 'menu1-3',
-    //           component: () => import('@/views/nested/menu1/menu1-3'),
-    //           name: 'Menu1-3',
-    //           meta: { title: 'Menu1-3' }
-    //         }
-    //       ]
-    //     },
-    //     {
-    //       path: 'menu2',
-    //       component: () => import('@/views/nested/menu2/index'),
-    //       meta: { title: 'menu2' }
-    //     }
-    //   ]
-    // },
-
-    // {
-    //   path: 'external-link',
-    //   component: Layout,
-    //   children: [
-    //     {
-    //       path: 'https://panjiachen.github.io/vue-element-admin-site/#/',
-    //       meta: { title: 'External Link', icon: 'link' }
-    //     }
-    //   ]
-    // },
+    {
+        path: '/user-terminal/',
+        name: 'user-terminal',
+        component: () => import('@/views/user_terminal/index')
+    },
 
     // 404 page must be placed at the end !!!
     { path: '*', redirect: '/404', hidden: true }
 ];
 
+export const asyncRoutes = [
+    {
+        path: '/pods',
+        component: Layout,
+        meta: { title: 'Pod List', icon: 'list', roles: ['admin'] },
+        children: [{
+            path: 'index',
+            name: 'pods',
+            component: () => import('@/views/pods/index'),
+            meta: { title: 'Pod List', roles: ['admin'] }
+        }]
+    }
+];
+
 const createRouter = () => new Router({
     mode: 'history', // require service support
     scrollBehavior: () => ({ y: 0 }),
-    routes: constantRoutes
+    routes: constantRoutes.concat(asyncRoutes)
 });
 
 const router = createRouter();

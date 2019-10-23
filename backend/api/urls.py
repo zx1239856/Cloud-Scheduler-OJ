@@ -28,6 +28,7 @@ from registry_manager import views as registry_mgmt_views
 # pylint: disable=C0103
 websocket_urlpatterns = [
     path('terminals/', ws_views.WebSSH),
+    path('user_terminals/', ws_views.UserWebSSH)
 ]
 
 urlpatterns = [

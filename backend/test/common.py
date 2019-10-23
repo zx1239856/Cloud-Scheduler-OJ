@@ -135,7 +135,7 @@ class MockCoreV1Api:
             raise ApiException
 
     @staticmethod
-    def create_namespace(**_):
+    def create_namespace(name, **_):
         pass
 
     @staticmethod
@@ -153,7 +153,7 @@ class MockCoreV1Api:
         pass
 
     @staticmethod
-    def read_namespaced_pod_status(**_):
+    def read_namespaced_pod_status(*_, **__):
         return DotDict({'status': DotDict({'phase': 'Running'})})
 
     @staticmethod

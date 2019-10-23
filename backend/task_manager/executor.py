@@ -75,6 +75,8 @@ def config_checker(json_config):
                           'shell' not in json_config.keys() or
                           'memory_limit' not in json_config.keys() or
                           'commands' not in json_config.keys() or
+                          'task_script_path' not in json_config.keys() or
+                          'task_initial_file_path' not in json_config.keys() or
                           not isinstance(json_config['commands'], list))
         return not pre_check_fail
     except Exception as _:
@@ -121,7 +123,7 @@ class Singleton:
 
 @Singleton
 class TaskExecutor:
-    def __init__(self):
+    def __init__(self, test=False):
         self.ttl_checker = ThreadPoolExecutor(max_workers=DAEMON_WORKERS,
                                               thread_name_prefix='cloud_scheduler_k8s_worker_ttl')
         self.scheduler_thread = Thread(target=self.dispatch)
@@ -129,6 +131,7 @@ class TaskExecutor:
         self.job_monitor_thread = Thread(target=self._job_monitor)
         self.storage_pod_monitor_thread = Thread(target=self._storage_pod_monitor)
         self.ready = False
+        self.test = test
         LOGGER.info("Task executor initialized.")
 
     def start(self):
@@ -147,17 +150,17 @@ class TaskExecutor:
     def _run_job(self, fn, **kwargs):
         self.ttl_checker.submit(fn, **kwargs)
 
-    @staticmethod
-    def _storage_pod_monitor():
+    def _storage_pod_monitor(self):
         api = CoreV1Api(getKubernetesAPIClient())
-        while True:
+
+        def _actual_work():
             idle = True
             try:
-                for item in TaskStorage.objects.exclude(expire_time=0).order_by('expire_time'):
+                for item in TaskStorage.objects.filter(expire_time__gt=0).order_by('expire_time'):
                     try:
-                        idle = False
                         if item.expire_time <= round(time.time()):
                             # release idled pod
+                            idle = False
                             username = '{}_{}'.format(item.user.username, item.settings.id)
                             pod = api.read_namespaced_pod(name=item.pod_name, namespace=KUBERNETES_NAMESPACE)
                             if pod is not None and pod.status is not None and pod.status.phase == 'Running':
@@ -188,15 +191,20 @@ class TaskExecutor:
             if idle:
                 time.sleep(1)
 
-    @staticmethod
-    def _job_monitor():
+        while True:
+            _actual_work()
+            if self.test:
+                break
+
+    def _job_monitor(self):
         api = CoreV1Api(getKubernetesAPIClient())
         job_api = BatchV1Api(getKubernetesAPIClient())
-        while True:
+
+        def _actual_work():
             idle = True
             try:
-                for item in Task.objects.filter(Q(status=TASK.RUNNING) | Q(status=TASK.PENDING)).order_by(
-                        "create_time"):
+                for item in Task.objects.filter(Q(status=TASK.WAITING) | Q(status=TASK.RUNNING) |
+                                                Q(status=TASK.PENDING)).order_by("create_time"):
                     common_name = "task-exec-{}".format(item.uuid)
                     try:
                         response = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE,
@@ -214,25 +222,29 @@ class TaskExecutor:
                                 new_status = TASK.FAILED
                             if new_status != item.status:
                                 if status in ('Succeeded', 'Failed'):
-                                    response = api.read_namespaced_pod_log(name=response.items[0].metadata.name,
-                                                                           namespace=KUBERNETES_NAMESPACE)
-                                    if response:
-                                        item.logs = response
+                                    exit_code = None
+                                    detailed_status = response.items[0].status.container_statuses
+                                    if detailed_status and detailed_status[0].state.terminated:
+                                        exit_code = detailed_status[0].state.terminated.exit_code
+                                        LOGGER.debug(exit_code)
+                                    if exit_code is None or exit_code != 137:  # SIGKILL caused by timeout
+                                        response = api.read_namespaced_pod_log(name=response.items[0].metadata.name,
+                                                                               namespace=KUBERNETES_NAMESPACE)
+                                        if response:
+                                            item.logs = response
+                                    else:
+                                        item.logs = "Time limit exceeded when executing job."
+                                        new_status = TASK.TLE
                                     item.logs_get = True
-
+                                    job_api.delete_namespaced_job(name=common_name,
+                                                                  namespace=KUBERNETES_NAMESPACE,
+                                                                  body=client.V1DeleteOptions(
+                                                                      propagation_policy='Foreground',
+                                                                      grace_period_seconds=5
+                                                                  ))
                                 item.status = new_status
                                 item.save(force_update=True)
-                                job_api.delete_namespaced_job(name=common_name,
-                                                              namespace=KUBERNETES_NAMESPACE,
-                                                              body=client.V1DeleteOptions(
-                                                                  propagation_policy='Foreground',
-                                                                  grace_period_seconds=5
-                                                              ))
-                        else:
-                            item.status = TASK.FAILED
-                            item.logs_get = True
-                            item.logs = "Unable to find corresponding pod."
-                            item.save(force_update=True)
+                        # else wait for a period because it takes time for corresponding pod to be initialized
                     except ApiException as ex:
                         LOGGER.warning(ex)
                 for item in Task.objects.filter(status=TASK.DELETING):
@@ -258,6 +270,11 @@ class TaskExecutor:
                 LOGGER.error(ex)
             if idle:
                 time.sleep(1)
+
+        while True:
+            _actual_work()
+            if self.test:
+                break
 
     @staticmethod
     def get_user_space_pod(uuid, user):
@@ -301,16 +318,25 @@ class TaskExecutor:
                         username = '{}_{}'.format(user.username, setting.id)
                         user_dir = "/cloud_scheduler_userspace/user_{}_task_{}".format(user.id, setting.id)
                         LOGGER.debug("Create username %s", username)
+                        commands = ['/bin/bash', '-c',
+                                    'set +e;'
+                                    'chmod 711 /cloud_scheduler_userspace;'
+                                    'chmod 711 /home;'
+                                    'mkdir -p {user_dir};'
+                                    'useradd -u {uid} {username};'
+                                    'chown {username} {user_dir};'
+                                    'chmod 700 {user_dir};'
+                                    'ln -s {user_dir} /home/{username};'
+                                    'chown {username} /home/{username};'
+                                    'chmod 700 /home/{username}'.format(
+                                        user_dir=user_dir,
+                                        username=username,
+                                        uid=user.id + 499)]
+                        LOGGER.debug(commands)
                         response = stream(api.connect_get_namespaced_pod_exec,
                                           pod_name,
                                           KUBERNETES_NAMESPACE,
-                                          command=
-                                          ['/bin/bash', '-c',
-                                           'chmod 711 /home;mkdir -p {user_dir};ln -s {user_dir} /home/{username};'
-                                           'useradd {username};'
-                                           'chown {username} /home/{username};chmod 700 /home/{username}'.format(
-                                               user_dir=user_dir,
-                                               username=username)],
+                                          command=commands,
                                           stderr=True, stdin=False,
                                           stdout=True, tty=False)
                         LOGGER.debug(response)
@@ -321,8 +347,10 @@ class TaskExecutor:
                                               command=
                                               ['/bin/bash', '-c',
                                                'cp -r {mount_path}/* /home/{user};'
-                                               'chown -R {user}:{user} /home/{user}'.format(
-                                                   mount_path=conf['persistent_volume']['mount_path'],
+                                               'chown -R {user}:{user} /home/{user}/*'.format(
+                                                   mount_path=
+                                                   conf['persistent_volume']['mount_path'] + '/' +
+                                                   conf['task_initial_file_path'],
                                                    user=username)],
                                               stderr=True, stdin=False,
                                               stdout=True, tty=False)
@@ -339,10 +367,10 @@ class TaskExecutor:
         finally:
             return result
 
-    @staticmethod
-    def _job_dispatch():
+    def _job_dispatch(self):
         api = BatchV1Api(getKubernetesAPIClient())
-        while True:
+
+        def _actual_work():
             idle = True
             try:
                 for item in Task.objects.filter(status=TASK.SCHEDULED).order_by("create_time"):
@@ -351,7 +379,7 @@ class TaskExecutor:
                     common_name = "task-exec-{}".format(item.uuid)
                     shared_storage_name = "shared-{}".format(item.uuid)
                     user_storage_name = "user-{}".format(item.uuid)
-                    user_dir = "/cloud_scheduler_userspace/user_{}_task_{}".format(item.user_id, item.settings_id)
+                    user_dir = "/cloud_scheduler_userspace/"
                     create_namespace()
                     create_userspace_pvc()
                     if not get_userspace_pvc():
@@ -365,18 +393,25 @@ class TaskExecutor:
                                 raise ValueError("Invalid config for TaskSettings: {}".format(item.settings.uuid))
                             # kubernetes part
                             shell = conf['shell']
-                            commands = conf['commands']
+                            commands = []
                             mem_limit = conf['memory_limit']
+                            time_limit = item.settings.time_limit
                             working_dir = conf['working_path']
                             image = conf['image']
                             shared_pvc = conf['persistent_volume']['name']
                             shared_mount_path = conf['persistent_volume']['mount_path']
+                            script_path = conf['task_script_path']
 
-                            commands.insert(0, 'mkdir {}'.format(working_dir))
-                            commands.insert(1, 'cp -r {}/* {}'.format(user_dir, working_dir))
+                            commands.append('mkdir -p {}'.format(working_dir))
+                            commands.append('cp -r {}/* {}'.format(user_dir, working_dir))
                             # snapshot
-                            commands.insert(2, 'cp -r {}/* {}'.format(shared_mount_path, working_dir))
+                            commands.append('cp -r {}/* {}'.format(shared_mount_path + '/' + script_path,
+                                                                   working_dir))
                             # overwrite
+                            commands.append('chmod -R +x {}'.format(working_dir))
+                            commands.append('cd {}'.format(working_dir))
+                            commands.append('timeout --signal KILL {timeout} {shell} -c \'{commands}\''.format(
+                                timeout=time_limit, shell=shell, commands=';'.join(conf['commands'])))
 
                             shared_mount = client.V1VolumeMount(mount_path=shared_mount_path, name=shared_storage_name)
                             user_mount = client.V1VolumeMount(mount_path='/cloud_scheduler_userspace/',
@@ -414,7 +449,7 @@ class TaskExecutor:
                                 spec=client.V1PodSpec(restart_policy="Never",
                                                       containers=[container],
                                                       volumes=[volume, user_volume]))
-                            spec = client.V1JobSpec(template=template, backoff_limit=3,
+                            spec = client.V1JobSpec(template=template, backoff_limit=1,
                                                     active_deadline_seconds=GLOBAL_TASK_TIME_LIMIT)
                             job = client.V1Job(api_version="batch/v1", kind="Job",
                                                metadata=client.V1ObjectMeta(name=common_name),
@@ -423,7 +458,7 @@ class TaskExecutor:
                                 namespace=KUBERNETES_NAMESPACE,
                                 body=job
                             )
-                            item.status = TASK.PENDING
+                            item.status = TASK.WAITING
                             item.save(force_update=True)
                         except ApiException as ex:
                             LOGGER.warning("Kubernetes ApiException %d: %s", ex.status, ex.reason)
@@ -439,6 +474,11 @@ class TaskExecutor:
                 LOGGER.error(ex)
             if idle:
                 time.sleep(1)
+
+        while True:
+            _actual_work()
+            if self.test:
+                break
 
     @staticmethod
     def _ttl_check(uuid):
