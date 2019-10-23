@@ -1,6 +1,9 @@
 <template>
   <div class="app-container">
     <div class="filter-container" align="right">
+      <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleReupload">
+        Re-upload
+      </el-button>
       <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleUpload">
         Upload File
       </el-button>
@@ -70,7 +73,7 @@
 </template>
 
 <script>
-import { getFileList, uploadFile } from '@/api/storage';
+import { getFileList, uploadFile, reuploadFile } from '@/api/storage';
 import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 import { mapGetters } from 'vuex';
@@ -190,6 +193,16 @@ export default {
         },
         getFile(item) {
             this.dialogData.file = item.file;
+        },
+        handleReupload() {
+            reuploadFile({}).then(response => {
+                this.$message({
+                    showClose: true,
+                    message: 'File ReUploading',
+                    type: 'success'
+                });
+                this.getList();
+            });
         }
     }
 };

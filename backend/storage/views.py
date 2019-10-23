@@ -22,6 +22,7 @@ from storage.models import FileModel, FileStatusCode
 
 LOGGER = logging.getLogger(__name__)
 
+
 class StorageHandler(View):
     http_method_names = ['get', 'post', 'delete']
     def __init__(self, **kwargs):
@@ -153,12 +154,45 @@ class StorageHandler(View):
 
 
 class StorageFileHandler(View):
-    http_method_names = ['post', 'get']
+    http_method_names = ['post', 'get', 'put']
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.save_dir = "storage/data/"
         self.api_instance = CoreV1Api(getKubernetesAPIClient())
+
+    def put(self, request, **_):
+        """
+        @api {post} /storage/upload_file/ re-upload cached files
+        @apiName ReuploadCachedFiles
+        @apiGroup StorageManager
+        @apiVersion 0.1.0
+        @apiSuccess {Object} payload Response payload is empty
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
+        """
+        self.restart()
+        return JsonResponse(RESPONSE.SUCCESS)
+
+    def restart(self):
+        """continuing uploading when server restarts"""
+        file_list = FileModel.objects.all()
+        for f in file_list:
+            if f.status == 0:
+                FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED)
+            elif f.status == 1:
+                FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED)
+            elif f.status == 2 or f.status == 3:#cached
+                FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.CACHED)
+                uploading = Thread(target=self.uploading, args=(f.filename, f.targetpvc, f.targetpath, f.hashid))
+                uploading.start()
+            elif f.status == 4:
+                pass
 
     def get(self, request, **_):
         """
@@ -257,15 +291,14 @@ class StorageFileHandler(View):
         fileModel = FileModel(hashid=md, filename=file_upload.name, targetpath=path, targetpvc=pvc_name, status=FileStatusCode.PENDING)
         fileModel.save()
 
-        uploading = Thread(target=self.uploading, args=(request.FILES.get('file'), pvc_name, path, md))
+        uploading = Thread(target=self.caching, args=(request.FILES.get('file'), pvc_name, path, md))
         uploading.start()
         FileModel.objects.filter(hashid=md).update(status=FileStatusCode.CACHING)
         response = RESPONSE.SUCCESS
         return JsonResponse(response)
 
-
-    def uploading(self, file_upload, pvc_name, path, md):
-        """a new thread to cachefile, create pod and upload file"""
+    def caching(self, file_upload, pvc_name, path, md):
+        """cache file"""
         # cache file
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
@@ -274,7 +307,11 @@ class StorageFileHandler(View):
             file_save.write(chunk)
         file_save.close()
         FileModel.objects.filter(hashid=md).update(status=FileStatusCode.CACHED)
+        self.uploading(file_upload.name, pvc_name, path, md)
 
+
+    def uploading(self, file_name, pvc_name, path, md):
+        """a new thread to create pod and upload file"""
         # create pod running a container with image nginx, bound pvc
         volume_name = "file-upload-volume-" + md
         container_name = "file-upload-container-" + md
@@ -287,14 +324,28 @@ class StorageFileHandler(View):
                                metadata=client.V1ObjectMeta(name=pod_name, namespace=KUBERNETES_NAMESPACE), \
                                                             spec=client.V1PodSpec(containers=[container], volumes=[volume]))
             self.api_instance.create_namespaced_pod(namespace=KUBERNETES_NAMESPACE, body=pod)
+        except ApiException as e:
+            LOGGER.warning("Kubernetes ApiException %d: %s", e.status, e.reason)
+            if e.status != 409:
+                return
+        except ValueError as e:
+            LOGGER.warning(e)
+            return
+        except Exception as e:
+            LOGGER.error(e)
+
+        try:
             while self.api_instance.read_namespaced_pod_status(pod_name, KUBERNETES_NAMESPACE).status.phase != "Running":
                 time.sleep(1)
         except ApiException as e:
             LOGGER.warning("Kubernetes ApiException %d: %s", e.status, e.reason)
+            return
         except ValueError as e:
             LOGGER.warning(e)
+            return
         except Exception as e:
             LOGGER.error(e)
+            return
 
         try:
             # create filedir
@@ -309,7 +360,7 @@ class StorageFileHandler(View):
 
             with TemporaryFile() as tar_buffer:
                 with tarfile.open(fileobj=tar_buffer, mode='w') as tar:
-                    tar.add(self.save_dir + file_upload.name, arcname=file_upload.name)
+                    tar.add(self.save_dir + file_name, arcname=file_name)
 
                 tar_buffer.seek(0)
                 commands = []
@@ -335,8 +386,8 @@ class StorageFileHandler(View):
             pass
 
         # delete file in memory
-        if os.path.exists(self.save_dir + file_upload.name):
-            os.remove(self.save_dir + file_upload.name)
+        if os.path.exists(self.save_dir + file_name):
+            os.remove(self.save_dir + file_name)
 
         FileModel.objects.filter(hashid=md).update(status=FileStatusCode.SUCCEEDED)
         LOGGER.info("File uploaded successfully.")

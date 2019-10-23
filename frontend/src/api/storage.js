@@ -20,6 +20,13 @@ export function uploadFile(query) {
     });
 }
 
+export function reuploadFile(query) {
+    return request({
+        url: '/storage/upload_file/',
+        method: 'put'
+    });
+}
+
 export function getPVCList(query) {
     return request({
         url: '/storage/',
