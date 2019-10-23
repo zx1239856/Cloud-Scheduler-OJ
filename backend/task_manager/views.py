@@ -6,10 +6,12 @@ from django.http import JsonResponse
 from django.views import View
 from django.db.utils import IntegrityError
 from django.core.paginator import Paginator
+from kubernetes.client import CoreV1Api
 from api.common import RESPONSE
 from user_model.models import UserType
+from config import KUBERNETES_NAMESPACE
 from .models import TaskSettings, Task, TASK
-from .executor import TaskExecutor
+from .executor import TaskExecutor, getKubernetesAPIClient
 
 LOGGER = logging.getLogger(__name__)
 
@@ -396,21 +398,33 @@ class ConcreteTaskHandler(View):
         if uuid is None:
             return None
         else:
-            item = Task.objects.get(uuid=uuid, user=user)
+            if user.user_type == UserType.ADMIN:
+                item = Task.objects.get(uuid=uuid)
+            else:
+                item = Task.objects.get(uuid=uuid, user=user)
             return item
 
     def get(self, _, **kwargs):
         response = RESPONSE.SUCCESS
+        api = CoreV1Api(getKubernetesAPIClient())
         try:
             item = self._get_task(kwargs)
             if item is None:
                 response = RESPONSE.INVALID_REQUEST
             else:
+                # logs are not crunched to WebServer when pods are running, so query from k8s directly in this case
+                log = item.logs
+                if item.status == TASK.RUNNING:
+                    resp = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE,
+                                                   label_selector="app={}".format(item.uuid))
+                    if resp.items:
+                        log = api.read_namespaced_pod_log(name=resp.items[0].metadata.name,
+                                                          namespace=KUBERNETES_NAMESPACE)
                 response['payload'] = {'settings': {'name': item.settings.name, 'uuid': item.settings.uuid},
                                        'status': item.status,
                                        'uuid': item.uuid,
                                        'user': item.user.username,
-                                       'log': item.logs,
+                                       'log': log,
                                        'create_time': item.create_time}
         except Task.DoesNotExist:
             response = RESPONSE.OPERATION_FAILED

@@ -75,6 +75,8 @@ def config_checker(json_config):
                           'shell' not in json_config.keys() or
                           'memory_limit' not in json_config.keys() or
                           'commands' not in json_config.keys() or
+                          'task_script_path' not in json_config.keys() or
+                          'task_initial_file_path' not in json_config.keys() or
                           not isinstance(json_config['commands'], list))
         return not pre_check_fail
     except Exception as _:
@@ -301,16 +303,25 @@ class TaskExecutor:
                         username = '{}_{}'.format(user.username, setting.id)
                         user_dir = "/cloud_scheduler_userspace/user_{}_task_{}".format(user.id, setting.id)
                         LOGGER.debug("Create username %s", username)
+                        commands = ['/bin/bash', '-c',
+                                    'set +e;'
+                                    'chmod 711 /cloud_scheduler_userspace;'
+                                    'chmod 711 /home;'
+                                    'mkdir -p {user_dir};'
+                                    'chown {username} {user_dir}'
+                                    'chmod 700 {user_dir};'
+                                    'ln -s {user_dir} /home/{username};'
+                                    'useradd -u {uid} {username};'
+                                    'chown {username} /home/{username};'
+                                    'chmod 700 /home/{username}'.format(
+                                        user_dir=user_dir,
+                                        username=username,
+                                        uid=user.id + 499)]
+                        LOGGER.debug(commands)
                         response = stream(api.connect_get_namespaced_pod_exec,
                                           pod_name,
                                           KUBERNETES_NAMESPACE,
-                                          command=
-                                          ['/bin/bash', '-c',
-                                           'chmod 711 /home;mkdir -p {user_dir};ln -s {user_dir} /home/{username};'
-                                           'useradd {username};'
-                                           'chown {username} /home/{username};chmod 700 /home/{username}'.format(
-                                               user_dir=user_dir,
-                                               username=username)],
+                                          command=commands,
                                           stderr=True, stdin=False,
                                           stdout=True, tty=False)
                         LOGGER.debug(response)
@@ -322,7 +333,9 @@ class TaskExecutor:
                                               ['/bin/bash', '-c',
                                                'cp -r {mount_path}/* /home/{user};'
                                                'chown -R {user}:{user} /home/{user}'.format(
-                                                   mount_path=conf['persistent_volume']['mount_path'],
+                                                   mount_path=
+                                                   conf['persistent_volume']['mount_path'] + '/' +
+                                                   conf['task_initial_file_path'],
                                                    user=username)],
                                               stderr=True, stdin=False,
                                               stdout=True, tty=False)
@@ -351,7 +364,7 @@ class TaskExecutor:
                     common_name = "task-exec-{}".format(item.uuid)
                     shared_storage_name = "shared-{}".format(item.uuid)
                     user_storage_name = "user-{}".format(item.uuid)
-                    user_dir = "/cloud_scheduler_userspace/user_{}_task_{}".format(item.user_id, item.settings_id)
+                    user_dir = "/cloud_scheduler_userspace/"
                     create_namespace()
                     create_userspace_pvc()
                     if not get_userspace_pvc():
@@ -371,12 +384,16 @@ class TaskExecutor:
                             image = conf['image']
                             shared_pvc = conf['persistent_volume']['name']
                             shared_mount_path = conf['persistent_volume']['mount_path']
+                            script_path = conf['task_script_path']
 
-                            commands.insert(0, 'mkdir {}'.format(working_dir))
+                            commands.insert(0, 'mkdir -p {}'.format(working_dir))
                             commands.insert(1, 'cp -r {}/* {}'.format(user_dir, working_dir))
                             # snapshot
-                            commands.insert(2, 'cp -r {}/* {}'.format(shared_mount_path, working_dir))
+                            commands.insert(2, 'cp -r {}/* {}'.format(shared_mount_path + '/' + script_path,
+                                                                      working_dir))
                             # overwrite
+                            commands.insert(3, 'cd {}'.format(working_dir))
+                            commands.insert(4, 'chmod -R +x {}'.format(working_dir))
 
                             shared_mount = client.V1VolumeMount(mount_path=shared_mount_path, name=shared_storage_name)
                             user_mount = client.V1VolumeMount(mount_path='/cloud_scheduler_userspace/',

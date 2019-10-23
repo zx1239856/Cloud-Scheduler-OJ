@@ -6,6 +6,7 @@ from api.common import RESPONSE
 import monitor.views
 from .common import loginTestUser, TestCaseWithBasicUser, MockCoreV1Api, mockGetK8sClient
 
+
 class TestTaskSettings(TestCaseWithBasicUser):
     def setUp(self):
         super().setUp()
@@ -17,7 +18,7 @@ class TestTaskSettings(TestCaseWithBasicUser):
             self.item_list.append(item)
 
     def testGetPostListInvalidReq(self):
-        token = loginTestUser('user')
+        token = loginTestUser('admin')
         response = self.client.get('/pods/?page=invalid_page', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -27,7 +28,7 @@ class TestTaskSettings(TestCaseWithBasicUser):
     @mock.patch.object(monitor.views, 'getKubernetesAPIClient', mockGetK8sClient)
     @mock.patch.object(monitor.views, 'CoreV1Api', MockCoreV1Api)
     def testGetPodList(self):
-        token = loginTestUser('user')
+        token = loginTestUser('admin')
         response = self.client.get('/pods/?page=1', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
