@@ -5,6 +5,7 @@ from uuid import uuid1
 from django.http import JsonResponse
 from django.views import View
 from django.db.utils import IntegrityError
+from django.db.models import ProtectedError
 from django.core.paginator import Paginator
 from kubernetes.client import CoreV1Api
 from kubernetes.client.rest import ApiException
@@ -316,6 +317,12 @@ class TaskSettingsItemHandler(View):
             response = RESPONSE.SUCCESS
         except TaskSettings.DoesNotExist:
             response = RESPONSE.OPERATION_FAILED
+        except ProtectedError:
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " Cannot delete task settings associated with tasks."
+        except Exception as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.SERVER_ERROR
         finally:
             return JsonResponse(response)
 

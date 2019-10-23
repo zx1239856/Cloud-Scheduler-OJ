@@ -25,6 +25,7 @@ LOGGER = logging.getLogger(__name__)
 
 class StorageHandler(View):
     http_method_names = ['get', 'post', 'delete']
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.api_instance = CoreV1Api(getKubernetesAPIClient())
@@ -54,7 +55,8 @@ class StorageHandler(View):
             payload['count'] = len(pvc_list)
             payload['entry'] = []
             for pvc in pvc_list:
-                payload['entry'].append({'name': pvc.metadata.name, 'capacity': pvc.spec.resources.requests['storage'], 'time': pvc.metadata.creation_timestamp})
+                payload['entry'].append({'name': pvc.metadata.name, 'capacity': pvc.spec.resources.requests['storage'],
+                                         'time': pvc.metadata.creation_timestamp})
             response = RESPONSE.SUCCESS
             response['payload'] = payload
         except Exception:
@@ -84,7 +86,7 @@ class StorageHandler(View):
         @apiUse PermissionDenied
         """
         query = json.loads(request.body)
-        #request.encoding = 'utf-8'
+        # request.encoding = 'utf-8'
         try:
             pvc_name = query.get('name', None)
             pvc_capacity = query.get('capacity', None)
@@ -95,15 +97,23 @@ class StorageHandler(View):
 
         # Create specific namespace
         try:
-            self.api_instance.create_namespace(client.V1Namespace(api_version="v1", kind="Namespace", metadata=client.V1ObjectMeta(name=KUBERNETES_NAMESPACE, labels={"name":KUBERNETES_NAMESPACE})))
+            self.api_instance.create_namespace(client.V1Namespace(api_version="v1", kind="Namespace",
+                                                                  metadata=client.V1ObjectMeta(
+                                                                      name=KUBERNETES_NAMESPACE,
+                                                                      labels={"name": KUBERNETES_NAMESPACE})))
         except Exception:
             # namespaces already exists
             pass
 
         # Create PVC
         PVC_body = client.V1PersistentVolumeClaim(api_version="v1", kind="PersistentVolumeClaim", \
-                                            metadata=client.V1ObjectMeta(name=pvc_name, namespace=KUBERNETES_NAMESPACE), \
-                                            spec=client.V1PersistentVolumeClaimSpec(access_modes=["ReadWriteMany"], resources=client.V1ResourceRequirements(requests={"storage": pvc_capacity}), storage_class_name="csi-cephfs"))
+                                                  metadata=client.V1ObjectMeta(name=pvc_name,
+                                                                               namespace=KUBERNETES_NAMESPACE), \
+                                                  spec=client.V1PersistentVolumeClaimSpec(
+                                                      access_modes=["ReadWriteMany"],
+                                                      resources=client.V1ResourceRequirements(
+                                                          requests={"storage": pvc_capacity}),
+                                                      storage_class_name="csi-cephfs"))
         try:
             self.api_instance.create_namespaced_persistent_volume_claim(namespace=KUBERNETES_NAMESPACE, body=PVC_body)
             response = RESPONSE.SUCCESS
@@ -112,7 +122,6 @@ class StorageHandler(View):
             response['message'] += " PVC named {} already exists.".format(pvc_name)
 
         return JsonResponse(response)
-
 
     def delete(self, request, **_):
         """
@@ -135,7 +144,7 @@ class StorageHandler(View):
         @apiUse PermissionDenied
         """
         query = json.loads(request.body)
-        #query = request.GET
+        # query = request.GET
         try:
             pvc_name = query.get('name', None)
             assert pvc_name is not None
@@ -258,7 +267,6 @@ class StorageFileHandler(View):
         response['payload'] = payload
         return JsonResponse(response)
 
-
     def post(self, request, **_):
         """
         @api {post} /storage/upload_file/ Upload a file into a pvc storage
@@ -298,7 +306,8 @@ class StorageFileHandler(View):
             return JsonResponse(response)
         # check if pvc exists
         try:
-            self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name, namespace=KUBERNETES_NAMESPACE)
+            self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name,
+                                                                             namespace=KUBERNETES_NAMESPACE)
         except Exception:
             response = RESPONSE.OPERATION_FAILED
             response['message'] += " PVC {} does not exist in namespaced {}".format(pvc_name, KUBERNETES_NAMESPACE)
@@ -306,7 +315,10 @@ class StorageFileHandler(View):
 
         # create if namespace does not exist
         try:
-            self.api_instance.create_namespace(client.V1Namespace(api_version="v1", kind="Namespace", metadata=client.V1ObjectMeta(name=KUBERNETES_NAMESPACE, labels={"name":KUBERNETES_NAMESPACE})))
+            self.api_instance.create_namespace(client.V1Namespace(api_version="v1", kind="Namespace",
+                                                                  metadata=client.V1ObjectMeta(
+                                                                      name=KUBERNETES_NAMESPACE,
+                                                                      labels={"name": KUBERNETES_NAMESPACE})))
         except Exception:
             pass
         for file_upload in files:
@@ -317,7 +329,8 @@ class StorageFileHandler(View):
             md = hashlib.md5()
             md.update(identity.encode('utf-8'))
             md = md.hexdigest()
-            fileModel = FileModel(hashid=md, filename=file_upload.name, targetpath=path, targetpvc=pvc_name, status=FileStatusCode.PENDING, uploadtime=uploadtime)
+            fileModel = FileModel(hashid=md, filename=file_upload.name, targetpath=path, targetpvc=pvc_name,
+                                  status=FileStatusCode.PENDING, uploadtime=uploadtime)
             fileModel.save()
 
             uploading = Thread(target=self.caching, args=(file_upload, pvc_name, path, md))
@@ -339,7 +352,6 @@ class StorageFileHandler(View):
         FileModel.objects.filter(hashid=md).update(status=FileStatusCode.CACHED)
         self.uploading(file_upload.name, pvc_name, path, md)
 
-
     def uploading(self, file_name, pvc_name, path, md):
         """a new thread to create pod and upload file"""
         # create pod running a container with image nginx, bound pvc
@@ -347,12 +359,15 @@ class StorageFileHandler(View):
         container_name = "file-upload-container-" + md
         pod_name = "file-upload-pod-" + md
         try:
-            volume = client.V1Volume(name=volume_name, persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(claim_name=pvc_name, read_only=False))
+            volume = client.V1Volume(name=volume_name,
+                                     persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
+                                         claim_name=pvc_name, read_only=False))
             volume_mount = client.V1VolumeMount(name=volume_name, mount_path='/cephfs-data/')
-            container = client.V1Container(name=container_name, image="nginx:1.7.9", image_pull_policy="IfNotPresent", volume_mounts=[volume_mount])
+            container = client.V1Container(name=container_name, image="nginx:1.7.9", image_pull_policy="IfNotPresent",
+                                           volume_mounts=[volume_mount])
             pod = client.V1Pod(api_version="v1", kind="Pod",
-                               metadata=client.V1ObjectMeta(name=pod_name, namespace=KUBERNETES_NAMESPACE), \
-                                                            spec=client.V1PodSpec(containers=[container], volumes=[volume]))
+                               metadata=client.V1ObjectMeta(name=pod_name, namespace=KUBERNETES_NAMESPACE),
+                               spec=client.V1PodSpec(containers=[container], volumes=[volume]))
             self.api_instance.create_namespaced_pod(namespace=KUBERNETES_NAMESPACE, body=pod)
         except ApiException as e:
             LOGGER.warning("Kubernetes ApiException %d: %s", e.status, e.reason)
@@ -365,7 +380,8 @@ class StorageFileHandler(View):
             LOGGER.error(e)
 
         try:
-            while self.api_instance.read_namespaced_pod_status(pod_name, KUBERNETES_NAMESPACE).status.phase != "Running":
+            while self.api_instance.read_namespaced_pod_status(pod_name,
+                                                               KUBERNETES_NAMESPACE).status.phase != "Running":
                 time.sleep(1)
         except ApiException as e:
             LOGGER.warning("Kubernetes ApiException %d: %s", e.status, e.reason)
@@ -379,14 +395,16 @@ class StorageFileHandler(View):
 
         try:
             # create filedir
-            exec_command = ['mkdir', '/cephfs-data/'+ path]
-            resp = stream(self.api_instance.connect_get_namespaced_pod_exec, pod_name, KUBERNETES_NAMESPACE, command=exec_command, \
-                            stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
+            exec_command = ['mkdir', '/cephfs-data/' + path]
+            resp = stream(self.api_instance.connect_get_namespaced_pod_exec, pod_name, KUBERNETES_NAMESPACE,
+                          command=exec_command, \
+                          stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
 
             FileModel.objects.filter(hashid=md).update(status=FileStatusCode.UPLOADING)
-            exec_command = ['tar', 'xvf', '-', '-C', '/cephfs-data/'+ path]
-            resp = stream(self.api_instance.connect_get_namespaced_pod_exec, pod_name, KUBERNETES_NAMESPACE, command=exec_command, \
-                            stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
+            exec_command = ['tar', 'xvf', '-', '-C', '/cephfs-data/' + path]
+            resp = stream(self.api_instance.connect_get_namespaced_pod_exec, pod_name, KUBERNETES_NAMESPACE,
+                          command=exec_command, \
+                          stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
 
             with TemporaryFile() as tar_buffer:
                 with tarfile.open(fileobj=tar_buffer, mode='w') as tar:
@@ -398,8 +416,8 @@ class StorageFileHandler(View):
 
                 while resp.is_open():
                     resp.update(timeout=1)
-                    #if resp.peek_stdout(): print("STDOUT: %s" % resp.read_stdout())
-                    #if resp.peek_stderr(): print("STDERR: %s" % resp.read_stderr())
+                    # if resp.peek_stdout(): print("STDOUT: %s" % resp.read_stdout())
+                    # if resp.peek_stderr(): print("STDERR: %s" % resp.read_stderr())
                     if commands:
                         c = commands.pop(0)
                         resp.write_stdin(c.decode())

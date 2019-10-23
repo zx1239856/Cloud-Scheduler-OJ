@@ -17,7 +17,6 @@
       fit
       highlight-current-row
       style="width: 100%;"
-      @sort-change="sortChange"
     >
       <el-table-column label="File Name" width="200" align="center">
         <template slot-scope="scope">
@@ -36,7 +35,7 @@
       </el-table-column>
       <el-table-column label="Upload Time" min-width="200" align="center">
         <template slot-scope="scope">
-          <span>{{ scope.row.time }}</span>
+          <span>{{ new Date(scope.row.time).toLocaleString() }}</span>
         </template>
       </el-table-column>
       <el-table-column label="Status" class-name="status-col" width="200" align="center">

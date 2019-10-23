@@ -11,12 +11,13 @@ from channels.generic.websocket import WebsocketConsumer
 from django.http.request import QueryDict
 from kubernetes.client import Configuration, ApiClient
 from kubernetes.client.apis import core_v1_api
+from kubernetes.client.rest import ApiException
 from kubernetes.stream import stream, ws_client
 from user_model.models import UserModel, UserType
 from user_model.views import TokenManager
 from task_manager.executor import TaskExecutor
-from task_manager.models import TaskSettings
-from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL, KUBERNETES_NAMESPACE
+from task_manager.models import TaskSettings, TaskStorage
+from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL, KUBERNETES_NAMESPACE, USER_SPACE_POD_TIMEOUT
 
 SHELL_LIST = [
     '/bin/sh',
@@ -72,6 +73,9 @@ class SSH:
                     self.close()
             elif self.api_response is not None and self.api_response.is_open():
                 self.api_response.write_stdin(data)
+                if isinstance(self.websocket, UserWebSSH):
+                    LOGGER.debug("Update expire time")
+                    self.websocket.updateExpireTime()
             else:
                 self.close()
         except Exception as e:
@@ -82,6 +86,7 @@ class SSH:
         try:
             commands = [shell]
             commands.extend(args)
+            LOGGER.debug("Attempting to connect to pod %s in %s, with commands: %s", pod, namespace, str(commands))
             self.api_response = stream(self.api_client.connect_get_namespaced_pod_exec,
                                        pod, namespace, command=commands, stderr=True, stdin=True,
                                        stdout=True, tty=True, _preload_content=False)
@@ -105,6 +110,8 @@ class SSH:
                         pass
                 else:
                     time.sleep(0.05)
+        except ApiException as ex:
+            LOGGER.warning(ex)
         except Exception as e:
             LOGGER.error(e)
             self.close()
@@ -158,6 +165,17 @@ class WebSSH(WebsocketConsumer):
 
 class UserWebSSH(WebSSH):
     """UserSSH for storage mgmt"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = None
+
+    def updateExpireTime(self):
+        if self.user:
+            try:
+                TaskStorage.objects.filter(user=self.user).update(expire_time=
+                                                                  round(time.time()) + USER_SPACE_POD_TIMEOUT)
+            except Exception as ex:
+                LOGGER.debug(ex)
 
     def connect(self):
         self.accept()
@@ -175,6 +193,7 @@ class UserWebSSH(WebSSH):
             return
         try:
             user = UserModel.objects.get(username=username)
+            self.user = user
             settings = TaskSettings.objects.get(uuid=uuid)
         except (UserModel.DoesNotExist, TaskSettings.DoesNotExist):
             self.send("\nFailed to process.")
@@ -192,5 +211,5 @@ class UserWebSSH(WebSSH):
         pod = executor.get_user_space_pod(uuid, user)
         username = '{}_{}'.format(user.username, settings.id)
         self.ssh = SSH(websocket=self, cols=cols, rows=rows, need_auth=False)
-        self.ssh.connect(pod.metadata.name, '/bin/bash', KUBERNETES_NAMESPACE,
+        self.ssh.connect(pod.metadata.name, '/bin/sh', KUBERNETES_NAMESPACE,
                          args=['-c', 'su - {}'.format(username)])

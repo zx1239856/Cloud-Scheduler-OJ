@@ -41,10 +41,7 @@
         <template slot-scope="{row}">
           <el-row>
             <el-button type="primary" size="mini" @click="handleTerminal(row)">
-              T
-            </el-button>
-            <el-button type="primary" size="mini" @click="handleWebIDE(row)">
-              W
+              Terminal
             </el-button>
           </el-row>
         </template>
@@ -113,10 +110,6 @@ export default {
         },
         handleTerminal(row) {
             const routeData = this.$router.resolve({ name: 'webssh', query: { pod: row.name, namespace: row.namespace }});
-            window.open(routeData.href, '_blank');
-        },
-        handleWebIDE(row) {
-            const routeData = this.$router.resolve({ name: 'Tree', query: { pod: row.name, namespace: row.namespace }});
             window.open(routeData.href, '_blank');
         },
         sortChange(data) {

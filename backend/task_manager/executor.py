@@ -155,11 +155,11 @@ class TaskExecutor:
         while True:
             idle = True
             try:
-                for item in TaskStorage.objects.exclude(expire_time=0).order_by('expire_time'):
+                for item in TaskStorage.objects.filter(expire_time__gt=0).order_by('expire_time'):
                     try:
-                        idle = False
                         if item.expire_time <= round(time.time()):
                             # release idled pod
+                            idle = False
                             username = '{}_{}'.format(item.user.username, item.settings.id)
                             pod = api.read_namespaced_pod(name=item.pod_name, namespace=KUBERNETES_NAMESPACE)
                             if pod is not None and pod.status is not None and pod.status.phase == 'Running':
@@ -197,8 +197,8 @@ class TaskExecutor:
         while True:
             idle = True
             try:
-                for item in Task.objects.filter(Q(status=TASK.RUNNING) | Q(status=TASK.PENDING)).order_by(
-                        "create_time"):
+                for item in Task.objects.filter(Q(status=TASK.WAITING) | Q(status=TASK.RUNNING) |
+                                                Q(status=TASK.PENDING)).order_by("create_time"):
                     common_name = "task-exec-{}".format(item.uuid)
                     try:
                         response = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE,
@@ -336,7 +336,7 @@ class TaskExecutor:
                                               command=
                                               ['/bin/bash', '-c',
                                                'cp -r {mount_path}/* /home/{user};'
-                                               'chown -R {user}:{user} /home/{user}'.format(
+                                               'chown -R {user}:{user} /home/{user}/*'.format(
                                                    mount_path=
                                                    conf['persistent_volume']['mount_path'] + '/' +
                                                    conf['task_initial_file_path'],
@@ -447,7 +447,7 @@ class TaskExecutor:
                                 namespace=KUBERNETES_NAMESPACE,
                                 body=job
                             )
-                            item.status = TASK.PENDING
+                            item.status = TASK.WAITING
                             item.save(force_update=True)
                         except ApiException as ex:
                             LOGGER.warning("Kubernetes ApiException %d: %s", ex.status, ex.reason)

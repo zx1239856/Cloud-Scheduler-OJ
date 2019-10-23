@@ -12,6 +12,7 @@ class TASK:
     DELETING = 4  # waiting to delete the pod
     PENDING = 5  # waiting the pod initializing
     TLE = 6  # time limit exceeded
+    WAITING = 7  # waiting for pod to be created
 
 
 class TaskSettings(models.Model):

@@ -14,7 +14,6 @@
       fit
       highlight-current-row
       style="width: 100%;"
-      @sort-change="sortChange"
     >
       <el-table-column label="PVC Name" width="200" align="center">
         <template slot-scope="scope">
@@ -28,12 +27,12 @@
       </el-table-column>
       <el-table-column label="Create Time" min-width="300" align="center">
         <template slot-scope="scope">
-          <span>{{ scope.row.time }}</span>
+          <span>{{ new Date(scope.row.time).toLocaleString() }}</span>
         </template>
       </el-table-column>
       <el-table-column width="100" align="center">
         <template slot-scope="{row}">
-          <el-button type="danger" size="small" icon="el-icon-delete" @click="handleDelete(row)" />
+          <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name == 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
         </template>
       </el-table-column>
     </el-table>

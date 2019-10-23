@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class FileStatusCode:
     PENDING = 0
     CACHING = 1
@@ -7,6 +8,7 @@ class FileStatusCode:
     UPLOADING = 3
     SUCCEEDED = 4
     FAILED = 5
+
 
 class FileModel(models.Model):
     """file model"""
