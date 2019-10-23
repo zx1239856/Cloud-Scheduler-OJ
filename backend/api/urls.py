@@ -21,9 +21,9 @@ from task_manager import views as task_mgmt_views
 from user_model import views as user_views
 from user_model.views import login_required, permission_required
 from storage import views as storage_views
-from registry import views as registry_mgmt_views
 from monitor import views as monitor_views
 from user_space import views as user_space_views
+from registry_manager import views as registry_mgmt_views
 
 # pylint: disable=C0103
 websocket_urlpatterns = [
@@ -38,12 +38,13 @@ urlpatterns = [
     path('user/login/', user_views.UserLogin.as_view()),
     path('user/logout/', login_required(user_views.UserLogout.as_view())),
     path('user/', user_views.UserHandler.as_view()),
-    path('image_registry/dockerfile/', registry_mgmt_views.DockerfileHandler.as_view()),
-    path('image_registry/image/', registry_mgmt_views.ImageHandler.as_view()),
     path('pods/', monitor_views.PodListHandler.as_view()),
     path('storage/', storage_views.StorageHandler.as_view()),
     path('storage/upload_file/', storage_views.StorageFileHandler.as_view()),
-    path('user_space/<str:uuid>/', login_required(user_space_views.UserSpaceHandler.as_view()))
+    path('user_space/<str:uuid>/', login_required(user_space_views.UserSpaceHandler.as_view())),
+    path('registry/', registry_mgmt_views.RegistryHandler.as_view()),
+    path('registry/<str:repo>/', registry_mgmt_views.RepositoryHandler.as_view()),
+    path('registry/<str:repo>/upload/', registry_mgmt_views.RepositoryHandler.as_view())
 ]
 
 
