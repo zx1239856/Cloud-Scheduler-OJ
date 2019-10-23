@@ -13,7 +13,10 @@ class TestTaskExecutor(TestCase):
             "shell": "/bin/bash",
             "commands": ["echo hello world", "echo $CLOUD_SCHEDULER_USER"],
             "memory_limit": "128M",
-            "working_path": "/home/"
+            "working_path": "/home/",
+            "task_script_path": "scripts/",
+            "task_initial_file_path": "initial/",
+
         }
         self.assertEqual(executor.config_checker(config_correct), True)
         config_correct['commands'] = ''
