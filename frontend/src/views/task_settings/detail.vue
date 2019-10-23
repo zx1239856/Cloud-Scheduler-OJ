@@ -23,11 +23,11 @@
         <el-input v-model="formData.container_config.shell" placeholder="/bin/bash" />
       </el-form-item>
       <el-form-item label="Commands" prop="commands">
-        <el-input v-model="formData.container_config.commands_display" type="textarea" :autosize="{ minRows: 4, maxRows: 4}" />
+        <el-input v-model="formData.container_config.commands_display" type="textarea" :autosize="{ minRows: 4, maxRows: 4}" placeholder="echo hello world" />
       </el-form-item>
 
       <el-form-item label="Memory Limit" prop="memory_limit">
-        <el-input v-model="formData.container_config.memory_limit" />
+        <el-input v-model="formData.container_config.memory_limit" placeholder="128M" />
       </el-form-item>
       <el-form-item label="Time Limit" prop="time_limit">
         <el-input-number v-model="formData.time_limit" />
@@ -71,9 +71,9 @@ export default {
                         mount_path: ''
                     },
                     shell: '',
-                    commands: ['echo hello world', 'echo $CLOUD_SCHEDULER_USER'],
+                    commands: undefined,
                     commands_display: '',
-                    memory_limit: '128M'
+                    memory_limit: ''
                 },
                 time_limit: 900,
                 replica: 2,

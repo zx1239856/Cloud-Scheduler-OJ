@@ -91,17 +91,6 @@ export const constantRoutes = [
     },
 
     {
-        path: '/pods',
-        component: Layout,
-        children: [{
-            path: 'index',
-            name: 'pods',
-            component: () => import('@/views/pods/index'),
-            meta: { title: 'Pod List', icon: 'list' }
-        }]
-    },
-
-    {
         path: '/webssh/',
         name: 'webssh',
         component: () => import('@/views/webssh/index')
@@ -193,10 +182,24 @@ export const constantRoutes = [
     { path: '*', redirect: '/404', hidden: true }
 ];
 
+export const asyncRoutes = [
+    {
+        path: '/pods',
+        component: Layout,
+        meta: { title: 'Pod List', icon: 'list', roles: ['admin'] },
+        children: [{
+            path: 'index',
+            name: 'pods',
+            component: () => import('@/views/pods/index'),
+            meta: { title: 'Pod List', roles: ['admin'] }
+        }]
+    }
+];
+
 const createRouter = () => new Router({
     mode: 'history', // require service support
     scrollBehavior: () => ({ y: 0 }),
-    routes: constantRoutes
+    routes: constantRoutes.concat(asyncRoutes)
 });
 
 const router = createRouter();
