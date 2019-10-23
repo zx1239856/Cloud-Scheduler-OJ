@@ -258,7 +258,6 @@ class StorageFileHandler(View):
         """
         try:
             files = request.FILES.getlist('file[]', None)
-            #file_upload = request.FILES.get('file', None)
             if files is None:
                 response = RESPONSE.INVALID_REQUEST
                 response['message'] += " File is empty."
@@ -284,7 +283,6 @@ class StorageFileHandler(View):
         except Exception:
             pass
         for file_upload in files:
-            LOGGER.info(file_upload.name+"uploading")
             # record file
             identity = file_upload.name + pvc_name + path
             md = hashlib.md5()

@@ -170,12 +170,6 @@ export default {
             formData.append('pvcName', this.dialogData.pvc);
             formData.append('mountPath', this.dialogData.path);
 
-            this.$message({
-                showClose: true,
-                message: formData,
-                type: 'success'
-            });
-
             uploadFile(formData).then(response => {
                 this.$message({
                     showClose: true,
@@ -208,11 +202,6 @@ export default {
         },
         getFile(item) {
             this.dialogData.file.push(item.file);
-            this.$message({
-                showClose: true,
-                message: item,
-                type: 'success'
-            });
         },
         handleReupload() {
             reuploadFile({}).then(response => {
