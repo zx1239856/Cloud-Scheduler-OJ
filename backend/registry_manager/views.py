@@ -13,20 +13,14 @@ from backend.registry_manager.manifest import makeManifest
 LOGGER = logging.getLogger(__name__)
 
 class ConnectionUtils:
+    GET_ALL_REPOS_TEMPLATE = '{url}/_catalog'
+    GET_MANIFEST_TEMPLATE = '{url}/{repo}/manifests/{tags}'
+    GET_LAYER_TEMPLATE = '{url}/{repo}/blobs/{digest}'
+    GET_ALL_TAGS_TEMPLATE = '{url}/{repo}/tags/list'
 
+    POST_LAYER_TEMPLATE = '{url}/{repo}/blobs/uploads/'
 
-    def request_registry(self, *args, **kwargs):
-        request = urllib.request.Request(*args, **kwargs)
-        response = urllib.request.urlopen(request, timeout=5)
-        return response
-
-    def string_request(self, *args, **kwargs):
-        response = self.request_registry(*args, **kwargs).read().decode()
-        return response
-
-    def json_request(self, *args, **kwargs):
-        response = self.string_request(*args, **kwargs)
-        return json.loads(response)
+    PUT_MANIFEST_TEMPLATE = '{url}/{repo}/manifests/{tags}'
 
     def get_tags(self, repo):
         try:
@@ -95,43 +89,71 @@ class ConnectionUtils:
 
         return result
 
-class RegistryHandler(View):
-    http_method_names = ['get']
-    GET_ALL_REPOS_TEMPLATE = '{url}/_catalog'
-    util = ConnectionUtils()
-
-
-    """
-    get function for getting list of images
-    """
-    def get(self, request):
+    def get_tag_info(self, repo, tag):
         try:
             response = RESPONSE.SUCCESS
-            response['payload'] = self.util.json_request(
-                self.GET_ALL_REPOS_TEMPLATE.format(
-                    url=REGISTRY_V2_API_ADDRESS
-                )
-            )['repositories']
+            manifest = self.get_manifest(repo, tag)
+            response['payload']['created data'] = manifest.get_created_data()
+            response['payload']['entry point'] = manifest.get_entrypoint()
+            response['payload']['docker version'] = manifest.get_docker_version()
+            response['payload']['exposed ports'] = manifest.get_exposed_ports()
+            response['payload']['volumes'] = manifest.get_volumes()
             return JsonResponse(response)
         except Exception as ex:
             LOGGER.error(ex)
 
-class TagHandler(View):
-    http_method_name = ['get']
+    # TODO to be tested
+    def get_number_of_tags(self, repo):
+        return len(self.get_tags(repo))
+
+    # TODO to be tested
+    def get_repository(self, repo):
+        try:
+            response = {}
+            response['Number of Tags'] = self.get_number_of_tags(repo)
+            return response
+        except Exception as ex:
+            LOGGER.error(ex)
+
+    # get repository list
+    def get_repositories(self):
+        try:
+            repositories = self.json_request(
+                self.GET_ALL_REPOS_TEMPLATE.format(
+                    url=REGISTRY_V2_API_ADDRESS
+                )
+            )['repositories']
+            return repositories
+        except Exception as ex:
+            LOGGER.error(ex)
+
+    # def get_repository_info(self, repo, tag):
+
+    def request_registry(self, *args, **kwargs):
+        request = urllib.request.Request(*args, **kwargs)
+        response = urllib.request.urlopen(request, timeout=5)
+        return response
+
+    def string_request(self, *args, **kwargs):
+        response = self.request_registry(*args, **kwargs).read().decode()
+        return response
+
+    def json_request(self, *args, **kwargs):
+        response = self.string_request(*args, **kwargs)
+        return json.loads(response)
+
+class RegistryHandler(View):
+    http_method_names = ['get']
     util = ConnectionUtils()
 
-    GET_ALL_TAGS_TEMPLATE = '{url}/{repo}/tags/list'
-
-    def get(self, _, **kwargs):
+    """
+    get function for getting list of repositories with its info
+    """
+    def get(self, request):
+        response = RESPONSE.SUCCESS
         try:
-            response = RESPONSE.SUCCESS
-            response['payload'] = self.util.json_request(
-                self.GET_ALL_TAGS_TEMPLATE.format(
-                    url=REGISTRY_V2_API_ADDRESS,
-                    repo=kwargs.get('repo', None)
-                )
-            )['tags']
-
+            for repository in self.util.get_repositories():
+                response['payload'][repository] = self.util.get_repository(repository)
             return JsonResponse(response)
         except Exception as ex:
             LOGGER.error(ex)
@@ -140,36 +162,40 @@ class RepositoryHandler(View):
     http_method_names = ['get', 'post', 'put', 'delete']
     util = ConnectionUtils()
 
-    GET_MANIFEST_TEMPLATE = '{url}/{repo}/manifests/{tags}'
-    GET_LAYER_TEMPLATE = '{url}/{repo}/blobs/{digest}'
-    POST_LAYER_TEMPLATE = '{url}/{repo}/blobs/uploads/'
-    PUT_MANIFEST_TEMPLATE = '{url}/{repo}/manifests/{tags}'
-    GET_ALL_TAGS_TEMPLATE = '{url}/{repo}/tags/list'
-
     def get(self, _, **kwargs):
-        try:
-            response = RESPONSE.SUCCESS
-            manifest = self.util.get_manifest(kwargs.get('repo'), kwargs.get('tag'))
-            response['payload']['created data'] = manifest.get_created_data()
-            response['payload']['entry point'] = manifest.get_entrypoint()
-            response['payload']['docker version'] = manifest.get_docker_version()
-            response['payload']['exposed ports'] = manifest.get_exposed_ports()
-            response['payload']['volumes'] = manifest.get_volumes()
-            response['payload']['repo size'] = self.util.get_size_of_repo(kwargs.get('repo'))
-            return JsonResponse(response)
-        except Exception as ex:
-            LOGGER.error(ex)
+        return self.util.get_tag_info(kwargs.get('repo'), kwargs.get('tag'))
 
-    def post(self, request):
-        try:
-            query = json.loads(request.body)
-            response = self.util.json_request(
-                self.POST_LAYER_TEMPLATE.format(
-                    url=REGISTRY_V2_API_ADDRESS,
-                    repo=str(query['repo'])
-                ),
-                method='POST'
-            )
-            return JsonResponse(response)
-        except Exception as ex:
-            LOGGER.error(ex)
+    # def post(self, request):
+    #     try:
+    #         query = json.loads(request.body)
+    #         response = self.util.json_request(
+    #             self.POST_LAYER_TEMPLATE.format(
+    #                 url=REGISTRY_V2_API_ADDRESS,
+    #                 repo=str(query['repo'])
+    #             ),
+    #             method='POST'
+    #         )
+    #         return JsonResponse(response)
+    #     except Exception as ex:
+    #         LOGGER.error(ex)
+
+# class TagHandler(View):
+#     http_method_name = ['get']
+#     util = ConnectionUtils()
+
+#     def get(self, _, **kwargs):
+#         return self.util.get_tag_info(kwargs.get('repo'), kwargs.get('tag'))
+
+#     def get(self, _, **kwargs):
+#         try:
+#             response = RESPONSE.SUCCESS
+#             response['payload'] = self.util.json_request(
+#                 self.GET_ALL_TAGS_TEMPLATE.format(
+#                     url=REGISTRY_V2_API_ADDRESS,
+#                     repo=kwargs.get('repo', None)
+#                 )
+#             )['tags']
+
+#             return JsonResponse(response)
+#         except Exception as ex:
+#             LOGGER.error(ex)

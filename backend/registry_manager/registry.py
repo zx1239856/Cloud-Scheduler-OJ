@@ -2,7 +2,6 @@ import abc
 import base64
 import json
 import logging
-import socket
 import urllib.error
 import urllib.request
 import urllib.parse
@@ -62,14 +61,6 @@ class DockerRegistry(abc.ABC):
 
         for tag in self.get_tags(repo):
             result += self.get_size_of_layers(repo, tag)
-
-        return result
-
-    def get_size_of_registry(self):
-        result = 0
-
-        for repo in self.get_repos():
-            result += self.get_size_of_repo(repo)
 
         return result
 
