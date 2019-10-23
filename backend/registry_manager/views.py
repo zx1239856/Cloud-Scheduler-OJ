@@ -1,12 +1,14 @@
 import logging
 import json
+import re
 import urllib.error
 import urllib.request
 import urllib.parse
+import docker
 from django.http import JsonResponse
 from django.views import View
 from api.common import RESPONSE
-from config import REGISTRY_V2_API_ADDRESS
+from config import REGISTRY_V2_API_ADDRESS, DOCKER_ADDRESS, REGISTRY_ADDRESS
 from registry_manager.cache import cache_with_timeout
 from registry_manager.manifest import makeManifest
 
@@ -18,9 +20,66 @@ class ConnectionUtils:
     GET_LAYER_TEMPLATE = '{url}/{repo}/blobs/{digest}'
     GET_ALL_TAGS_TEMPLATE = '{url}/{repo}/tags/list'
 
+    HEAD_LAYER_TEMPLATE = '{url}/{repo}/blobs/{digest}'
+
     POST_LAYER_TEMPLATE = '{url}/{repo}/blobs/uploads/'
 
     PUT_MANIFEST_TEMPLATE = '{url}/{repo}/manifests/{tag}'
+
+    DELETE_IMAGE_TEMPLATE = '{url}/{repo}/manifests/{tag}'
+
+    def delete_tag(self, repo, tag):
+        digest = self.request_registry(
+            self.GET_MANIFEST_TEMPLATE.format(
+                url=REGISTRY_V2_API_ADDRESS,
+                repo=repo,
+                tag=tag
+            ),
+            method='HEAD',
+            headers={'Accept': 'application/vnd.docker.distribution.manifest.v2+json'}
+        ).info()['Docker-Content-Digest']
+
+        try:
+            response = self.request_registry(
+                self.GET_MANIFEST_TEMPLATE.format(
+                    url=REGISTRY_V2_API_ADDRESS,
+                    repo=repo,
+                    tag=digest
+                ),
+                method='DELETE'
+            )
+            print('there')
+            return response.status
+        except Exception as ex:
+            LOGGER.error(ex)
+
+    def check_layer_exist(self, repo, digest):
+        try:
+            response = self.json_request(
+                self.HEAD_LAYER_TEMPLATE.format(
+                    url=REGISTRY_V2_API_ADDRESS,
+                    repo=repo,
+                    digest=digest
+                ),
+                method='HEAD'
+            )
+            return response.status
+        except Exception as ex:
+            LOGGER.error(ex)
+
+    def upload_layer_start(self, repo):
+        try:
+            response = self.json_request(
+                self.POST_LAYER_TEMPLATE.format(
+                    url=REGISTRY_V2_API_ADDRESS,
+                    repo=repo
+                ),
+                method='POST',
+                headers={'Accept': 'application/vnd.docker.distribution.manifest.v2+json'}
+            )
+            return response
+        except Exception as ex:
+            LOGGER.error(ex)
 
     # get the manifest of a specific tagged image
     def get_manifest(self, repo, tag):
@@ -182,5 +241,62 @@ class RepositoryHandler(View):
         except Exception as ex:
             LOGGER.error(ex)
 
-    # def post(self, request):
-    #     query = json.loads(request.body)
+    def post(self, request, **kwargs):
+        """
+        @api {post} /image_registry/image Upload image.tar
+        @apiName UploadImageTar
+        @apiGroup RegistryManager
+        @apiVersion 0.1.0
+        @apiParamExample {json} Request-Body-Example:
+        {
+            "file": fileObj
+        }
+        @apiParam {Object} The image.tar file to be uploaded
+        @apiSuccess {Object} payload Success payload is empty
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        """
+        try:
+            client = docker.DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
+            docker_api = docker.APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
+            if not request.FILES:
+                return JsonResponse(RESPONSE.INVALID_REQUEST)
+            f = request.FILES['file']
+            tar_pattern = "[.](tar)$"
+            searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
+            if searched_tar:
+                try:
+                    image = client.images.load(f)[0]
+                    name = image.tags[0]
+                    newName = REGISTRY_ADDRESS + '/' + name
+                    docker_api.tag(name, newName)
+                    docker_api.push(newName)
+                    return JsonResponse(RESPONSE.SUCCESS)
+                except docker.errors.DockerException as e:
+                    response = RESPONSE.SERVER_ERROR
+                    response['payload']['docker exception'] = str(e)
+                    return JsonResponse(response)
+        except Exception as e:
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += str(e)
+            return JsonResponse(response)
+        return JsonResponse(RESPONSE.NOT_IMPLEMENTED)
+
+    def delete(self, request, **kwargs):
+        response_code = self.util.delete_tag(kwargs.get('repo'), kwargs.get('tag'))
+        print(response_code)
+        if response_code == 202:
+            return JsonResponse(RESPONSE.SUCCESS)
+        else:
+            return JsonResponse(RESPONSE.OPERATION_FAILED)
+        # try:
+        #     client = docker.DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
+        #     docker_api = docker.APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
+        #     repo = kwargs.get('repo')
+        #     docker_api.remove_image(REGISTRY_ADDRESS + '/' + repo)
+        #     return JsonResponse(RESPONSE.SUCCESS)
+        # except Exception as ex:
+        #     LOGGER.error(ex)

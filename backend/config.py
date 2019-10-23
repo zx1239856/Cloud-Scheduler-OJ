@@ -8,7 +8,7 @@ DEBUG = True
 USER_TOKEN_EXPIRE_TIME = 900  # in seconds
 
 DOCKER_ADDRESS = "https://registry.dropthu.online:30001"
-REGISTRY_ADDRESS = "registry.dropthu.online:30443/nginx"
+REGISTRY_ADDRESS = "registry.dropthu.online:30443"
 REGISTRY_V2_API_ADDRESS = "https://registry.dropthu.online:30443/v2"
 
 DAEMON_WORKERS = 2
