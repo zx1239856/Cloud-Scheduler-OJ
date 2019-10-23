@@ -1,10 +1,10 @@
 <template>
   <div class="app-container">
     <div class="filter-container" align="right">
-      <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleReupload">
+      <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-refresh" @click="handleReupload">
         Re-upload
       </el-button>
-      <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleUpload">
+      <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-upload2" @click="handleUpload">
         Upload File
       </el-button>
     </div>
@@ -24,19 +24,26 @@
           <span>{{ scope.row.name }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Target PVC" min-width="300" align="center">
+      <el-table-column label="Target PVC" min-width="200" align="center">
         <template slot-scope="scope">
           <span>{{ scope.row.pvc }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Target Path" min-width="300" align="center">
+      <el-table-column label="Target Path" min-width="200" align="center">
         <template slot-scope="scope">
           <span>{{ scope.row.path }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Status" width="200" align="center">
+      <el-table-column label="Upload Time" min-width="200" align="center">
         <template slot-scope="scope">
-          <el-tag :type="scope.row.status | statusFilter">{{ statusMap[scope.row.status] }}</el-tag>
+          <span>{{ scope.row.time }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Status" class-name="status-col" width="200" align="center">
+        <template slot-scope="{row}">
+          <el-tag :type="row.status | statusFilter">
+            {{ statusMap[row.status] }}
+          </el-tag>
         </template>
       </el-table-column>
     </el-table>
@@ -83,7 +90,19 @@ export default {
     name: 'FileList',
     components: { Pagination },
     directives: { waves },
-
+    filters: {
+        statusFilter(status) {
+            const map = {
+                0: 'warning',
+                1: 'info',
+                2: 'info',
+                3: 'info',
+                4: 'success',
+                5: 'danger'
+            };
+            return map[status];
+        }
+    },
     data() {
         return {
             dialogType: 'Upload',
@@ -97,6 +116,14 @@ export default {
             listQuery: {
                 page: 1,
                 limit: 25
+            },
+            statusMap: {
+                0: 'Pending',
+                1: 'Caching',
+                2: 'Cached',
+                3: 'Uploading',
+                4: 'Succeeded',
+                5: 'Failed'
             },
             dialogData: {
                 file: [],
@@ -114,27 +141,6 @@ export default {
                     message: 'path is required',
                     trigger: 'change'
                 }]
-            },
-            statusMap: {
-                0: 'Pending',
-                1: 'Caching',
-                2: 'Cached',
-                3: 'Uploading',
-                4: 'Succeeded',
-                5: 'Failed'
-            },
-            filters: {
-                statusFilter(status) {
-                    const map = {
-                        'Pending': 'warning',
-                        'Caching': 'danger',
-                        'Cached': 'danger',
-                        'Uploading': 'danger',
-                        4: 'danger',
-                        'Failed': 'danger'
-                    };
-                    return map[status];
-                }
             }
         };
     },
@@ -149,7 +155,7 @@ export default {
     methods: {
         getList() {
             this.listLoading = true;
-            getFileList(this.listQuery.page).then(response => {
+            getFileList(this.listQuery).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
                 this.listLoading = false;

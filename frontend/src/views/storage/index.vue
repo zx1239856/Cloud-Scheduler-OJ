@@ -28,7 +28,7 @@
       </el-table-column>
       <el-table-column label="Create Time" min-width="300" align="center">
         <template slot-scope="scope">
-          <span>{{ scope.row.capacity }}</span>
+          <span>{{ scope.row.time }}</span>
         </template>
       </el-table-column>
       <el-table-column width="100" align="center">
@@ -64,7 +64,7 @@
       :visible.sync="deleteDialogVisible"
       width="30%"
     >
-      <span>Are you sure to delete PVC {{ this.selectedData.name }}?</span>
+      <span>Are you sure to delete PVC {{ selectedData.name }}?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible = false">Cancel</el-button>
         <el-button type="danger" @click="deletePVC">Delete</el-button>

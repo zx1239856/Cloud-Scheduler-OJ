@@ -117,7 +117,7 @@ export const constantRoutes = [
             path: 'index',
             name: 'files',
             component: () => import('@/views/files/index'),
-            meta: { title: 'File List', icon: 'list' }
+            meta: { title: 'File Upload History', icon: 'list' }
         },
         {
             path: 'pvc',

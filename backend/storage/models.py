@@ -15,3 +15,4 @@ class FileModel(models.Model):
     targetpvc = models.CharField(max_length=255, default="null")
     targetpath = models.CharField(max_length=255, default="null")
     status = models.PositiveSmallIntegerField(default=FileStatusCode.PENDING)
+    uploadtime = models.CharField(max_length=255, default="null")

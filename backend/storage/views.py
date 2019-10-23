@@ -54,7 +54,7 @@ class StorageHandler(View):
             payload['count'] = len(pvc_list)
             payload['entry'] = []
             for pvc in pvc_list:
-                payload['entry'].append({'name': pvc.metadata.name, 'capacity': pvc.spec.resources.requests['storage']})
+                payload['entry'].append({'name': pvc.metadata.name, 'capacity': pvc.spec.resources.requests['storage'], 'time': pvc.metadata.creation_timestamp})
             response = RESPONSE.SUCCESS
             response['payload'] = payload
         except Exception:
@@ -183,16 +183,29 @@ class StorageFileHandler(View):
         """continue uploading when server restarts"""
         file_list = FileModel.objects.all()
         for f in file_list:
+            pod_name = "file-upload-pod-" + f.hashid
             if f.status == 0:
                 FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED)
+                try:
+                    self.api_instance.delete_namespaced_pod(pod_name, KUBERNETES_NAMESPACE)
+                except Exception:
+                    pass
             elif f.status == 1:
                 FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED)
-            elif f.status == 2 or f.status == 3:#cached
+                try:
+                    self.api_instance.delete_namespaced_pod(pod_name, KUBERNETES_NAMESPACE)
+                except Exception:
+                    pass
+            elif f.status == 2 or f.status == 3:
+                # cached or uploading
                 FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.CACHED)
                 uploading = Thread(target=self.uploading, args=(f.filename, f.targetpvc, f.targetpath, f.hashid))
                 uploading.start()
             elif f.status == 4:
-                pass
+                try:
+                    self.api_instance.delete_namespaced_pod(pod_name, KUBERNETES_NAMESPACE)
+                except Exception:
+                    pass
 
     def get(self, request, **_):
         """
@@ -202,6 +215,7 @@ class StorageFileHandler(View):
         @apiVersion 0.1.0
         @apiSuccess {Object} payload Response Object
         @apiSuccess {Number} payload.count Count of total files
+        @apiSuccess {Number} payload.page_count Count of total pages
         @apiSuccess {Object[]} payload.entry List of files
         @apiSuccess {String} payload.entry.id File hash ID
         @apiSuccess {String} payload.entry.name Filename
@@ -216,17 +230,30 @@ class StorageFileHandler(View):
         @apiUse Unauthorized
         @apiUse PermissionDenied
         """
-        file_list = FileModel.objects.all()
+        try:
+            page = int(request.GET.get('page', 1))
+        except Exception:
+            return JsonResponse(RESPONSE.INVALID_REQUEST)
+        file_list = FileModel.objects.all().order_by('-uploadtime')
         response = RESPONSE.SUCCESS
-        payload = {}
-        payload['count'] = len(file_list)
-        payload['entry'] = []
-        for f in file_list:
+        payload = {
+            'count': len(file_list),
+            'page_count': (len(file_list) + 24) // 25,
+            'entry': []
+        }
+
+        if page < 1 or page > payload['page_count']:
+            if page == 1 and payload['page_count'] == 0:
+                pass
+            else:
+                raise ValueError()
+        for f in file_list[25 * (page - 1): 25 * page]:
             payload['entry'].append({'id': f.hashid,
                                      'name': f.filename,
                                      'pvc': f.targetpvc,
                                      'path': f.targetpath,
-                                     'status': f.status
+                                     'status': f.status,
+                                     'time': f.uploadtime
                                      })
         response['payload'] = payload
         return JsonResponse(response)
@@ -284,11 +311,13 @@ class StorageFileHandler(View):
             pass
         for file_upload in files:
             # record file
-            identity = file_upload.name + pvc_name + path
+            uploadtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            LOGGER.info(uploadtime)
+            identity = file_upload.name + pvc_name + path + uploadtime
             md = hashlib.md5()
             md.update(identity.encode('utf-8'))
             md = md.hexdigest()
-            fileModel = FileModel(hashid=md, filename=file_upload.name, targetpath=path, targetpvc=pvc_name, status=FileStatusCode.PENDING)
+            fileModel = FileModel(hashid=md, filename=file_upload.name, targetpath=path, targetpvc=pvc_name, status=FileStatusCode.PENDING, uploadtime=uploadtime)
             fileModel.save()
 
             uploading = Thread(target=self.caching, args=(file_upload, pvc_name, path, md))
