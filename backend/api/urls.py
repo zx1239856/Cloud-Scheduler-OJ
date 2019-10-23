@@ -23,7 +23,7 @@ from user_model.views import login_required, permission_required
 from storage import views as storage_views
 from registry import views as registry_mgmt_views
 from monitor import views as monitor_views
-from tree import views as tree_views
+from user_space import views as user_space_views
 
 # pylint: disable=C0103
 websocket_urlpatterns = [
@@ -43,9 +43,7 @@ urlpatterns = [
     path('pods/', monitor_views.PodListHandler.as_view()),
     path('storage/', storage_views.StorageHandler.as_view()),
     path('storage/upload_file/', storage_views.StorageFileHandler.as_view()),
-    path('tree/', tree_views.TreeHandler.as_view()),
-    path('tree/file/', tree_views.TreeFilesHandler.as_view()),
-    path('tree/directory/', tree_views.TreeDirectoriesHandler.as_view())
+    path('user_space/<str:uuid>/', login_required(user_space_views.UserSpaceHandler.as_view()))
 ]
 
 

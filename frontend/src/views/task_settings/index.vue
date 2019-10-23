@@ -36,7 +36,7 @@
       </el-table-column>
       <el-table-column label="Name" min-width="150" align="center">
         <template slot-scope="{row}">
-          <span>{{ row.name }}</span>
+          <span class="link-type" @click="handleUpdate(row)">{{ row.name }}</span>
         </template>
       </el-table-column>
       <el-table-column label="Created Time" width="250" align="center">
@@ -44,17 +44,12 @@
           <span>{{ new Date(scope.row.create_time).toLocaleString() }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Concurrency" class-name="status-col" width="150" align="center">
-        <template slot-scope="scope">
-          <span>{{ scope.row.concurrency }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Actions" align="center" width="400" class-name="small-padding fixed-width">
+      <el-table-column label="Actions" align="center" width="350" class-name="small-padding fixed-width">
         <template slot-scope="{row}">
           <el-button type="primary" size="small" icon="el-icon-plus" @click="handleAddTask(row)">
             Add Task
           </el-button>
-          <el-button type="warning" size="small" icon="el-icon-edit" @click="handleUpdate(row)">
+          <el-button type="warning" size="small" icon="el-icon-plus" @click="handleUpdate(row)">
             Edit
           </el-button>
           <el-button type="danger" size="small" icon="el-icon-delete" @click="handleDelete(row)">
@@ -65,28 +60,6 @@
     </el-table>
 
     <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
-
-    <el-dialog :title="dialogType" :visible.sync="dialogFormVisible">
-      <el-form ref="dialogForm" :rules="dialogRules" :model="dialogData" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
-        <el-form-item label="Name" prop="name" placeholder="Settings Name">
-          <el-input v-model="dialogData.name" />
-        </el-form-item>
-        <el-form-item label="Concurrency" prop="concurrency">
-          <el-slider v-model="dialogData.concurrency" show-input />
-        </el-form-item>
-        <el-form-item label="Config" prop="task_config" placeholder="Config">
-          <el-input v-model="dialogData.task_config" :autosize="{ minRows: 4, maxRows: 10}" type="textarea" />
-        </el-form-item>
-      </el-form>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="dialogFormVisible = false">
-          Cancel
-        </el-button>
-        <el-button type="primary" @click="handleDialogConfirm">
-          Confirm
-        </el-button>
-      </div>
-    </el-dialog>
 
     <el-dialog
       title="Warning"
@@ -103,14 +76,14 @@
 </template>
 
 <script>
-import { createTaskSettings, getTaskSettingsList, updateTaskSettings, deleteTaskSettings } from '@/api/task_settings';
+import { getTaskSettingsList, deleteTaskSettings } from '@/api/task_settings';
 import { createTask } from '@/api/task';
 import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 import { mapGetters } from 'vuex';
 
 export default {
-    name: 'PodList',
+    name: 'TaskSettings',
     components: { Pagination },
     directives: { waves },
 
@@ -136,12 +109,7 @@ export default {
                 page: 1,
                 limit: 25
             },
-            dialogData: {
-                uuid: undefined,
-                concurrency: 5,
-                name: '',
-                task_config: '{}'
-            },
+            uuidSelected: undefined,
             dialogRules: {
                 name: [{
                     required: true,
@@ -180,55 +148,14 @@ export default {
             });
         },
         handleCreate() {
-            this.dialogFormVisible = true;
-            this.dialogType = 'Create';
-            this.dialogData = {
-                uuid: undefined,
-                concurrency: 5,
-                name: '',
-                task_config: '{}'
-            };
+            this.$router.push('/task/task-settings-detail/');
         },
         handleUpdate(row) {
-            this.dialogData = Object.assign({}, row);
-            this.dialogFormVisible = true;
-            this.dialogType = 'Update';
+            this.$router.push({ path: '/task/task-settings-detail/', query: { settings_uuid: row.uuid }});
         },
         handleDelete(row) {
             this.deleteDialogVisible = true;
             this.dialogData = Object.assign({}, row);
-        },
-        createTaskSettings() {
-            this.dialogFormVisible = false;
-
-            createTaskSettings({
-                concurrency: this.dialogData.concurrency,
-                name: this.dialogData.name,
-                task_config: JSON.parse(this.dialogData.task_config) }
-            ).then(response => {
-                this.$message({
-                    showClose: true,
-                    message: 'Task Settings Created',
-                    type: 'success'
-                });
-                this.getList();
-            });
-        },
-        updateTaskSettings() {
-            this.dialogFormVisible = false;
-
-            updateTaskSettings(this.dialogData.uuid, {
-                concurrency: this.dialogData.concurrency,
-                name: this.dialogData.name,
-                task_config: JSON.parse(this.dialogData.task_config) }
-            ).then(response => {
-                this.$message({
-                    showClose: true,
-                    message: 'Task Settings Updated',
-                    type: 'success'
-                });
-                this.getList();
-            });
         },
         deleteTaskSettings() {
             this.deleteDialogVisible = false;
@@ -255,7 +182,6 @@ export default {
             });
         },
         handleAddTask(row) {
-            console.log(row.uuid);
             createTask(row.uuid).then(response => {
                 this.$message({
                     showClose: true,
@@ -272,3 +198,15 @@ export default {
     }
 };
 </script>
+
+<style lang="scss" scoped>
+.link-type,
+.link-type:focus {
+  color: #337ab7;
+  cursor: pointer;
+
+  &:hover {
+    color: rgb(32, 160, 255);
+  }
+}
+</style>

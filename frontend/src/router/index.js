@@ -75,6 +75,13 @@ export const constantRoutes = [
                 meta: { title: 'Task Settings' }
             },
             {
+                path: 'task-settings-detail/',
+                name: 'task-settings-detail',
+                component: () => import('@/views/task_settings/detail'),
+                meta: { title: 'Task Settings Detail', noCache: true, activeMenu: '/task/task-settings/' },
+                hidden: true
+            },
+            {
                 path: 'task-list',
                 name: 'task-list',
                 component: () => import('@/views/task/index'),
@@ -82,6 +89,7 @@ export const constantRoutes = [
             }
         ]
     },
+
     {
         path: '/pods',
         component: Layout,
@@ -92,6 +100,7 @@ export const constantRoutes = [
             meta: { title: 'Pod List', icon: 'list' }
         }]
     },
+
     {
         path: '/webssh/',
         name: 'webssh',
