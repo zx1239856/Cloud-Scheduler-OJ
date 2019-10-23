@@ -9,6 +9,7 @@ from api.common import RESPONSE
 import storage.views
 from .common import MockCoreV1Api, mockGetK8sClient
 
+
 class TestStorage(TestCase):
     def setUp(self):
         self.client = Client()
@@ -31,13 +32,13 @@ class TestStorage(TestCase):
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
     def testCreatePVCRequestError2(self):
-        response = self.client.post('/storage/', data=json.dumps({'name':'pvc'}), content_type='application/json')
+        response = self.client.post('/storage/', data=json.dumps({'name': 'pvc'}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
     def testCreatePVCRequestError3(self):
-        response = self.client.post('/storage/', data=json.dumps({'capacity':'10Mi'}), content_type='application/json')
+        response = self.client.post('/storage/', data=json.dumps({'capacity': '10Mi'}), content_type='application/json')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
@@ -45,7 +46,8 @@ class TestStorage(TestCase):
     @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     def testCreateExistingPVC(self):
-        response = self.client.post('/storage/', data=json.dumps({'name':'existing-pvc', 'capacity':'10Mi'}), content_type='application/json')
+        response = self.client.post('/storage/', data=json.dumps({'name': 'existing-pvc', 'capacity': '10Mi'}),
+                                    content_type='application/json')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
@@ -69,32 +71,33 @@ class TestStorage(TestCase):
     @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     def testCreateAndDeletePVC(self):
-        response = self.client.post('/storage/', data=json.dumps({'name':'test-pvc', 'capacity':'10Mi'}), content_type='application/json')
+        response = self.client.post('/storage/', data=json.dumps({'name': 'test-pvc', 'capacity': '10Mi'}),
+                                    content_type='application/json')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
 
-        response = self.client.delete('/storage/', data=json.dumps({'name': 'test-pvc'}), content_type='application/json')
+        response = self.client.delete('/storage/', data=json.dumps({'name': 'test-pvc'}),
+                                      content_type='application/json')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
-
 
     # test uploading files
 
-    def testUplaodFileRequestError(self):
+    def testUploadFileRequestError(self):
         response = self.client.post('/storage/upload_file/', data={})
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
-    def testUplaodFileRequestError2(self):
-        response = self.client.post('/storage/upload_file/', data={'name':'xxx'})
+    def testUploadFileRequestError2(self):
+        response = self.client.post('/storage/upload_file/', data={'name': 'xxx'})
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
-    def testUplaodFileRequestError3(self):
+    def testUploadFileRequestError3(self):
         f = open('test.txt', 'w')
         f.close()
         f = open('test.txt', 'r')
@@ -107,11 +110,12 @@ class TestStorage(TestCase):
 
     @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
-    def testUplaodFilePVCNotExists(self):
+    def testUploadFilePVCNotExists(self):
         f = open('test2.txt', 'w')
         f.close()
         f = open('test2.txt', 'r')
-        response = self.client.post('/storage/upload_file/', data={'file': f, 'pvcName': "nonexistent-pvc", 'mountPath': "test/"})
+        response = self.client.post('/storage/upload_file/',
+                                    data={'file': f, 'pvcName': "nonexistent-pvc", 'mountPath': "test/"})
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
@@ -120,8 +124,9 @@ class TestStorage(TestCase):
 
     @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
-    def testUplaodFile(self):
-        response = self.client.post('/storage/', data={'name':'test-pvc', 'capacity':'10Mi'}, content_type='application/json')
+    def testUploadFile(self):
+        response = self.client.post('/storage/', data={'name': 'test-pvc', 'capacity': '10Mi'},
+                                    content_type='application/json')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
@@ -129,14 +134,16 @@ class TestStorage(TestCase):
         f = open('test3.txt', 'w')
         f.close()
         f = open('test3.txt', 'r')
-        response = self.client.post('/storage/upload_file/', data={'file': f, 'pvcName': 'test-pvc', 'mountPath': 'test/'})
+        response = self.client.post('/storage/upload_file/',
+                                    data={'file': f, 'pvcName': 'test-pvc', 'mountPath': 'test/'})
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
         f.close()
         os.remove('test3.txt')
 
-        response = self.client.delete('/storage/', data=json.dumps({'name': 'test-pvc'}), content_type='application/json')
+        response = self.client.delete('/storage/', data=json.dumps({'name': 'test-pvc'}),
+                                      content_type='application/json')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])

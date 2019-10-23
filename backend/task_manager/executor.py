@@ -123,7 +123,7 @@ class Singleton:
 
 @Singleton
 class TaskExecutor:
-    def __init__(self):
+    def __init__(self, test=False):
         self.ttl_checker = ThreadPoolExecutor(max_workers=DAEMON_WORKERS,
                                               thread_name_prefix='cloud_scheduler_k8s_worker_ttl')
         self.scheduler_thread = Thread(target=self.dispatch)
@@ -131,6 +131,7 @@ class TaskExecutor:
         self.job_monitor_thread = Thread(target=self._job_monitor)
         self.storage_pod_monitor_thread = Thread(target=self._storage_pod_monitor)
         self.ready = False
+        self.test = test
         LOGGER.info("Task executor initialized.")
 
     def start(self):
@@ -149,10 +150,10 @@ class TaskExecutor:
     def _run_job(self, fn, **kwargs):
         self.ttl_checker.submit(fn, **kwargs)
 
-    @staticmethod
-    def _storage_pod_monitor():
+    def _storage_pod_monitor(self):
         api = CoreV1Api(getKubernetesAPIClient())
-        while True:
+
+        def _actual_work():
             idle = True
             try:
                 for item in TaskStorage.objects.filter(expire_time__gt=0).order_by('expire_time'):
@@ -190,11 +191,16 @@ class TaskExecutor:
             if idle:
                 time.sleep(1)
 
-    @staticmethod
-    def _job_monitor():
+        while True:
+            _actual_work()
+            if self.test:
+                break
+
+    def _job_monitor(self):
         api = CoreV1Api(getKubernetesAPIClient())
         job_api = BatchV1Api(getKubernetesAPIClient())
-        while True:
+
+        def _actual_work():
             idle = True
             try:
                 for item in Task.objects.filter(Q(status=TASK.WAITING) | Q(status=TASK.RUNNING) |
@@ -264,6 +270,11 @@ class TaskExecutor:
                 LOGGER.error(ex)
             if idle:
                 time.sleep(1)
+
+        while True:
+            _actual_work()
+            if self.test:
+                break
 
     @staticmethod
     def get_user_space_pod(uuid, user):
@@ -356,10 +367,10 @@ class TaskExecutor:
         finally:
             return result
 
-    @staticmethod
-    def _job_dispatch():
+    def _job_dispatch(self):
         api = BatchV1Api(getKubernetesAPIClient())
-        while True:
+
+        def _actual_work():
             idle = True
             try:
                 for item in Task.objects.filter(status=TASK.SCHEDULED).order_by("create_time"):
@@ -463,6 +474,11 @@ class TaskExecutor:
                 LOGGER.error(ex)
             if idle:
                 time.sleep(1)
+
+        while True:
+            _actual_work()
+            if self.test:
+                break
 
     @staticmethod
     def _ttl_check(uuid):
