@@ -216,20 +216,28 @@ class TaskExecutor:
                                 new_status = TASK.FAILED
                             if new_status != item.status:
                                 if status in ('Succeeded', 'Failed'):
-                                    response = api.read_namespaced_pod_log(name=response.items[0].metadata.name,
-                                                                           namespace=KUBERNETES_NAMESPACE)
-                                    if response:
-                                        item.logs = response
+                                    exit_code = None
+                                    detailed_status = response.items[0].status.container_statuses
+                                    if detailed_status and detailed_status[0].state.terminated:
+                                        exit_code = detailed_status[0].state.terminated.exit_code
+                                        LOGGER.debug(exit_code)
+                                    if exit_code is None or exit_code != 137:  # SIGKILL caused by timeout
+                                        response = api.read_namespaced_pod_log(name=response.items[0].metadata.name,
+                                                                               namespace=KUBERNETES_NAMESPACE)
+                                        if response:
+                                            item.logs = response
+                                    else:
+                                        item.logs = "Time limit exceeded when executing job."
+                                        new_status = TASK.TLE
                                     item.logs_get = True
-
+                                    job_api.delete_namespaced_job(name=common_name,
+                                                                  namespace=KUBERNETES_NAMESPACE,
+                                                                  body=client.V1DeleteOptions(
+                                                                      propagation_policy='Foreground',
+                                                                      grace_period_seconds=5
+                                                                  ))
                                 item.status = new_status
                                 item.save(force_update=True)
-                                job_api.delete_namespaced_job(name=common_name,
-                                                              namespace=KUBERNETES_NAMESPACE,
-                                                              body=client.V1DeleteOptions(
-                                                                  propagation_policy='Foreground',
-                                                                  grace_period_seconds=5
-                                                              ))
                         # else wait for a period because it takes time for corresponding pod to be initialized
                     except ApiException as ex:
                         LOGGER.warning(ex)
@@ -374,22 +382,25 @@ class TaskExecutor:
                                 raise ValueError("Invalid config for TaskSettings: {}".format(item.settings.uuid))
                             # kubernetes part
                             shell = conf['shell']
-                            commands = conf['commands']
+                            commands = []
                             mem_limit = conf['memory_limit']
+                            time_limit = item.settings.time_limit
                             working_dir = conf['working_path']
                             image = conf['image']
                             shared_pvc = conf['persistent_volume']['name']
                             shared_mount_path = conf['persistent_volume']['mount_path']
                             script_path = conf['task_script_path']
 
-                            commands.insert(0, 'mkdir -p {}'.format(working_dir))
-                            commands.insert(1, 'cp -r {}/* {}'.format(user_dir, working_dir))
+                            commands.append('mkdir -p {}'.format(working_dir))
+                            commands.append('cp -r {}/* {}'.format(user_dir, working_dir))
                             # snapshot
-                            commands.insert(2, 'cp -r {}/* {}'.format(shared_mount_path + '/' + script_path,
-                                                                      working_dir))
+                            commands.append('cp -r {}/* {}'.format(shared_mount_path + '/' + script_path,
+                                                                   working_dir))
                             # overwrite
-                            commands.insert(3, 'cd {}'.format(working_dir))
-                            commands.insert(4, 'chmod -R +x {}'.format(working_dir))
+                            commands.append('chmod -R +x {}'.format(working_dir))
+                            commands.append('cd {}'.format(working_dir))
+                            commands.append('timeout --signal KILL {timeout} {shell} -c \'{commands}\''.format(
+                                timeout=time_limit, shell=shell, commands=';'.join(conf['commands'])))
 
                             shared_mount = client.V1VolumeMount(mount_path=shared_mount_path, name=shared_storage_name)
                             user_mount = client.V1VolumeMount(mount_path='/cloud_scheduler_userspace/',
@@ -427,7 +438,7 @@ class TaskExecutor:
                                 spec=client.V1PodSpec(restart_policy="Never",
                                                       containers=[container],
                                                       volumes=[volume, user_volume]))
-                            spec = client.V1JobSpec(template=template, backoff_limit=3,
+                            spec = client.V1JobSpec(template=template, backoff_limit=1,
                                                     active_deadline_seconds=GLOBAL_TASK_TIME_LIMIT)
                             job = client.V1Job(api_version="batch/v1", kind="Job",
                                                metadata=client.V1ObjectMeta(name=common_name),

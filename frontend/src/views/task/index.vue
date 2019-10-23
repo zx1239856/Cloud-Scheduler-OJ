@@ -78,7 +78,8 @@ export default {
                 '2': 'success',
                 '3': 'danger',
                 '4': 'info',
-                '5': 'warning'
+                '5': 'warning',
+                '6': 'danger'
             };
             return statusTypeMap[status];
         },
@@ -89,7 +90,8 @@ export default {
                 '2': 'Succeeded',
                 '3': 'Failed',
                 '4': 'Deleting',
-                '5': 'Pending'
+                '5': 'Pending',
+                '6': 'TLE'
             };
             return statusMap[status];
         }
