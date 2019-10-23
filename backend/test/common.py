@@ -153,7 +153,7 @@ class MockCoreV1Api:
         pass
 
     @staticmethod
-    def read_namespaced_pod_status(**_):
+    def read_namespaced_pod_status(*_, **__):
         return DotDict({'status': DotDict({'phase': 'Running'})})
 
     @staticmethod

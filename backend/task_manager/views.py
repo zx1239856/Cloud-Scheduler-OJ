@@ -7,6 +7,7 @@ from django.views import View
 from django.db.utils import IntegrityError
 from django.core.paginator import Paginator
 from kubernetes.client import CoreV1Api
+from kubernetes.client.rest import ApiException
 from api.common import RESPONSE
 from user_model.models import UserType
 from config import KUBERNETES_NAMESPACE
@@ -415,11 +416,14 @@ class ConcreteTaskHandler(View):
                 # logs are not crunched to WebServer when pods are running, so query from k8s directly in this case
                 log = item.logs
                 if item.status == TASK.RUNNING:
-                    resp = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE,
-                                                   label_selector="app={}".format(item.uuid))
-                    if resp.items:
-                        log = api.read_namespaced_pod_log(name=resp.items[0].metadata.name,
-                                                          namespace=KUBERNETES_NAMESPACE)
+                    try:
+                        resp = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE,
+                                                       label_selector="app={}".format(item.uuid))
+                        if resp.items:
+                            log = api.read_namespaced_pod_log(name=resp.items[0].metadata.name,
+                                                              namespace=KUBERNETES_NAMESPACE)
+                    except ApiException:
+                        log = 'Failed to get logs from running pod.'
                 response['payload'] = {'settings': {'name': item.settings.name, 'uuid': item.settings.uuid},
                                        'status': item.status,
                                        'uuid': item.uuid,
