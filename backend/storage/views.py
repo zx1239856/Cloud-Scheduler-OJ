@@ -180,7 +180,7 @@ class StorageFileHandler(View):
         return JsonResponse(RESPONSE.SUCCESS)
 
     def restart(self):
-        """continuing uploading when server restarts"""
+        """continue uploading when server restarts"""
         file_list = FileModel.objects.all()
         for f in file_list:
             if f.status == 0:
@@ -257,8 +257,9 @@ class StorageFileHandler(View):
         @apiUse PermissionDenied
         """
         try:
-            file_upload = request.FILES.get('file', None)
-            if file_upload is None:
+            files = request.FILES.getlist('file[]', None)
+            #file_upload = request.FILES.get('file', None)
+            if files is None:
                 response = RESPONSE.INVALID_REQUEST
                 response['message'] += " File is empty."
                 return JsonResponse(response)
@@ -282,18 +283,20 @@ class StorageFileHandler(View):
             self.api_instance.create_namespace(client.V1Namespace(api_version="v1", kind="Namespace", metadata=client.V1ObjectMeta(name=KUBERNETES_NAMESPACE, labels={"name":KUBERNETES_NAMESPACE})))
         except Exception:
             pass
+        for file_upload in files:
+            LOGGER.info(file_upload.name+"uploading")
+            # record file
+            identity = file_upload.name + pvc_name + path
+            md = hashlib.md5()
+            md.update(identity.encode('utf-8'))
+            md = md.hexdigest()
+            fileModel = FileModel(hashid=md, filename=file_upload.name, targetpath=path, targetpvc=pvc_name, status=FileStatusCode.PENDING)
+            fileModel.save()
 
-        # record file
-        identity = file_upload.name + pvc_name + path
-        md = hashlib.md5()
-        md.update(identity.encode('utf-8'))
-        md = md.hexdigest()
-        fileModel = FileModel(hashid=md, filename=file_upload.name, targetpath=path, targetpvc=pvc_name, status=FileStatusCode.PENDING)
-        fileModel.save()
+            uploading = Thread(target=self.caching, args=(file_upload, pvc_name, path, md))
+            uploading.start()
+            FileModel.objects.filter(hashid=md).update(status=FileStatusCode.CACHING)
 
-        uploading = Thread(target=self.caching, args=(request.FILES.get('file'), pvc_name, path, md))
-        uploading.start()
-        FileModel.objects.filter(hashid=md).update(status=FileStatusCode.CACHING)
         response = RESPONSE.SUCCESS
         return JsonResponse(response)
 

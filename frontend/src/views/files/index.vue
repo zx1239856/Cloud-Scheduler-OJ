@@ -48,6 +48,7 @@
         <el-form-item label="file" prop="file">
           <el-upload
             action="no"
+            multiple
             :http-request="getFile"
           >
             <i class="el-icon-plus" />
@@ -98,16 +99,11 @@ export default {
                 limit: 25
             },
             dialogData: {
-                file: '',
+                file: [],
                 pvc: '',
                 path: ''
             },
             dialogRules: {
-                file: [{
-                    required: true,
-                    message: 'file is required',
-                    trigger: 'change'
-                }],
                 pvc: [{
                     required: true,
                     message: 'concurrency is required',
@@ -166,9 +162,20 @@ export default {
         uploading() {
             this.dialogFormVisible = false;
             var formData = new FormData();
-            formData.append('file', this.dialogData.file);
+
+            for (var f of this.dialogData.file) {
+                formData.append('file[]', f);
+            }
+
             formData.append('pvcName', this.dialogData.pvc);
             formData.append('mountPath', this.dialogData.path);
+
+            this.$message({
+                showClose: true,
+                message: formData,
+                type: 'success'
+            });
+
             uploadFile(formData).then(response => {
                 this.$message({
                     showClose: true,
@@ -179,6 +186,14 @@ export default {
             });
         },
         handleDialogConfirm() {
+            if (this.dialogData.file.length === 0) {
+                this.$message({
+                    showClose: true,
+                    message: 'file required',
+                    type: 'error'
+                });
+                return false;
+            }
             this.$refs.dialogForm.validate(valid => {
                 if (valid) {
                     if (this.dialogType === 'Upload') {
@@ -192,7 +207,12 @@ export default {
             });
         },
         getFile(item) {
-            this.dialogData.file = item.file;
+            this.dialogData.file.push(item.file);
+            this.$message({
+                showClose: true,
+                message: item,
+                type: 'success'
+            });
         },
         handleReupload() {
             reuploadFile({}).then(response => {
