@@ -14,7 +14,7 @@
       <el-button v-waves class="filter-item" type="primary" icon="el-icon-search" @click="handleFilter">
         Search
       </el-button> -->
-      <el-button v-if="permission==='admin'" class="filter-item" style="margin: 10px;" type="success" icon="el-icon-plus" @click="handleCreate">
+      <el-button v-if="permission==='admin'" class="filter-item" style="margin: 20px;" type="success" icon="el-icon-plus" @click="handleCreate">
         New Settings
       </el-button>
     </div>
@@ -55,15 +55,18 @@
           <span>{{ new Date(scope.row.create_time).toLocaleString() }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" align="center" :width="permission==='admin'?350:150" class-name="small-padding fixed-width">
+      <el-table-column label="Actions" align="center" :width="permission==='admin'?400:280" class-name="small-padding fixed-width">
         <template slot-scope="{row}">
-          <el-button type="primary" size="small" icon="el-icon-plus" @click="handleAddTask(row)">
+          <el-button type="primary" plain size="small" @click="handleUpdate(row)">
+            IDE
+          </el-button>
+          <el-button type="primary" plain size="small" @click="handleSsh(row)">
+            SSH
+          </el-button>
+          <el-button type="success" plain size="small" icon="el-icon-plus" @click="handleAddTask(row)">
             Add Task
           </el-button>
-          <el-button v-if="permission==='admin'" type="warning" size="small" icon="el-icon-plus" @click="handleUpdate(row)">
-            Edit
-          </el-button>
-          <el-button v-if="permission==='admin'" type="danger" size="small" icon="el-icon-delete" @click="handleDelete(row)">
+          <el-button v-if="permission==='admin'" plain type="danger" size="small" icon="el-icon-delete" @click="handleDelete(row)">
             Delete
           </el-button>
         </template>
@@ -146,7 +149,9 @@ export default {
     },
     computed: {
         ...mapGetters([
-            'permission'
+            'permission',
+            'name',
+            'token'
         ])
     },
     created() {
@@ -171,6 +176,13 @@ export default {
         handleDelete(row) {
             this.deleteDialogVisible = true;
             this.dialogData = Object.assign({}, row);
+        },
+        handleSsh(row) {
+            const routeData = this.$router.resolve({
+                name: 'user-terminal',
+                query: { username: this.name, token: this.token, uuid: row.uuid }
+            });
+            window.open(routeData.href, '_blank');
         },
         deleteTaskSettings() {
             this.deleteDialogVisible = false;
