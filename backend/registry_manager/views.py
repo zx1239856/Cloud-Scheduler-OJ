@@ -145,6 +145,7 @@ class ConnectionUtils:
         try:
             tag_info = {}
             manifest = self.get_manifest(repo, tag)
+            tag_info['Tag'] = tag
             tag_info['Size'] = self.get_size_of_layers(repo, tag)
             tag_info['Layers'] = self.get_number_of_layers(repo, tag)
             tag_info['Created'] = manifest.get_created_date()
@@ -177,9 +178,11 @@ class ConnectionUtils:
     # get information of a repository
     def get_repository(self, repo):
         try:
-            response = {}
-            response['Number of Tags'] = self.get_number_of_tags(repo)
-            response['Size of Repository'] = self.get_size_of_repo(repo)
+            response = {
+                'Repo': repo,
+                'NumberOfTags': self.get_number_of_tags(repo),
+                'SizeOfRepository': self.get_size_of_repo(repo)
+            }
             return response
         except Exception as ex:
             LOGGER.error(ex)
@@ -222,8 +225,10 @@ class RegistryHandler(View):
     def get(self, request):
         response = RESPONSE.SUCCESS
         try:
+            response['payload']['entity'] = []
             for repository in self.util.get_repositories():
-                response['payload'][repository] = self.util.get_repository(repository)
+                response['payload']['entity'].append(self.util.get_repository(repository))
+            response['payload']['count'] = len(response['payload']['entity'])
             return JsonResponse(response)
         except Exception as ex:
             LOGGER.error(ex)
@@ -235,8 +240,10 @@ class RepositoryHandler(View):
     def get(self, _, **kwargs):
         response = RESPONSE.SUCCESS
         try:
+            response['payload']['entity'] = []
             for tag in self.util.get_tags(kwargs.get('repo')):
-                response['payload'][tag] = self.util.get_tag(kwargs.get('repo'), tag)
+                response['payload']['entity'].append(self.util.get_tag(kwargs.get('repo'), tag))
+            response['payload']['count'] = len(response['payload']['entity'])
             return JsonResponse(response)
         except Exception as ex:
             LOGGER.error(ex)
@@ -262,9 +269,12 @@ class RepositoryHandler(View):
         try:
             client = docker.DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
             docker_api = docker.APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-            if not request.FILES:
-                return JsonResponse(RESPONSE.INVALID_REQUEST)
-            f = request.FILES['file']
+            files = request.FILES.getlist('file[]', None)
+            if files is None:
+                response = RESPONSE.INVALID_REQUEST
+                response['message'] += " File is empty."
+                return JsonResponse(response)
+            f = files[0]
             tar_pattern = "[.](tar)$"
             searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
             if searched_tar:

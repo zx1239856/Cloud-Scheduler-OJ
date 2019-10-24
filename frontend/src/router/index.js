@@ -121,6 +121,24 @@ export const constantRoutes = [
     },
 
     {
+        path: '/registry',
+        name: 'registry',
+        component: Layout,
+        meta: { title: 'Registry', icon: 'list' },
+        children: [{
+            path: 'repositories',
+            name: 'repositories',
+            component: () => import('@/views/registry/index'),
+            meta: { title: 'Repositories', icon: 'list' }
+        }]
+    },
+    {
+        path: '/registry/image/',
+        name: 'image',
+        component: () => import('@/views/registry/image')
+    },
+
+    {
         path: '/user-terminal/',
         name: 'user-terminal',
         component: () => import('@/views/user_terminal/index')
