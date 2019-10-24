@@ -269,9 +269,12 @@ class RepositoryHandler(View):
         try:
             client = docker.DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
             docker_api = docker.APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-            if not request.FILES:
-                return JsonResponse(RESPONSE.INVALID_REQUEST)
-            f = request.FILES['file']
+            files = request.FILES.getlist('file[]', None)
+            if files is None:
+                response = RESPONSE.INVALID_REQUEST
+                response['message'] += " File is empty."
+                return JsonResponse(response)
+            f = files[0]
             tar_pattern = "[.](tar)$"
             searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
             if searched_tar:

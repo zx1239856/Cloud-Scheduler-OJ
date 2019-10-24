@@ -1,10 +1,5 @@
 <template>
   <div class="app-container">
-    <div class="filter-container" align="right">
-      <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleUpload">
-        New Image
-      </el-button>
-    </div>
 
     <el-table
       :key="tableKey"
@@ -44,40 +39,12 @@
 
     <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getRepository" />
 
-    <el-dialog :title="dialogType" :visible.sync="dialogFormVisible">
-      <el-form ref="dialogForm" :rules="dialogRules" :model="dialogData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
-        <el-form-item label="file" prop="file">
-          <el-upload
-            action="no"
-            multiple
-            :http-request="getImage"
-          >
-            <i class="el-icon-plus" />
-          </el-upload>
-        </el-form-item>
-        <el-form-item label="Repository" prop="repo">
-          <el-input v-model="dialogData.repo" />
-        </el-form-item>
-        <el-form-item label="Tag" prop="tag">
-          <el-input v-model="dialogData.tag" />
-        </el-form-item>
-      </el-form>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="dialogFormVisible = false">
-          Cancel
-        </el-button>
-        <el-button type="primary" @click="handleDialogConfirm">
-          Upload
-        </el-button>
-      </div>
-    </el-dialog>
-
     <el-dialog
       title="Warning"
       :visible.sync="deleteDialogVisible"
       width="30%"
     >
-      <span>Are you sure to delete Image {{ selectedData.Repo }}?</span>
+      <span>Are you sure to delete Image {{ selectedData.Repo + ':' + selectedData.Tag }}?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible = false">Cancel</el-button>
         <el-button type="danger" @click="deleteImage">Delete</el-button>
@@ -88,7 +55,7 @@
 </template>
 
 <script>
-import { getRepository, uploadImage, deleteImage } from '@/api/registry';
+import { getRepository, deleteImage } from '@/api/registry';
 import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 
@@ -99,8 +66,6 @@ export default {
     data() {
         return {
             Repo: '',
-            dialogType: 'Upload',
-            dialogFormVisible: false,
             deleteDialogVisible: false,
             selectedData: {
                 Repo: '',
@@ -114,14 +79,6 @@ export default {
             listQuery: {
                 page: 1,
                 limit: 25
-            },
-            statusMap: {
-                0: 'Pending',
-                1: 'Caching',
-                2: 'Cached',
-                3: 'Uploading',
-                4: 'Succeeded',
-                5: 'Failed'
             },
             dialogData: {
                 file: [],
@@ -142,11 +99,6 @@ export default {
             }
         };
     },
-    // computed: {
-    //     ...mapGetters([
-    //         'permission'
-    //     ])
-    // },
     created() {
         this.getRepositoryList();
     },
@@ -159,49 +111,6 @@ export default {
                 this.listLoading = false;
             });
         },
-        handleUpload() {
-            this.dialogFormVisible = true;
-            this.dialogType = 'Upload';
-        },
-        uploading() {
-            this.dialogFormVisible = false;
-            var formData = new FormData();
-
-            formData.append('file', this.dialogData.file);
-
-            uploadImage(formData, this.dialogData.repo, this.dialogData.tag).then(response => {
-                this.$message({
-                    showClose: true,
-                    message: 'File Uploading',
-                    type: 'success'
-                });
-                this.getRepositoryList();
-            });
-        },
-        handleDialogConfirm() {
-            if (this.dialogData.file.length === 0) {
-                this.$message({
-                    showClose: true,
-                    message: 'file required',
-                    type: 'error'
-                });
-                return false;
-            }
-            this.$refs.dialogForm.validate(valid => {
-                if (valid) {
-                    if (this.dialogType === 'Upload') {
-                        this.uploading();
-                    } else {
-                        //
-                    }
-                } else {
-                    return false;
-                }
-            });
-        },
-        getImage(item) {
-            this.dialogData.file.push(item.file);
-        },
         handleDelete(row) {
             this.selectedData = Object.assign({}, row);
             this.deleteDialogVisible = true;
@@ -209,11 +118,12 @@ export default {
         deleteImage() {
             this.$message({
                 showClose: true,
-                message: this.selectedData.name,
+                message: this.selectedData.Repo,
                 type: 'success'
             });
             deleteImage({
-                name: this.selectedData.name
+                repo: this.selectedData.Repo,
+                tag: this.selectedData.Tag
             }).then(response => {
                 this.$message({
                     showClose: true,
