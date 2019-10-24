@@ -203,7 +203,7 @@ class UserWebSSH(WebSSH):
         if token == real_token:
             TokenManager.updateToken(user)
         # try to fetch pod
-        executor = TaskExecutor.instance()
+        executor = TaskExecutor.instance(new=False)
         if executor is None:
             self.send("\nExecutor is initializing, please wait.")
             self.close(code=4000)

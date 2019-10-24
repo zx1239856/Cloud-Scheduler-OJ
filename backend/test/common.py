@@ -2,6 +2,7 @@ import json
 import hashlib
 import random
 from django.test import Client, TestCase
+from kubernetes.stream import ws_client
 from kubernetes.client.rest import ApiException
 from user_model.models import UserModel, UserType
 from task_manager.views import getUUID
@@ -53,9 +54,13 @@ class ReturnItemsList:
 class MockThread:
     def __init__(self, target, **_):
         self._target = target
+        self._running = False
 
     def start(self):
-        pass
+        self._running = True
+
+    def isAlive(self):
+        return self._running
 
 
 class MockCoreV1Api:
@@ -139,8 +144,15 @@ class MockCoreV1Api:
         pass
 
     @staticmethod
-    def create_namespaced_persistent_volume_claim(body, **_):
+    def create_namespaced_persistent_volume_claim(namespace, body, **_):
+        print(namespace)
         if body.metadata.name == 'existing-pvc':
+            raise ApiException
+
+    @staticmethod
+    def read_namespaced_persistent_volume_claim(namespace, name, **_):
+        print(namespace)
+        if name == 'nonexistent-pvc':
             raise ApiException
 
     @staticmethod
@@ -160,6 +172,7 @@ class MockCoreV1Api:
     def connect_get_namespaced_pod_exec(**_):
         pass
 
+
 class MockBatchV1Api:
     def __init__(self, _):
         pass
@@ -170,4 +183,64 @@ class MockBatchV1Api:
 
     @staticmethod
     def create_namespaced_job(**_):
+        pass
+
+
+class MockTaskExecutor:
+    def __init__(self):
+        self.ready = True
+
+    def scheduleTaskSettings(self, *_, **__):
+        pass
+
+    @classmethod
+    def instance(cls, **_):
+        return MockTaskExecutor()
+
+    @staticmethod
+    def get_user_space_pod(*_):
+        return DotDict({
+            'status': DotDict({'pod_ip': 'ip', 'phase': 'Running'}),
+            'metadata': DotDict({
+                'namespace': 'test_ns',
+                'name': 'test',
+                'creation_timestamp': '000',
+                'uid': 'uid_test',
+            }),
+            'spec': DotDict({'node_name': 'test_node'})
+        })
+
+
+class MockWSClient:
+    def __init__(self, **_):
+        self.counter = 1000
+        print("Initialized MockWebSocket")
+        self.open = True
+
+    def write_stdin(self, data, **_):
+        pass
+
+    def read_stdout(self, **_):
+        if self.counter > 0:
+            self.counter -= 1
+            return "Hello from WebSocket!\n"
+        else:
+            raise Exception("Connection closed by remote server.")
+
+    def is_open(self):
+        return self.open
+
+    def close(self, **_):
+        self.open = False
+
+    def write_channel(self, *_):
+        pass
+
+    def read_channel(self, channel, **_):
+        if channel == ws_client.ERROR_CHANNEL:
+            return json.dumps({'status': 'Success'})
+        else:
+            return ''
+
+    def run_forever(self, timeout):
         pass
