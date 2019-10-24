@@ -107,6 +107,42 @@ export const constantRoutes = [
         name: 'webssh',
         component: () => import('@/views/webssh/index')
     },
+    {
+        path: '/storage',
+        name: 'storage',
+        component: Layout,
+        meta: { title: 'Storage', icon: 'storage' },
+        children: [{
+            path: 'index',
+            name: 'files',
+            component: () => import('@/views/files/index'),
+            meta: { title: 'File Upload History', icon: 'list' }
+        },
+        {
+            path: 'pvc',
+            name: 'PV claims',
+            component: () => import('@/views/storage/index'),
+            meta: { title: 'PV claims', icon: 'list' }
+        }]
+    },
+
+    {
+        path: '/registry',
+        name: 'registry',
+        component: Layout,
+        meta: { title: 'Registry', icon: 'list' },
+        children: [{
+            path: 'repositories',
+            name: 'repositories',
+            component: () => import('@/views/registry/index'),
+            meta: { title: 'Repositories', icon: 'list' }
+        }]
+    },
+    {
+        path: '/registry/image/',
+        name: 'image',
+        component: () => import('@/views/registry/image')
+    },
 
     {
         path: '/user-terminal/',

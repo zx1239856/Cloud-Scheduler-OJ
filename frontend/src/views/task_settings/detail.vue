@@ -42,16 +42,16 @@
       </el-form-item>
 
       <el-form-item label="Time Limit" prop="time_limit">
-        <el-input-number v-model="formData.time_limit" />
+        <el-input-number v-model="formData.time_limit" :min="1" />
       </el-form-item>
       <el-form-item label="Replica" prop="replica">
-        <el-input-number v-model="formData.replica" />
+        <el-input-number v-model="formData.replica" :min="1" />
       </el-form-item>
       <el-form-item label="TTL Interval" prop="ttl_interval">
-        <el-input-number v-model="formData.ttl_interval" />
+        <el-input-number v-model="formData.ttl_interval" :min="1" />
       </el-form-item>
       <el-form-item label="Max Sharing Users" prop="max_sharing_users">
-        <el-input-number v-model="formData.max_sharing_users" />
+        <el-input-number v-model="formData.max_sharing_users" :min="1" />
       </el-form-item>
 
       <div align="center">
@@ -82,9 +82,9 @@ export default {
                 shell: '',
                 commands: '',
                 memory_limit: '',
-                time_limit: 900,
+                time_limit: 10,
                 replica: 2,
-                ttl_interval: 5,
+                ttl_interval: 3,
                 max_sharing_users: 1
             },
             dialogRules: {

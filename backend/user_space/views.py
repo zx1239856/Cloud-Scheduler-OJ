@@ -33,7 +33,7 @@ class UserSpaceHandler(View):
                 raise ValueError
             settings = TaskSettings.objects.get(uuid=settings_uuid)
             username = '{}_{}'.format(user.username, settings.id)
-            executor = TaskExecutor.instance()
+            executor = TaskExecutor.instance(new=False)
             if executor is None:
                 response = RESPONSE.OPERATION_FAILED
                 response['message'] += " Executor is initializing, please wait."
@@ -79,7 +79,7 @@ class UserSpaceHandler(View):
                         if op == 'put':
                             if old_file and old_file != file:
                                 cmdlist.append('mv {} {}'.format(old_file, file))
-                            elif old_path and old_path == path:
+                            elif old_path and old_path != path:
                                 cmdlist.append('mv {} {}'.format(old_path, path))
                             if file and content:
                                 cmdlist.append("cat > {} <<EOF\n{}\nEOF\n".format(file, content))
