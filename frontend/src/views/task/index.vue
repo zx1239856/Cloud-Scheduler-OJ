@@ -148,7 +148,6 @@ export default {
             this.deleteDialogVisible = false;
             deleteTask(this.selectedData.uuid).then(response => {
                 this.$message({
-                    showClose: true,
                     message: 'Task Deleted',
                     type: 'success'
                 });

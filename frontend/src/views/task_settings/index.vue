@@ -57,7 +57,7 @@
       </el-table-column>
       <el-table-column label="Actions" align="center" :width="permission==='admin'?400:280" class-name="small-padding fixed-width">
         <template slot-scope="{row}">
-          <el-button type="primary" plain size="small" @click="handleUpdate(row)">
+          <el-button type="primary" plain size="small" @click="handleIde(row)">
             IDE
           </el-button>
           <el-button type="primary" plain size="small" @click="handleSsh(row)">
@@ -184,11 +184,13 @@ export default {
             });
             window.open(routeData.href, '_blank');
         },
+        handleIde(row) {
+            this.$router.push({ path: '/webide/', query: { uuid: row.uuid }});
+        },
         deleteTaskSettings() {
             this.deleteDialogVisible = false;
             deleteTaskSettings(this.dialogData.uuid).then(response => {
                 this.$message({
-                    showClose: true,
                     message: 'Task Settings Deleted',
                     type: 'success'
                 });
@@ -211,7 +213,6 @@ export default {
         handleAddTask(row) {
             createTask(row.uuid).then(response => {
                 this.$message({
-                    showClose: true,
                     message: 'Task Created',
                     type: 'success'
                 });
