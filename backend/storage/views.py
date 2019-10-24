@@ -407,7 +407,7 @@ class StorageFileHandler(View):
 
         try:
             # create file dir
-            exec_command = ['mkdir -p', '/cephfs-data/' + path]
+            exec_command = ['mkdir', '/cephfs-data/' + path]
             _ = stream(self.api_instance.connect_get_namespaced_pod_exec, pod_name, KUBERNETES_NAMESPACE,
                        command=exec_command,
                        stderr=True, stdin=False, stdout=True, tty=False, _preload_content=False)
@@ -442,7 +442,7 @@ class StorageFileHandler(View):
 
         # delete pod when finished
         try:
-            self.api_instance.delete_namespaced_pod(pod_name, KUBERNETES_NAMESPACE)
+            self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
         except ApiException as ex:
             LOGGER.warning(ex)
 
