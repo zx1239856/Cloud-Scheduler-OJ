@@ -99,7 +99,7 @@ export default {
         },
         onCmCodeChange(newCode) {
             console.log('update');
-            // this.code = newCode;
+            this.code = newCode;
         },
         loadNode(node, resolve) {
             if (node.level === 0) {
@@ -148,7 +148,6 @@ export default {
                     type: 'success'
                 });
             });
-            console.log('save');
         }
     }
 };
