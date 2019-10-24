@@ -91,6 +91,12 @@ export const constantRoutes = [
     },
 
     {
+        path: '/log/',
+        name: 'log',
+        component: () => import('@/views/log/index')
+    },
+
+    {
         path: '/webssh/',
         name: 'webssh',
         component: () => import('@/views/webssh/index')

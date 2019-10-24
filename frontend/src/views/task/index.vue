@@ -36,8 +36,11 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" align="center" width="150" class-name="small-padding fixed-width">
+      <el-table-column label="Actions" align="center" width="200" class-name="small-padding fixed-width">
         <template slot-scope="{row}">
+          <el-button type="info" size="small" @click="handleLog(row)">
+            Log
+          </el-button>
           <el-button type="danger" size="small" icon="el-icon-delete" @click="handleDelete(row)">
             Delete
           </el-button>
@@ -150,6 +153,13 @@ export default {
                     type: 'success'
                 });
             });
+        },
+        handleLog(row) {
+            const routeData = this.$router.resolve({
+                name: 'log',
+                query: { uuid: row.uuid }
+            });
+            window.open(routeData.href, '_blank');
         }
     }
 };
