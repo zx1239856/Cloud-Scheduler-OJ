@@ -9,19 +9,7 @@ from task_manager.models import TaskSettings, Task, TASK
 import task_manager.views as views
 from user_model.models import UserModel, UserType
 from api.common import RESPONSE
-from .common import loginTestUser, TestCaseWithBasicUser, MockCoreV1Api
-
-
-class MockTaskExecutor:
-    def __init__(self):
-        self.ready = True
-
-    def scheduleTaskSettings(self, *_, **__):
-        pass
-
-    @classmethod
-    def instance(cls, **_):
-        return MockTaskExecutor()
+from .common import loginTestUser, TestCaseWithBasicUser, MockCoreV1Api, MockTaskExecutor
 
 
 class TestTask(TestCaseWithBasicUser):

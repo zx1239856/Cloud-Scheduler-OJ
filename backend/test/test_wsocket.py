@@ -2,9 +2,7 @@
 Unit test for websocket
 """
 import time
-import json
 import pytest
-from kubernetes.stream import ws_client
 from channels.testing import WebsocketCommunicator
 import mock
 import wsocket
@@ -12,39 +10,7 @@ from wsocket.views import WebSSH, UserWebSSH
 from user_model.models import UserModel, UserType
 from task_manager.models import TaskSettings
 from task_manager.executor import TaskExecutor
-from .common import DotDict
-
-
-class MockWSClient:
-    def __init__(self, **_):
-        self.counter = 1000
-        print("Initialized MockWebSocket")
-        self.open = True
-
-    def write_stdin(self, data, **_):
-        pass
-
-    def read_stdout(self, **_):
-        if self.counter > 0:
-            self.counter -= 1
-            return "Hello from WebSocket!\n"
-        else:
-            raise Exception("Connection closed by remote server.")
-
-    def is_open(self):
-        return self.open
-
-    def close(self, **_):
-        self.open = False
-
-    def write_channel(self, *_):
-        pass
-
-    def read_channel(self, channel, **_):
-        if channel == ws_client.ERROR_CHANNEL:
-            return json.dumps({'status': 'Success'})
-        else:
-            return ''
+from .common import MockTaskExecutor, MockWSClient
 
 
 def mock_stream(_p0, _p1, _p2, **_):
@@ -133,21 +99,6 @@ async def testUserSSHExecutorNone(*_):
         await communicator.disconnect()
 
 
-class MockExecutor:
-    @staticmethod
-    def get_user_space_pod(*_):
-        return DotDict({
-            'status': DotDict({'pod_ip': 'ip', 'phase': 'Running'}),
-            'metadata': DotDict({
-                'namespace': 'test_ns',
-                'name': 'test',
-                'creation_timestamp': '000',
-                'uid': 'uid_test',
-            }),
-            'spec': DotDict({'node_name': 'test_node'})
-        })
-
-
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 async def testUserSSHExecutorNormal(*_):
@@ -157,7 +108,7 @@ async def testUserSSHExecutorNormal(*_):
     _ = TaskSettings.objects.create(name='test', uuid='my_uuid', description='', container_config='{}',
                                     time_limit=1, replica=1, ttl_interval=1, max_sharing_users=1)
     with mock.patch.object(wsocket.views, 'stream', mock_stream):
-        TaskExecutor._instance = MockExecutor()
+        TaskExecutor._instance = MockTaskExecutor()
         communicator = WebsocketCommunicator(UserWebSSH,
                                              "/user_terminals/?uuid=my_uuid&token=my_only_token&username=admin")
         connected, _ = await communicator.connect()
