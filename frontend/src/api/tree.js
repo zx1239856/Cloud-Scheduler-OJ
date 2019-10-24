@@ -1,17 +1,18 @@
 import request from '@/utils/request';
 
-export function getTree(query) {
+export function getTreePath(settings_uuid, path) {
     return request({
-        url: '/tree/',
+        url: '/user_space/' + settings_uuid + '/',
         method: 'get',
-        params: query
+        params: { path: path }
     });
 }
 
-export function getFile(path, filename) {
+export function getFile(settings_uuid, file) {
     return request({
-        url: '/tree/file/' + path + '/' + filename + '/',
-        method: 'get'
+        url: '/user_space/' + settings_uuid + '/',
+        method: 'get',
+        params: { file: file }
     });
 }
 
@@ -23,11 +24,15 @@ export function createFile(path, filename, data) {
     });
 }
 
-export function updateFile(path, filename, data) {
+export function updateFile(settings_uuid, filename, content) {
     return request({
-        url: '/tree/file/' + path + '/' + filename + '/',
+        url: '/user_space/' + settings_uuid + '/',
         method: 'put',
-        data
+        data: {
+            file: filename,
+            old_file: filename,
+            content: content
+        }
     });
 }
 

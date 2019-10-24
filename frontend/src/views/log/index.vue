@@ -1,6 +1,6 @@
 <template>
   <div class="fullscreen">
-    <div v-for="line in loglines" :key="line" class="item log-item" style="padding-top: 5px; padding-left: 5px;">
+    <div v-for="[index, line] of loglines.entries()" :key="index" class="item log-item" style="padding-top: 5px; padding-left: 5px;">
       <el-tag type="info" size="small" effect="dark">{{ uuid }}</el-tag>
       <span style="color: white;">{{ line }}</span>
     </div>
