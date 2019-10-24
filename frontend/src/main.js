@@ -1,12 +1,12 @@
 import Vue from 'vue';
 
-import 'normalize.css/normalize.css'; // A modern alternative to CSS resets
-
 import ElementUI from 'element-ui';
 import 'element-ui/lib/theme-chalk/index.css';
-import locale from 'element-ui/lib/locale/lang/en'; // lang i18n
-
+// import locale from 'element-ui/lib/locale/lang/en'; // lang i18n
+Vue.use(ElementUI);
 import '@/styles/index.scss'; // global css
+
+import 'normalize.css/normalize.css'; // A modern alternative to CSS resets
 
 import App from './App';
 import store from './store';
@@ -14,7 +14,6 @@ import router from './router';
 
 import '@/icons'; // icon
 import '@/permission'; // permission control
-import 'xterm/css/xterm.css';
 
 /**
  * If you don't want to use mock-server
@@ -24,13 +23,13 @@ import 'xterm/css/xterm.css';
  * Currently MockJs will be used in the production environment,
  * please remove it before going online! ! !
  */
-import { mockXHR } from '../mock';
-if (process.env.NODE_ENV === 'production') {
-    mockXHR();
-}
+// import { mockXHR } from '../mock';
+// if (process.env.NODE_ENV === 'production') {
+//     mockXHR();
+// }
 
 // set ElementUI lang to EN
-Vue.use(ElementUI, { locale });
+// Vue.use(ElementUI, { locale });
 
 Vue.config.productionTip = false;
 

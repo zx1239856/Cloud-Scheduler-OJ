@@ -3,4 +3,6 @@ django-cors-headers
 gunicorn
 gevent
 channels
-paramiko
+schedule
+docker
+kubernetes

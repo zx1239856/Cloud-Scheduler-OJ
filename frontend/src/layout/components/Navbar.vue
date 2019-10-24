@@ -53,7 +53,7 @@ export default {
         },
         async logout() {
             await this.$store.dispatch('user/logout');
-            this.$router.push(`/login?redirect=${this.$route.fullPath}`);
+            this.$router.push('/login');
         }
     }
 };
@@ -129,7 +129,6 @@ export default {
           cursor: pointer;
           position: absolute;
           right: -20px;
-          top: 25px;
           font-size: 12px;
         }
       }

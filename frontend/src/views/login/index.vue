@@ -4,7 +4,7 @@
       ref="loginForm"
       :model="loginForm"
       :rules="loginRules"
-      auto-complete="on"
+      auto-complete="off"
       class="login-form"
       label-position="left"
     >
@@ -19,7 +19,7 @@
         <el-input
           ref="username"
           v-model="loginForm.username"
-          auto-complete="on"
+          auto-complete="off"
           name="username"
           placeholder="Username"
           tabindex="1"
@@ -36,7 +36,7 @@
           ref="password"
           v-model="loginForm.password"
           :type="passwordType"
-          auto-complete="on"
+          auto-complete="off"
           name="password"
           placeholder="Password"
           tabindex="2"
@@ -53,36 +53,34 @@
         type="primary"
         @click.native.prevent="handleLogin"
       >Login</el-button>
+      <router-link to="/signup/" class="link">No account yet? Sign up!</router-link>
     </el-form>
   </div>
 </template>
 
 <script>
-import { validUsername } from '@/utils/validate';
 
 export default {
     name: 'Login',
     data() {
         const validateUsername = (rule, value, callback) => {
-            if (!validUsername(value)) {
-                callback(new Error('Please enter the correct user name'));
+            if (value.length === 0) {
+                callback(new Error('Username cannot be empty'));
             } else {
                 callback();
             }
         };
         const validatePassword = (rule, value, callback) => {
-            if (value.length < 6) {
-                callback(
-                    new Error('The password can not be less than 6 digits')
-                );
+            if (value.length === 0) {
+                callback(new Error('Password cannot be empty'));
             } else {
                 callback();
             }
         };
         return {
             loginForm: {
-                username: 'admin',
-                password: '111111'
+                username: '',
+                password: ''
             },
             loginRules: {
                 username: [
@@ -131,14 +129,17 @@ export default {
                     this.$store
                         .dispatch('user/login', this.loginForm)
                         .then(() => {
-                            this.$router.push({ path: this.redirect || '/' });
+                            this.$message({
+                                message: 'Log in Success',
+                                type: 'success'
+                            });
                             this.loading = false;
+                            this.$router.push('/');
                         })
                         .catch(() => {
                             this.loading = false;
                         });
                 } else {
-                    console.log('error submit!!');
                     return false;
                 }
             });
@@ -254,6 +255,12 @@ $light_gray: #eee;
         color: $dark_gray;
         cursor: pointer;
         user-select: none;
+    }
+
+    .link {
+        color: #fff;
+        float: right;
+        text-decoration: underline;
     }
 }
 </style>

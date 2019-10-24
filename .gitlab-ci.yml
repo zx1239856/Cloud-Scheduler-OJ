@@ -14,9 +14,6 @@ build:
     - export BUILD_IMAGE_USERNAME=$CI_REGISTRY_USER
     - export BUILD_IMAGE_PASSWORD=$CI_REGISTRY_PASSWORD
     - deployer build
-  only:
-    - master
-    - dev
 
 # Job template for test stage
 .test:
@@ -38,6 +35,7 @@ build:
 unit-test:
   extends: .test
   script:
+    - python backend/manage.py migrate
     - coverage run -m pytest backend --junit-xml=xunit-reports/xunit-result.xml
     - BACKEND_RET=$?
     - coverage xml -o coverage-reports/coverage.xml
@@ -57,10 +55,8 @@ style-test:
   extends: .test
   # allow_failure: true
   script:
-    - cd backend
-    - pylint --load-plugins=pylint_django api
+    - pylint backend 
     - BACKEND_RET=$?
-    - cd ../
     - cd frontend/
     - npm run lint
     - FRONTEND_RET=$?

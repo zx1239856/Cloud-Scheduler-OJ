@@ -36,13 +36,16 @@ export const constantRoutes = [
         component: () => import('@/views/login/index'),
         hidden: true
     },
-
+    {
+        path: '/signup',
+        component: () => import('@/views/signup/index'),
+        hidden: true
+    },
     {
         path: '/404',
         component: () => import('@/views/404'),
         hidden: true
     },
-
     {
         path: '/',
         component: Layout,
@@ -54,119 +57,121 @@ export const constantRoutes = [
             meta: { title: 'Dashboard', icon: 'dashboard' }
         }]
     },
-
     {
-        path: '/demo',
+        path: '/webide/',
         component: Layout,
-        redirect: '/demo/webssh',
-        name: 'Demo',
-        meta: { title: 'Demo', icon: 'example' },
+        hidden: true,
+        children: [{
+            path: '/',
+            name: 'webide',
+            component: () => import('@/views/webide/index'),
+            meta: { title: 'Web IDE' }
+        }]
+    },
+    {
+        path: '/task',
+        name: 'task',
+        component: Layout,
+        meta: { title: 'Task', icon: 'task' },
         children: [
             {
-                path: 'webssh',
-                name: 'WebSSH',
-                component: () => import('@/views/webssh/index'),
-                meta: { title: 'Web SSH', icon: 'table' }
+                path: 'task-settings',
+                name: 'task-settings',
+                component: () => import('@/views/task_settings/index'),
+                meta: { title: 'Task Settings' }
             },
             {
-                path: 'webide',
-                name: 'Tree',
-                component: () => import('@/views/webide/index'),
-                meta: { title: 'Web IDE', icon: 'tree' }
+                path: 'task-settings-detail/',
+                name: 'task-settings-detail',
+                component: () => import('@/views/task_settings/detail'),
+                meta: { title: 'Task Settings Detail', noCache: true, activeMenu: '/task/task-settings/' },
+                hidden: true
+            },
+            {
+                path: 'task-list',
+                name: 'task-list',
+                component: () => import('@/views/task/index'),
+                meta: { title: 'Task List' }
             }
         ]
     },
 
-    // {
-    //   path: '/form',
-    //   component: Layout,
-    //   children: [
-    //     {
-    //       path: 'index',
-    //       name: 'Form',
-    //       component: () => import('@/views/form/index'),
-    //       meta: { title: 'Form', icon: 'form' }
-    //     }
-    //   ]
-    // },
+    {
+        path: '/log/',
+        name: 'log',
+        component: () => import('@/views/log/index')
+    },
 
-    // {
-    //   path: '/nested',
-    //   component: Layout,
-    //   redirect: '/nested/menu1',
-    //   name: 'Nested',
-    //   meta: {
-    //     title: 'Nested',
-    //     icon: 'nested'
-    //   },
-    //   children: [
-    //     {
-    //       path: 'menu1',
-    //       component: () => import('@/views/nested/menu1/index'), // Parent router-view
-    //       name: 'Menu1',
-    //       meta: { title: 'Menu1' },
-    //       children: [
-    //         {
-    //           path: 'menu1-1',
-    //           component: () => import('@/views/nested/menu1/menu1-1'),
-    //           name: 'Menu1-1',
-    //           meta: { title: 'Menu1-1' }
-    //         },
-    //         {
-    //           path: 'menu1-2',
-    //           component: () => import('@/views/nested/menu1/menu1-2'),
-    //           name: 'Menu1-2',
-    //           meta: { title: 'Menu1-2' },
-    //           children: [
-    //             {
-    //               path: 'menu1-2-1',
-    //               component: () => import('@/views/nested/menu1/menu1-2/menu1-2-1'),
-    //               name: 'Menu1-2-1',
-    //               meta: { title: 'Menu1-2-1' }
-    //             },
-    //             {
-    //               path: 'menu1-2-2',
-    //               component: () => import('@/views/nested/menu1/menu1-2/menu1-2-2'),
-    //               name: 'Menu1-2-2',
-    //               meta: { title: 'Menu1-2-2' }
-    //             }
-    //           ]
-    //         },
-    //         {
-    //           path: 'menu1-3',
-    //           component: () => import('@/views/nested/menu1/menu1-3'),
-    //           name: 'Menu1-3',
-    //           meta: { title: 'Menu1-3' }
-    //         }
-    //       ]
-    //     },
-    //     {
-    //       path: 'menu2',
-    //       component: () => import('@/views/nested/menu2/index'),
-    //       meta: { title: 'menu2' }
-    //     }
-    //   ]
-    // },
+    {
+        path: '/webssh/',
+        name: 'webssh',
+        component: () => import('@/views/webssh/index')
+    },
+    {
+        path: '/storage',
+        name: 'storage',
+        component: Layout,
+        meta: { title: 'Storage', icon: 'storage' },
+        children: [{
+            path: 'index',
+            name: 'files',
+            component: () => import('@/views/files/index'),
+            meta: { title: 'File Upload History', icon: 'list' }
+        },
+        {
+            path: 'pvc',
+            name: 'PV claims',
+            component: () => import('@/views/storage/index'),
+            meta: { title: 'PV claims', icon: 'list' }
+        }]
+    },
 
-    // {
-    //   path: 'external-link',
-    //   component: Layout,
-    //   children: [
-    //     {
-    //       path: 'https://panjiachen.github.io/vue-element-admin-site/#/',
-    //       meta: { title: 'External Link', icon: 'link' }
-    //     }
-    //   ]
-    // },
+    {
+        path: '/registry',
+        name: 'registry',
+        component: Layout,
+        meta: { title: 'Registry', icon: 'list' },
+        children: [{
+            path: 'repositories',
+            name: 'repositories',
+            component: () => import('@/views/registry/index'),
+            meta: { title: 'Repositories', icon: 'list' }
+        }]
+    },
+    {
+        path: '/registry/image/',
+        name: 'image',
+        component: () => import('@/views/registry/image')
+    },
+
+    {
+        path: '/user-terminal/',
+        name: 'user-terminal',
+        component: () => import('@/views/user_terminal/index')
+    },
 
     // 404 page must be placed at the end !!!
     { path: '*', redirect: '/404', hidden: true }
 ];
 
+export const asyncRoutes = [
+    {
+        path: '/pods',
+        component: Layout,
+        meta: { title: 'Pod List', icon: 'list', roles: ['admin'] },
+        children: [{
+            path: 'index',
+            name: 'pods',
+            component: () => import('@/views/pods/index'),
+            meta: { title: 'Pod List', roles: ['admin'] }
+        }]
+    }
+];
+
 const createRouter = () => new Router({
     mode: 'history', // require service support
     scrollBehavior: () => ({ y: 0 }),
-    routes: constantRoutes
+    routes: constantRoutes.concat(asyncRoutes)
 });
 
 const router = createRouter();
