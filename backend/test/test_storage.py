@@ -125,7 +125,7 @@ class TestStorage(TestCase):
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
         f.close()
         os.remove('test2.txt')
-
+    """
     @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     def testUploadFile(self):
@@ -139,6 +139,7 @@ class TestStorage(TestCase):
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
         f.close()
         os.remove('test3.txt')
+    """
 
     @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
@@ -147,9 +148,10 @@ class TestStorage(TestCase):
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
-
+    """
     def testRestart(self):
         response = self.client.put('/storage/upload_file/')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
+    """
