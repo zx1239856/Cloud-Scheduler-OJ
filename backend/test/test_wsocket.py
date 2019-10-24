@@ -10,6 +10,9 @@ import mock
 import wsocket
 from wsocket.views import WebSSH, UserWebSSH
 from user_model.models import UserModel, UserType
+from task_manager.models import TaskSettings
+from task_manager.executor import TaskExecutor
+from .common import DotDict
 
 
 class MockWSClient:
@@ -110,3 +113,56 @@ async def testUserSSHUserOrTaskNotExist():
     response = await communicator.receive_from()
     assert response == "\nFailed to process."
     await communicator.disconnect()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def testUserSSHExecutorNone(*_):
+    _ = UserModel.objects.create(username='admin', user_type=UserType.ADMIN, uuid='uuid', password='pass',
+                                 salt='salt', email='email@email.com', token='my_only_token',
+                                 token_expire_time=round(time.time()) + 100)
+    _ = TaskSettings.objects.create(name='test', uuid='my_uuid', description='', container_config='{}',
+                                    time_limit=1, replica=1, ttl_interval=1, max_sharing_users=1)
+    with mock.patch.object(wsocket.views, 'stream', mock_stream):
+        communicator = WebsocketCommunicator(UserWebSSH,
+                                             "/user_terminals/?uuid=my_uuid&token=my_only_token&username=admin")
+        connected, _ = await communicator.connect()
+        assert connected
+        response = await communicator.receive_from()
+        assert response == '\nExecutor is initializing, please wait.'
+        await communicator.disconnect()
+
+
+class MockExecutor:
+    @staticmethod
+    def get_user_space_pod(*_):
+        return DotDict({
+            'status': DotDict({'pod_ip': 'ip', 'phase': 'Running'}),
+            'metadata': DotDict({
+                'namespace': 'test_ns',
+                'name': 'test',
+                'creation_timestamp': '000',
+                'uid': 'uid_test',
+            }),
+            'spec': DotDict({'node_name': 'test_node'})
+        })
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def testUserSSHExecutorNormal(*_):
+    _ = UserModel.objects.create(username='admin', user_type=UserType.ADMIN, uuid='uuid', password='pass',
+                                 salt='salt', email='email@email.com', token='my_only_token',
+                                 token_expire_time=round(time.time()) + 100)
+    _ = TaskSettings.objects.create(name='test', uuid='my_uuid', description='', container_config='{}',
+                                    time_limit=1, replica=1, ttl_interval=1, max_sharing_users=1)
+    with mock.patch.object(wsocket.views, 'stream', mock_stream):
+        TaskExecutor._instance = MockExecutor()
+        communicator = WebsocketCommunicator(UserWebSSH,
+                                             "/user_terminals/?uuid=my_uuid&token=my_only_token&username=admin")
+        connected, _ = await communicator.connect()
+        assert connected
+        response = await communicator.receive_from()
+        assert response == 'Hello from WebSocket!\n'
+        _ = await communicator.send_to('hello')
+        await communicator.disconnect()

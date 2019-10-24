@@ -33,7 +33,7 @@ class UserSpaceHandler(View):
                 raise ValueError
             settings = TaskSettings.objects.get(uuid=settings_uuid)
             username = '{}_{}'.format(user.username, settings.id)
-            executor = TaskExecutor.instance()
+            executor = TaskExecutor.instance(new=False)
             if executor is None:
                 response = RESPONSE.OPERATION_FAILED
                 response['message'] += " Executor is initializing, please wait."

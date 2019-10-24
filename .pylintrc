@@ -160,7 +160,8 @@ disable=print-statement,
 	logging-format-interpolation,
 	import-outside-toplevel,
 	no-member,
-	too-many-boolean-expressions
+	too-many-boolean-expressions,
+	protected-access
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
