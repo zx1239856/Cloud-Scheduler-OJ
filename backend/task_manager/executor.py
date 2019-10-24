@@ -243,6 +243,7 @@ class TaskExecutor:
                                                                       grace_period_seconds=5
                                                                   ))
                                 item.status = new_status
+                                idle = False
                                 item.save(force_update=True)
                         # else wait for a period because it takes time for corresponding pod to be initialized
                     except ApiException as ex:
