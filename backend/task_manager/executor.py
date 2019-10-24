@@ -103,7 +103,7 @@ class Singleton:
         self._decorated = decorated
         self._instance = None
 
-    def instance(self, new=True):
+    def instance(self, new=True, **kwargs):
         """
         Returns the singleton instance. Upon its first call, it creates a
         new instance of the decorated class and calls its `__init__` method.
@@ -111,7 +111,7 @@ class Singleton:
 
         """
         if new and self._instance is None:
-            self._instance = self._decorated()
+            self._instance = self._decorated(**kwargs)
         return self._instance
 
     def __call__(self):
@@ -598,3 +598,5 @@ class TaskExecutor:
         while True:
             schedule.run_pending()
             time.sleep(0.01)
+            if self.test:
+                break

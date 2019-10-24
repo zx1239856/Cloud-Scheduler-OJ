@@ -54,9 +54,13 @@ class ReturnItemsList:
 class MockThread:
     def __init__(self, target, **_):
         self._target = target
+        self._running = False
 
     def start(self):
-        pass
+        self._running = True
+
+    def isAlive(self):
+        return self._running
 
 
 class MockCoreV1Api:
@@ -140,8 +144,15 @@ class MockCoreV1Api:
         pass
 
     @staticmethod
-    def create_namespaced_persistent_volume_claim(body, **_):
+    def create_namespaced_persistent_volume_claim(namespace, body, **_):
+        print(namespace)
         if body.metadata.name == 'existing-pvc':
+            raise ApiException
+
+    @staticmethod
+    def read_namespaced_persistent_volume_claim(namespace, name, **_):
+        print(namespace)
+        if name == 'nonexistent-pvc':
             raise ApiException
 
     @staticmethod

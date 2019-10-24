@@ -79,7 +79,7 @@ class UserSpaceHandler(View):
                         if op == 'put':
                             if old_file and old_file != file:
                                 cmdlist.append('mv {} {}'.format(old_file, file))
-                            elif old_path and old_path == path:
+                            elif old_path and old_path != path:
                                 cmdlist.append('mv {} {}'.format(old_path, path))
                             if file and content:
                                 cmdlist.append("cat > {} <<EOF\n{}\nEOF\n".format(file, content))

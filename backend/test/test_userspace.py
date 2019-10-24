@@ -55,6 +55,7 @@ class TestUserSpace(TestCaseWithBasicUser):
         response = json.loads(response.content)
         self.assertTrue(response['status'], RESPONSE.INVALID_REQUEST)
 
+    @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
     def testNullExecutor(self):
         token = loginTestUser('admin')
         response = self.client.get('/user_space/my_uuid/', HTTP_X_ACCESS_TOKEN=token,
@@ -172,7 +173,7 @@ class TestUserSpace(TestCaseWithBasicUser):
         response = json.loads(response.content)
         self.assertTrue(response['status'], RESPONSE.SUCCESS)
 
-        response = self.client.delete('/user_space/my_uuid/', data=json.dumps({'file': 'file'}),
+        response = self.client.delete('/user_space/my_uuid/', data=json.dumps({'path': 'file'}),
                                       content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
                                       HTTP_X_ACCESS_TOKEN=token,
                                       HTTP_X_ACCESS_USERNAME='admin')
@@ -181,6 +182,7 @@ class TestUserSpace(TestCaseWithBasicUser):
         self.assertTrue(response['status'], RESPONSE.SUCCESS)
 
     @mock.patch.object(views, 'stream', mock_bad_stream)
+    @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
     def testCommandFailure(self):
         token = loginTestUser('admin')
         response = self.client.get('/user_space/my_uuid/?path=~/a.cpp',
