@@ -9,17 +9,17 @@ from task_manager.models import TaskSettings, Task, TASK
 import task_manager.views as views
 from user_model.models import UserModel, UserType
 from api.common import RESPONSE
-from .common import loginTestUser, TestCaseWithBasicUser, MockCoreV1Api, MockTaskExecutor
+from .common import login_test_user, TestCaseWithBasicUser, MockCoreV1Api, MockTaskExecutor
 
 
 class TestTask(TestCaseWithBasicUser):
     @mock.patch.object(views, 'CoreV1Api', MockCoreV1Api)
-    def testGetTaskLogs(self):
+    def test_get_task_logs(self):
         settings = TaskSettings.objects.create(uuid='unique_id', name="task_name",
                                                description="test",
                                                container_config=json.dumps({"meta": "meta_string_{}".format(1)}),
                                                ttl_interval=3, replica=3, time_limit=5, max_sharing_users=1)
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.post('/task/', data=json.dumps({
             'settings_uuid': 'unique_id'
         }), content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
@@ -38,15 +38,15 @@ class TestTask(TestCaseWithBasicUser):
         self.assertEqual(response['status'], 200)
         self.assertTrue(response['payload']['log'].startswith('Hello world log from pod'))
 
-    def testGetTaskInvalidReq(self):
-        token = loginTestUser('admin')
+    def test_get_task_invalid_req(self):
+        token = login_test_user('admin')
         response = self.client.get('/task/?page=invalid', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
-    def testCreateTaskFailures(self):
-        token = loginTestUser('admin')
+    def test_create_task_failures(self):
+        token = login_test_user('admin')
         response = self.client.post('/task/', data='invalid_json',
                                     content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
                                     HTTP_X_ACCESS_TOKEN=token,
@@ -62,28 +62,28 @@ class TestTask(TestCaseWithBasicUser):
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
-    def testGetTaskItemFailures(self):
-        token = loginTestUser('admin')
+    def test_get_task_item_failures(self):
+        token = login_test_user('admin')
         response = self.client.get('/task/{}/'.format('invalid_uuid'),
                                    HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
-    def testDelTaskItemFailures(self):
-        token = loginTestUser('admin')
+    def test_del_task_item_failures(self):
+        token = login_test_user('admin')
         response = self.client.delete('/task/{}/'.format('invalid_uuid'),
                                       HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
-    def testTaskCRUD(self):
+    def test_task_crud(self):
         TaskSettings.objects.create(uuid='my_uuid', name="task_name",
                                     description="test",
                                     container_config=json.dumps({"meta": "meta_string_{}".format(1)}),
                                     ttl_interval=3, replica=3, time_limit=5, max_sharing_users=1)
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         task_list = []
         # add 30 tasks
         for _ in range(0, 30):
@@ -137,8 +137,8 @@ class TestTaskSettings(TestCaseWithBasicUser):
                                                ttl_interval=3, replica=i + 1, time_limit=5, max_sharing_users=1)
             self.item_list.append(item)
 
-    def testPermission(self):
-        token = loginTestUser('user')
+    def test_permission(self):
+        token = login_test_user('user')
         response = self.client.get('/task_settings/?page=1&order_by=-name', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='user')
         self.assertEqual(response.status_code, 200)
@@ -147,16 +147,16 @@ class TestTaskSettings(TestCaseWithBasicUser):
         self.assertTrue('container_config' not in response['payload']['entry'][0].keys())
         self.assertTrue('ttl_interval' not in response['payload']['entry'][0].keys())
 
-    def testGetListInvalidReq(self):
-        token = loginTestUser('admin')
+    def test_get_list_invalid_req(self):
+        token = login_test_user('admin')
         response = self.client.get('/task_settings/?page=invalid', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
-    def testGetList(self):
-        token = loginTestUser('admin')
+    def test_get_list(self):
+        token = login_test_user('admin')
         response = self.client.get('/task_settings/?page=1&order_by=-name', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -166,8 +166,8 @@ class TestTaskSettings(TestCaseWithBasicUser):
         self.assertEqual(response['payload']['page_count'], 2)
         self.assertEqual(response['payload']['entry'][0]['name'], 'task_9')
 
-    def testGetList2(self):
-        token = loginTestUser('admin')
+    def test_get_list_2(self):
+        token = login_test_user('admin')
         response = self.client.get('/task_settings/?page=2', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -178,8 +178,8 @@ class TestTaskSettings(TestCaseWithBasicUser):
         self.assertEqual(response['payload']['entry'][0]['name'], 'task_25')
         self.assertEqual(response['payload']['entry'][4]['name'], 'task_29')
 
-    def testCreateItemInvalidReq1(self):
-        token = loginTestUser('admin')
+    def test_create_item_invalid_req_1(self):
+        token = login_test_user('admin')
         response = self.client.post('/task_settings/', data='{invalid_json}',
                                     content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
                                     HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
@@ -187,8 +187,8 @@ class TestTaskSettings(TestCaseWithBasicUser):
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
-    def testCreateItemInvalidReq2(self):
-        token = loginTestUser('admin')
+    def test_create_item_invalid_req_2(self):
+        token = login_test_user('admin')
         response = self.client.post('/task_settings/',
                                     data=json.dumps({'replica': 3, 'container_config': {}}),
                                     content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
@@ -197,8 +197,8 @@ class TestTaskSettings(TestCaseWithBasicUser):
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
-    def testCreateDuplicateItem(self):
-        token = loginTestUser('admin')
+    def test_create_duplicate_item(self):
+        token = login_test_user('admin')
         data = {"name": "task_name", "description": "This is a demo test.",
                 "container_config": {}, "time_limit": 900, "replica": 2,
                 "ttl_interval": 5, "max_sharing_users": 1}
@@ -217,16 +217,16 @@ class TestTaskSettings(TestCaseWithBasicUser):
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
-    def testDeleteNotExist(self):
-        token = loginTestUser('admin')
+    def test_delete_not_exist(self):
+        token = login_test_user('admin')
         resp = self.client.delete('/task_settings/{}/'.format('bad_uuid'), HTTP_X_ACCESS_TOKEN=token,
                                   HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(resp.status_code, 200)
         resp = json.loads(resp.content)
         self.assertEqual(resp['status'], RESPONSE.OPERATION_FAILED['status'])
 
-    def testCreateAndDeleteItem(self):
-        token = loginTestUser('admin')
+    def test_create_and_delete_item(self):
+        token = login_test_user('admin')
         for i in range(0, 20):
             response = self.client.post('/task_settings/',
                                         data=json.dumps({"name": "task_name_{}".format(i),
@@ -253,16 +253,16 @@ class TestTaskSettings(TestCaseWithBasicUser):
             resp = json.loads(resp.content)
             self.assertEqual(resp['status'], 200)
 
-    def testGetDetailNotExist(self):
-        token = loginTestUser('admin')
+    def test_get_detail_not_exist(self):
+        token = login_test_user('admin')
         response = self.client.get('/task_settings/{}/'.format('invalid_uuid'), HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
-    def testGetDetail(self):
-        token = loginTestUser('admin')
+    def test_get_detail(self):
+        token = login_test_user('admin')
         for i in range(0, 30):
             response = self.client.get('/task_settings/{}/'.format(self.item_list[i].uuid), HTTP_X_ACCESS_TOKEN=token,
                                        HTTP_X_ACCESS_USERNAME='admin')
@@ -274,8 +274,8 @@ class TestTaskSettings(TestCaseWithBasicUser):
             self.assertEqual(response['payload']['replica'], self.item_list[i].replica)
             self.assertEqual(response['payload']['container_config'], json.loads(self.item_list[i].container_config))
 
-    def testUpdateInvalidReq(self):
-        token = loginTestUser('admin')
+    def test_update_invalid_req(self):
+        token = login_test_user('admin')
         response = self.client.put('/task_settings/{}/'.format(self.item_list[0].uuid),
                                    data='bad_json', content_type='application/json',
                                    HTTP_X_REQUEST_WITH='XMLHttpRequest',
@@ -285,8 +285,8 @@ class TestTaskSettings(TestCaseWithBasicUser):
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
-    def testUpdateDuplicateName(self):
-        token = loginTestUser('admin')
+    def test_update_duplicate_name(self):
+        token = login_test_user('admin')
         response = self.client.put('/task_settings/{}/'.format(self.item_list[0].uuid),
                                    data=json.dumps({
                                        'name': self.item_list[1].name
@@ -298,8 +298,8 @@ class TestTaskSettings(TestCaseWithBasicUser):
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
-    def testUpdateDoesNotExist(self):
-        token = loginTestUser('admin')
+    def test_update_does_not_exist(self):
+        token = login_test_user('admin')
         response = self.client.put('/task_settings/{}/'.format('invalid_uuid'),
                                    data=json.dumps({
                                        'name': self.item_list[1].name
@@ -311,8 +311,8 @@ class TestTaskSettings(TestCaseWithBasicUser):
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
-    def testUpdate(self):
-        token = loginTestUser('admin')
+    def test_update(self):
+        token = login_test_user('admin')
         for i in range(0, 30):
             response = self.client.put('/task_settings/{}/'.format(self.item_list[i].uuid),
                                        data=json.dumps({
@@ -363,7 +363,7 @@ class TestTaskSettings(TestCaseWithBasicUser):
         self.assertEqual(response['status'], 200)
 
     # Test for server error
-    def testServerError(self):
+    def test_server_error(self):
         factory = RequestFactory()
         get = factory.get('/')
         post = factory.post('/')

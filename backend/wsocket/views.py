@@ -64,9 +64,9 @@ class SSH:
                     username = ls[0]
                     header_token = ls[1]
                     user = UserModel.objects.get(username=username)
-                    token = TokenManager.getToken(user)
+                    token = TokenManager.get_token(user)
                     if token == header_token and user.user_type == UserType.ADMIN:
-                        TokenManager.updateToken(user)
+                        TokenManager.update_token(user)
                         self.auth_ok = True
                 if not self.auth_ok:
                     self.websocket.send('Authentication failed.')
@@ -75,7 +75,7 @@ class SSH:
                 self.api_response.write_stdin(data)
                 if isinstance(self.websocket, UserWebSSH):
                     LOGGER.debug("Update expire time")
-                    self.websocket.updateExpireTime()
+                    self.websocket.update_expire_time()
             else:
                 self.close()
         except Exception as e:
@@ -169,7 +169,7 @@ class UserWebSSH(WebSSH):
         super().__init__(*args, **kwargs)
         self.user = None
 
-    def updateExpireTime(self):
+    def update_expire_time(self):
         if self.user:
             try:
                 TaskStorage.objects.filter(user=self.user).update(expire_time=
@@ -199,9 +199,9 @@ class UserWebSSH(WebSSH):
             self.send("\nFailed to process.")
             self.close(code=4000)
             return
-        real_token = TokenManager.getToken(user)
+        real_token = TokenManager.get_token(user)
         if token == real_token:
-            TokenManager.updateToken(user)
+            TokenManager.update_token(user)
         # try to fetch pod
         executor = TaskExecutor.instance(new=False)
         if executor is None:

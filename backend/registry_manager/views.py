@@ -9,10 +9,11 @@ from django.http import JsonResponse
 from django.views import View
 from api.common import RESPONSE
 from config import REGISTRY_V2_API_ADDRESS, DOCKER_ADDRESS, REGISTRY_ADDRESS
-from registry_manager.cache import cache_with_timeout
+from registry_manager.cache import CacheWithTimeout
 from registry_manager.manifest import makeManifest
 
 LOGGER = logging.getLogger(__name__)
+
 
 class ConnectionUtils:
     GET_ALL_REPOS_TEMPLATE = '{url}/_catalog'
@@ -98,7 +99,7 @@ class ConnectionUtils:
             LOGGER.error(ex)
 
     # get the size of a layer
-    @cache_with_timeout()
+    @CacheWithTimeout()
     def get_size_of_layer(self, repo, layer_id):
         try:
             return int(
@@ -215,6 +216,7 @@ class ConnectionUtils:
         response = self.string_request(*args, **kwargs)
         return json.loads(response)
 
+
 class RegistryHandler(View):
     http_method_names = ['get']
     util = ConnectionUtils()
@@ -222,6 +224,7 @@ class RegistryHandler(View):
     """
     get function for getting list of repositories with its info
     """
+
     def get(self, request):
         response = RESPONSE.SUCCESS
         try:
@@ -232,6 +235,7 @@ class RegistryHandler(View):
             return JsonResponse(response)
         except Exception as ex:
             LOGGER.error(ex)
+
 
 class RepositoryHandler(View):
     http_method_names = ['get', 'post', 'put', 'delete']
@@ -276,7 +280,7 @@ class RepositoryHandler(View):
                 return JsonResponse(response)
             f = files[0]
             tar_pattern = "[.](tar)$"
-            searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
+            searched_tar = re.search(tar_pattern, f.name, re.M | re.I)
             if searched_tar:
                 try:
                     image = client.images.load(f)[0]

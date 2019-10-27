@@ -13,7 +13,7 @@ from kubernetes import client
 from kubernetes.stream import stream
 from kubernetes.client import CoreV1Api, BatchV1Api
 from kubernetes.client.rest import ApiException
-from api.common import getKubernetesAPIClient, USERSPACE_NAME
+from api.common import get_kubernetes_api_client, USERSPACE_NAME
 from config import DAEMON_WORKERS, KUBERNETES_NAMESPACE, CEPH_STORAGE_CLASS_NAME, \
     GLOBAL_TASK_TIME_LIMIT, USER_SPACE_POD_TIMEOUT
 from .models import TaskSettings, TaskStorage, Task, TASK
@@ -22,7 +22,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def create_namespace():
-    api_instance = CoreV1Api(getKubernetesAPIClient())
+    api_instance = CoreV1Api(get_kubernetes_api_client())
     try:
         api_instance.create_namespace(client.V1Namespace(api_version="v1", kind="Namespace",
                                                          metadata=
@@ -35,7 +35,7 @@ def create_namespace():
 
 
 def create_userspace_pvc():
-    api_instance = CoreV1Api(getKubernetesAPIClient())
+    api_instance = CoreV1Api(get_kubernetes_api_client())
     userspace = client.V1PersistentVolumeClaim(api_version="v1", kind="PersistentVolumeClaim",
                                                metadata=client.V1ObjectMeta(name=USERSPACE_NAME,
                                                                             namespace=KUBERNETES_NAMESPACE),
@@ -53,7 +53,7 @@ def create_userspace_pvc():
 
 
 def get_userspace_pvc():
-    api_instance = CoreV1Api(getKubernetesAPIClient())
+    api_instance = CoreV1Api(get_kubernetes_api_client())
     try:
         _ = api_instance.read_namespaced_persistent_volume_claim(namespace=KUBERNETES_NAMESPACE, name=USERSPACE_NAME)
         return True
@@ -151,7 +151,7 @@ class TaskExecutor:
         self.ttl_checker.submit(fn, **kwargs)
 
     def _storage_pod_monitor(self):
-        api = CoreV1Api(getKubernetesAPIClient())
+        api = CoreV1Api(get_kubernetes_api_client())
 
         def _actual_work():
             idle = True
@@ -197,8 +197,8 @@ class TaskExecutor:
                 break
 
     def _job_monitor(self):
-        api = CoreV1Api(getKubernetesAPIClient())
-        job_api = BatchV1Api(getKubernetesAPIClient())
+        api = CoreV1Api(get_kubernetes_api_client())
+        job_api = BatchV1Api(get_kubernetes_api_client())
 
         def _actual_work():
             idle = True
@@ -279,7 +279,7 @@ class TaskExecutor:
 
     @staticmethod
     def get_user_space_pod(uuid, user):
-        api = CoreV1Api(getKubernetesAPIClient())
+        api = CoreV1Api(get_kubernetes_api_client())
         result = None
         try:
             setting = TaskSettings.objects.get(uuid=uuid)
@@ -369,7 +369,7 @@ class TaskExecutor:
             return result
 
     def _job_dispatch(self):
-        api = BatchV1Api(getKubernetesAPIClient())
+        api = BatchV1Api(get_kubernetes_api_client())
 
         def _actual_work():
             idle = True
@@ -483,7 +483,7 @@ class TaskExecutor:
 
     @staticmethod
     def _ttl_check(uuid):
-        api = CoreV1Api(getKubernetesAPIClient())
+        api = CoreV1Api(get_kubernetes_api_client())
 
         def expand_container(num):
             for _ in range(0, num):
@@ -581,7 +581,7 @@ class TaskExecutor:
         except ApiException as ex:
             LOGGER.warning(ex)
 
-    def scheduleTaskSettings(self, item):
+    def schedule_task_settings(self, item):
         try:
             if config_checker(json.loads(item.container_config)):
                 schedule.clear(item.uuid)
@@ -594,7 +594,7 @@ class TaskExecutor:
 
     def dispatch(self):
         for item in TaskSettings.objects.all():
-            self.scheduleTaskSettings(item)
+            self.schedule_task_settings(item)
         self.ready = True
         while True:
             schedule.run_pending()

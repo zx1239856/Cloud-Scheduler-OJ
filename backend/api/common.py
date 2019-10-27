@@ -18,7 +18,7 @@ All users can access this API
 USERSPACE_NAME = "cloud-scheduler-userspace"
 
 
-def getKubernetesAPIClient():
+def get_kubernetes_api_client():
     conf = Configuration()
     conf.host = KUBERNETES_API_SERVER_URL
     conf.verify_ssl = False

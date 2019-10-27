@@ -12,7 +12,7 @@ from django.views import View
 from django.utils.decorators import method_decorator
 from django.db.utils import IntegrityError
 from user_model.models import UserModel, UserType
-from task_manager.views import getUUID
+from task_manager.views import get_uuid
 from api.common import RESPONSE
 from config import USER_TOKEN_EXPIRE_TIME
 
@@ -54,9 +54,9 @@ def login_required(function=None):
                 username = request.META['HTTP_X_ACCESS_USERNAME']
                 header_token = request.META['HTTP_X_ACCESS_TOKEN']
                 user = UserModel.objects.get(username=username)
-                token = TokenManager.getToken(user)
+                token = TokenManager.get_token(user)
                 if token == header_token:
-                    TokenManager.updateToken(user)
+                    TokenManager.update_token(user)
                     return user
                 else:
                     return 1
@@ -83,10 +83,10 @@ def permission_required(function=None):
                 username = request.META['HTTP_X_ACCESS_USERNAME']
                 header_token = request.META['HTTP_X_ACCESS_TOKEN']
                 user = UserModel.objects.get(username=username)
-                token = TokenManager.getToken(user)
+                token = TokenManager.get_token(user)
                 if token == header_token:
                     if user.user_type == UserType.ADMIN:
-                        TokenManager.updateToken(user)
+                        TokenManager.update_token(user)
                         return user
                     else:
                         return -1
@@ -106,7 +106,7 @@ def permission_required(function=None):
 
 class TokenManager:
     @staticmethod
-    def createToken(user):
+    def create_token(user):
         token = str(uuid.uuid1())
         user.token = token
         user.token_expire_time = round(time.time()) + USER_TOKEN_EXPIRE_TIME
@@ -117,7 +117,7 @@ class TokenManager:
         return token
 
     @staticmethod
-    def updateToken(user):
+    def update_token(user):
         user.token_expire_time = round(time.time()) + USER_TOKEN_EXPIRE_TIME
         try:
             user.save(force_update=True)
@@ -125,7 +125,7 @@ class TokenManager:
             LOGGER.error(ex)
 
     @staticmethod
-    def getToken(user):
+    def get_token(user):
         try:
             if user.token_expire_time > time.time():
                 return user.token
@@ -177,7 +177,7 @@ class UserLogin(View):
             md5 = hashlib.md5()
             md5.update(user.email.encode('utf-8'))
             if password == user.password:
-                token = TokenManager.createToken(user)
+                token = TokenManager.create_token(user)
                 response = RESPONSE.SUCCESS
                 response['payload'] = {
                     'username': user.username,
@@ -268,7 +268,7 @@ class UserHandler(View):
                 md5 = hashlib.md5()
                 md5.update((password + salt).encode('utf-8'))
                 password = md5.hexdigest()
-                user = UserModel(uuid=str(getUUID()), username=username, password=password, salt=salt, email=email)
+                user = UserModel(uuid=str(get_uuid()), username=username, password=password, salt=salt, email=email)
                 user.save()
                 response = RESPONSE.SUCCESS
         except IntegrityError:

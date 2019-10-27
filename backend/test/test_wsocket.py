@@ -19,7 +19,7 @@ def mock_stream(_p0, _p1, _p2, **_):
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def testSSHConnect():
+async def test_ssh_connect():
     with mock.patch.object(wsocket.views, 'stream', mock_stream):
         communicator = WebsocketCommunicator(WebSSH, "/terminals/?pod=none&shell=/bin/sh")
         connected, _ = await communicator.connect()
@@ -36,7 +36,7 @@ async def testSSHConnect():
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def testSSHConnectAuthFailed():
+async def test_ssh_connect_auth_failed():
     with mock.patch.object(wsocket.views, 'stream', mock_stream):
         communicator = WebsocketCommunicator(WebSSH, "/terminals/?pod=none&shell=/bin/sh")
         connected, _ = await communicator.connect()
@@ -51,7 +51,7 @@ async def testSSHConnectAuthFailed():
 
 
 @pytest.mark.asyncio
-async def testSSHConnectInvalid():
+async def test_ssh_connect_invalid():
     communicator = WebsocketCommunicator(WebSSH, "/terminals/?pod=none&shell=/bin/bad-sh")
     connected, _ = await communicator.connect()
     assert connected
@@ -61,7 +61,7 @@ async def testSSHConnectInvalid():
 
 
 @pytest.mark.asyncio
-async def testUserSSHConnectInvalidReq():
+async def test_user_ssh_connect_invalid_req():
     communicator = WebsocketCommunicator(UserWebSSH, "/user_terminals/")
     connected, _ = await communicator.connect()
     assert connected
@@ -72,7 +72,7 @@ async def testUserSSHConnectInvalidReq():
 
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
-async def testUserSSHUserOrTaskNotExist():
+async def test_user_ssh_user_or_task_not_exist():
     communicator = WebsocketCommunicator(UserWebSSH, "/user_terminals/?uuid=2000&token=2000&username=200")
     connected, _ = await communicator.connect()
     assert connected
@@ -83,7 +83,7 @@ async def testUserSSHUserOrTaskNotExist():
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def testUserSSHExecutorNone(*_):
+async def test_user_ssh_executor_none(*_):
     _ = UserModel.objects.create(username='admin', user_type=UserType.ADMIN, uuid='uuid', password='pass',
                                  salt='salt', email='email@email.com', token='my_only_token',
                                  token_expire_time=round(time.time()) + 100)
@@ -101,7 +101,7 @@ async def testUserSSHExecutorNone(*_):
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-async def testUserSSHExecutorNormal(*_):
+async def test_user_ssh_executor_normal(*_):
     _ = UserModel.objects.create(username='admin', user_type=UserType.ADMIN, uuid='uuid', password='pass',
                                  salt='salt', email='email@email.com', token='my_only_token',
                                  token_expire_time=round(time.time()) + 100)

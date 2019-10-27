@@ -90,7 +90,7 @@ def get_container_config():
 @mock.patch.object(executor, 'BatchV1Api', MockBatchV1Api)
 @mock.patch.object(executor, 'stream', mock_stream)
 class TestTaskExecutor(TestCaseWithBasicUser):
-    def testConfigChecker(self):
+    def test_config_checker(self):
         config_correct = get_container_config()
         self.assertEqual(executor.config_checker(config_correct), True)
         config_correct['commands'] = ''
@@ -101,12 +101,12 @@ class TestTaskExecutor(TestCaseWithBasicUser):
         self.assertEqual(executor.config_checker(config_correct), False)
         self.assertEqual(executor.config_checker([]), False)
 
-    def testHelpersFunction(self):
+    def test_helpers_function(self):
         executor.create_namespace()
         executor.create_userspace_pvc()
         self.assertTrue(executor.get_userspace_pvc())
 
-    def testSingleton(self):
+    def test_singleton(self):
         instance = SingletonTest.instance(new=False)
         self.assertFalse(instance)
         instance_a = SingletonTest.instance()
@@ -122,7 +122,7 @@ class TestTaskExecutor(TestCaseWithBasicUser):
         self.assertTrue(err)
         instance_a.method()
 
-    def testExecutor(self):
+    def test_executor(self):
         settings_correct = TaskSettings.objects.create(name='task', uuid='my_uuid', description='',
                                                        container_config=json.dumps(get_container_config()),
                                                        replica=1, max_sharing_users=1, time_limit=0)

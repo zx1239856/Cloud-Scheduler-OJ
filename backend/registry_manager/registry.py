@@ -5,10 +5,11 @@ import logging
 import urllib.error
 import urllib.request
 import urllib.parse
-from backend.registry_manager.cache import cache_with_timeout
+from backend.registry_manager.cache import CacheWithTimeout
 from backend.registry_manager.manifest import makeManifest
 
 LOGGER = logging.getLogger(__name__)
+
 
 class DockerRegistry(abc.ABC):
 
@@ -21,7 +22,7 @@ class DockerRegistry(abc.ABC):
             self.string_request(*args, **kwargs)
         )
 
-    @cache_with_timeout(1)  # enable caching to improve performance of multiple consecutive calls
+    @CacheWithTimeout(1)  # enable caching to improve performance of multiple consecutive calls
     def string_request(self, *args, **kwargs):
         return self.request(*args, **kwargs).read().decode()
 
@@ -63,6 +64,7 @@ class DockerRegistry(abc.ABC):
             result += self.get_size_of_layers(repo, tag)
 
         return result
+
 
 class DockerV2Registry(DockerRegistry):
     API_BASE = '{url}/v2/'
@@ -141,10 +143,10 @@ class DockerV2Registry(DockerRegistry):
                 ),
                 method='DELETE'
             )
-        except urllib.error.HTTPError as e:
+        except urllib.error.HTTPError:
             raise ConnectionError
 
-    @cache_with_timeout()
+    @CacheWithTimeout()
     def get_manifest(self, repo, tag):
         return makeManifest(
             self.json_request(
@@ -188,7 +190,7 @@ class DockerV2Registry(DockerRegistry):
     def get_layer_ids(self, repo, tag):
         return self.get_manifest(repo, tag).get_layer_ids()
 
-    @cache_with_timeout()
+    @CacheWithTimeout()
     def get_size_of_layer(self, repo, layer_id):
         try:
             return int(
