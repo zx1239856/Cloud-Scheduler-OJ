@@ -30,7 +30,7 @@
           <span>{{ new Date(scope.row.Created).toLocaleString() }}</span>
         </template>
       </el-table-column>
-      <el-table-column width="100" align="center">
+      <el-table-column label="Action" width="100" align="center">
         <template slot-scope="{row}">
           <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name == 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
         </template>
@@ -46,7 +46,7 @@
     >
       <span>Are you sure to delete Image {{ Repo + ':' + selectedData.Tag }}?</span>
       <span slot="footer" class="dialog-footer">
-        <el-button @click="deleteDialogVisible = false">Cancel</el-button>
+        <el-button @click="deleteDialogVisible=false">Cancel</el-button>
         <el-button type="danger" @click="deleteImage">Delete</el-button>
       </span>
     </el-dialog>
@@ -117,6 +117,7 @@ export default {
             this.deleteDialogVisible = true;
         },
         deleteImage() {
+            this.deleteDialogVisible = false;
             this.$message({
                 showClose: true,
                 message: this.Repo,
