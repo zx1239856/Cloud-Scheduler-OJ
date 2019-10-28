@@ -7,6 +7,7 @@ import uuid
 import json
 import logging
 from functools import wraps
+import bcrypt
 from django.http import JsonResponse
 from django.views import View
 from django.utils.decorators import method_decorator
@@ -170,10 +171,7 @@ class UserLogin(View):
             if username is None or password is None:
                 raise ValueError()
             user = UserModel.objects.get(username=username)
-            salt = user.salt
-            md5 = hashlib.md5()
-            md5.update((password + salt).encode('utf-8'))
-            password = md5.hexdigest()
+            password = bcrypt.hashpw(password.encode('utf-8'), user.salt.encode('utf-8')).decode('utf-8')
             md5 = hashlib.md5()
             md5.update(user.email.encode('utf-8'))
             if password == user.password:
@@ -206,7 +204,7 @@ class UserHandler(View):
     @method_decorator(login_required)
     def get(self, _, **kwargs):
         """
-        @api {get} /user/ Get user info.
+        @api {get} /user/ Get user info
         @apiName GetUserInfo
         @apiGroup User
         @apiVersion 0.1.0
@@ -264,11 +262,10 @@ class UserHandler(View):
             if username is None or password is None or email is None:
                 raise ValueError()
             else:
-                salt = str(uuid.uuid1())
-                md5 = hashlib.md5()
-                md5.update((password + salt).encode('utf-8'))
-                password = md5.hexdigest()
-                user = UserModel(uuid=str(get_uuid()), username=username, password=password, salt=salt, email=email)
+                salt = bcrypt.gensalt()
+                password = bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+                user = UserModel(uuid=str(get_uuid()), username=username, password=password, salt=salt.decode('utf-8'),
+                                 email=email)
                 user.save()
                 response = RESPONSE.SUCCESS
         except IntegrityError:
@@ -339,9 +336,7 @@ class UserHandler(View):
                 if email is not None:
                     user.email = email
                 if password is not None:
-                    md5 = hashlib.md5()
-                    md5.update((password + user.salt).encode('utf-8'))
-                    password = md5.hexdigest()
+                    password = bcrypt.hashpw(password.encode('utf-8'), user.salt.encode('utf-8')).decode('utf-8')
                     user.password = password
                 user.save(force_update=True)
             else:
