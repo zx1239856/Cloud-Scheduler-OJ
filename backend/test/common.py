@@ -1,6 +1,6 @@
 import json
-import bcrypt
 import random
+import bcrypt
 from django.test import Client, TestCase
 from kubernetes.stream import ws_client
 from kubernetes.client.rest import ApiException

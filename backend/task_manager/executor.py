@@ -9,13 +9,16 @@ from threading import Thread
 from concurrent.futures import ThreadPoolExecutor
 import schedule
 from django.db.models import Q
+import rpyc
+from rpyc.utils.server import ThreadedServer
 from kubernetes import client
 from kubernetes.stream import stream
 from kubernetes.client import CoreV1Api, BatchV1Api
 from kubernetes.client.rest import ApiException
 from api.common import get_kubernetes_api_client, USERSPACE_NAME
 from config import DAEMON_WORKERS, KUBERNETES_NAMESPACE, CEPH_STORAGE_CLASS_NAME, \
-    GLOBAL_TASK_TIME_LIMIT, USER_SPACE_POD_TIMEOUT
+    GLOBAL_TASK_TIME_LIMIT, USER_SPACE_POD_TIMEOUT, IPC_PORT
+from user_model.models import UserModel
 from .models import TaskSettings, TaskStorage, Task, TASK
 
 LOGGER = logging.getLogger(__name__)
@@ -121,6 +124,23 @@ class Singleton:
         return isinstance(inst, self._decorated)
 
 
+class RpcService(rpyc.Service):
+    def exposed_get_user_space_pod(self, uuid, user_id):
+        executor = TaskExecutor.instance(new=False)
+        try:
+            user = UserModel.objects.get(uuid=user_id)
+        except UserModel.DoesNotExist:
+            return None
+        if executor:
+            ret = executor.get_user_space_pod(uuid, user)
+            if ret and hasattr(ret, 'metadata') and hasattr(ret.metadata, 'name'):
+                return ret.metadata.name
+            else:
+                return None
+        else:
+            return None
+
+
 @Singleton
 class TaskExecutor:
     def __init__(self, test=False):
@@ -132,6 +152,8 @@ class TaskExecutor:
         self.storage_pod_monitor_thread = Thread(target=self._storage_pod_monitor)
         self.ready = False
         self.test = test
+        self.ipc_server = ThreadedServer(RpcService, port=IPC_PORT)
+        self.ipc_thread = Thread(target=self.ipc_server.start)
         LOGGER.info("Task executor initialized.")
 
     def start(self):
@@ -146,6 +168,8 @@ class TaskExecutor:
             self.job_monitor_thread.start()
         if not self.storage_pod_monitor_thread.isAlive():
             self.storage_pod_monitor_thread.start()
+        if not self.ipc_thread.isAlive():
+            self.ipc_thread.start()
 
     def _run_job(self, fn, **kwargs):
         self.ttl_checker.submit(fn, **kwargs)
@@ -365,6 +389,7 @@ class TaskExecutor:
                         LOGGER.warning(ex)
         except Exception as ex:
             LOGGER.warning(ex)
+            LOGGER.exception(ex)
         finally:
             return result
 

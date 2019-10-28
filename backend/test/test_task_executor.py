@@ -85,10 +85,19 @@ def get_container_config():
     }
 
 
+class MockThreadedServer:
+    def __init__(self, *_, **__):
+        pass
+
+    def start(self):
+        pass
+
+
 @mock.patch.object(executor, 'Thread', MockThread)
 @mock.patch.object(executor, 'CoreV1Api', ConcreteMockCoreV1Api)
 @mock.patch.object(executor, 'BatchV1Api', MockBatchV1Api)
 @mock.patch.object(executor, 'stream', mock_stream)
+@mock.patch.object(executor, 'ThreadedServer', MockThreadedServer)
 class TestTaskExecutor(TestCaseWithBasicUser):
     def test_config_checker(self):
         config_correct = get_container_config()

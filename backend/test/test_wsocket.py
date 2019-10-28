@@ -9,8 +9,7 @@ import wsocket
 from wsocket.views import WebSSH, UserWebSSH
 from user_model.models import UserModel, UserType
 from task_manager.models import TaskSettings
-from task_manager.executor import TaskExecutor
-from .common import MockTaskExecutor, MockWSClient
+from .common import MockWSClient
 
 
 def mock_stream(_p0, _p1, _p2, **_):
@@ -95,8 +94,20 @@ async def test_user_ssh_executor_none(*_):
         connected, _ = await communicator.connect()
         assert connected
         response = await communicator.receive_from()
-        assert response == '\nExecutor is initializing, please wait.'
+        assert response == 'Internal server error occurred.\n'
         await communicator.disconnect()
+
+
+def mock_connect(*_):
+    class Conn:
+        class Root:
+            @staticmethod
+            def get_user_space_pod(*_):
+                return 'pod'
+
+        root = Root()
+
+    return Conn()
 
 
 @pytest.mark.django_db(transaction=True)
@@ -108,7 +119,7 @@ async def test_user_ssh_executor_normal(*_):
     _ = TaskSettings.objects.create(name='test', uuid='my_uuid', description='', container_config='{}',
                                     time_limit=1, replica=1, ttl_interval=1, max_sharing_users=1)
     with mock.patch.object(wsocket.views, 'stream', mock_stream):
-        TaskExecutor._instance = MockTaskExecutor()
+        wsocket.views.connect = mock_connect
         communicator = WebsocketCommunicator(UserWebSSH,
                                              "/user_terminals/?uuid=my_uuid&token=my_only_token&username=admin")
         connected, _ = await communicator.connect()

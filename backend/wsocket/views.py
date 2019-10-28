@@ -7,6 +7,7 @@ import logging
 import time
 import json
 from threading import Thread
+from rpyc import connect
 from channels.generic.websocket import WebsocketConsumer
 from django.http.request import QueryDict
 from kubernetes.client import Configuration, ApiClient
@@ -15,9 +16,9 @@ from kubernetes.client.rest import ApiException
 from kubernetes.stream import stream, ws_client
 from user_model.models import UserModel, UserType
 from user_model.views import TokenManager
-from task_manager.executor import TaskExecutor
 from task_manager.models import TaskSettings, TaskStorage
-from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL, KUBERNETES_NAMESPACE, USER_SPACE_POD_TIMEOUT
+from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL, KUBERNETES_NAMESPACE, USER_SPACE_POD_TIMEOUT, \
+    IPC_PORT
 
 SHELL_LIST = [
     '/bin/sh',
@@ -165,6 +166,7 @@ class WebSSH(WebsocketConsumer):
 
 class UserWebSSH(WebSSH):
     """UserSSH for storage mgmt"""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = None
@@ -203,13 +205,14 @@ class UserWebSSH(WebSSH):
         if token == real_token:
             TokenManager.update_token(user)
         # try to fetch pod
-        executor = TaskExecutor.instance(new=False)
-        if executor is None:
-            self.send("\nExecutor is initializing, please wait.")
+        try:
+            conn = connect('localhost', IPC_PORT)
+            pod_name = conn.root.get_user_space_pod(uuid, user.uuid)
+            username = '{}_{}'.format(user.username, settings.id)
+            self.ssh = SSH(websocket=self, cols=cols, rows=rows, need_auth=False)
+            self.ssh.connect(pod_name, '/bin/sh', KUBERNETES_NAMESPACE,
+                             args=['-c', 'su - {}'.format(username)])
+        except Exception as ex:
+            LOGGER.error(ex)
+            self.send('Internal server error occurred.\n')
             self.close(code=4000)
-            return
-        pod = executor.get_user_space_pod(uuid, user)
-        username = '{}_{}'.format(user.username, settings.id)
-        self.ssh = SSH(websocket=self, cols=cols, rows=rows, need_auth=False)
-        self.ssh.connect(pod.metadata.name, '/bin/sh', KUBERNETES_NAMESPACE,
-                         args=['-c', 'su - {}'.format(username)])

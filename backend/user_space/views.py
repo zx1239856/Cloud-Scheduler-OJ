@@ -4,6 +4,8 @@ View handler for user_space
 
 import logging
 import json
+import random
+import string
 from django.http import JsonResponse
 from django.views import View
 from kubernetes.client import CoreV1Api
@@ -15,6 +17,10 @@ from task_manager.models import TaskSettings
 from config import KUBERNETES_NAMESPACE
 
 LOGGER = logging.getLogger(__name__)
+
+
+def random_string():
+    return ''.join(random.sample(string.ascii_letters + string.digits, 16))
 
 
 class UserSpaceHandler(View):
@@ -82,7 +88,11 @@ class UserSpaceHandler(View):
                             elif old_path and old_path != path:
                                 cmdlist.append('mv {} {}'.format(old_path, path))
                             if file and content:
-                                cmdlist.append("cat > {} <<EOF\n{}\nEOF\n".format(file, content))
+                                delimiter = random_string()
+                                cmdlist.append(
+                                    "head -c -1 > {file} <<'{closing}'\n{content}\n{closing}".format(file=file,
+                                                                                                     content=content,
+                                                                                                     closing=delimiter))
                         command.append(';'.join(cmdlist))
                         LOGGER.debug(command)
                         client = stream(api.connect_get_namespaced_pod_exec,
