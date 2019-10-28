@@ -26,8 +26,9 @@ export function uploadImage(query) {
 }
 
 export function deleteImage(repo, tag) {
+    console.log('/registry/' + repo + '/' + tag + '/');
     return request({
-        url: '/registry/' + repo + '/delete/' + tag + '/',
+        url: '/registry/' + repo + '/' + tag + '/',
         method: 'delete'
     });
 }

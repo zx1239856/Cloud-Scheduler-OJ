@@ -44,7 +44,7 @@
       :visible.sync="deleteDialogVisible"
       width="30%"
     >
-      <span>Are you sure to delete Image {{ selectedData.Repo + ':' + selectedData.Tag }}?</span>
+      <span>Are you sure to delete Image {{ Repo + ':' + selectedData.Tag }}?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible = false">Cancel</el-button>
         <el-button type="danger" @click="deleteImage">Delete</el-button>
@@ -100,6 +100,7 @@ export default {
         };
     },
     created() {
+        this.Repo = this.$route.query.repo;
         this.getRepositoryList();
     },
     methods: {
@@ -118,13 +119,13 @@ export default {
         deleteImage() {
             this.$message({
                 showClose: true,
-                message: this.selectedData.Repo,
+                message: this.Repo,
                 type: 'success'
             });
-            deleteImage({
-                repo: this.selectedData.Repo,
-                tag: this.selectedData.Tag
-            }).then(response => {
+            deleteImage(
+                this.Repo,
+                this.selectedData.Tag
+            ).then(response => {
                 this.$message({
                     showClose: true,
                     message: 'Deleted!',

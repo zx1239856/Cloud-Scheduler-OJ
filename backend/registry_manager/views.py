@@ -4,9 +4,12 @@ import re
 import urllib.error
 import urllib.request
 import urllib.parse
+# import tarfile
 import docker
 from django.http import JsonResponse
 from django.views import View
+from dxf import DXF
+# from dxf import DXFBase
 from api.common import RESPONSE
 from config import REGISTRY_V2_API_ADDRESS, DOCKER_ADDRESS, REGISTRY_ADDRESS
 from registry_manager.cache import cache_with_timeout
@@ -166,13 +169,13 @@ class ConnectionUtils:
                     repo=repo
                 )
             )['tags']
-
             return tags
         except Exception as ex:
             LOGGER.error(ex)
 
     # get number of tags of a repository
     def get_number_of_tags(self, repo):
+        print(self.get_tags(repo))
         return len(self.get_tags(repo))
 
     # get information of a repository
@@ -218,7 +221,6 @@ class ConnectionUtils:
 class RegistryHandler(View):
     http_method_names = ['get']
     util = ConnectionUtils()
-
     """
     get function for getting list of repositories with its info
     """
@@ -266,6 +268,50 @@ class RepositoryHandler(View):
         @apiUse InvalidRequest
         @apiUse OperationFailed
         """
+        # try:
+        #     dxf = DXFBase(REGISTRY_ADDRESS)
+        #     print(dxf.list_repos())
+        #     files = request.FILES.getlist('file[]', None)
+        #     if files is None:
+        #         response = RESPONSE.INVALID_REQUEST
+        #         response['message'] += " File is empty."
+        #         return JsonResponse(response)
+        #     f = files[0]
+        #     tar_pattern = "[.](tar)$"
+        #     searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
+        #     if searched_tar:
+        #         try:
+        #             tar = tarfile.open(fileobj=f, mode='r:*')
+        #             fileRepository = tar.extractfile('repositories')
+        #             repo_json = json.loads(fileRepository.read().decode())
+        #             repo_name = list(repo_json.keys())[0]
+        #             repo_tag = list(repo_json[repo_name].keys())[0]
+        #             tar_inside_folder = repo_json[repo_name][repo_tag]
+        #             fileLayer = tar.extractfile(tar_inside_folder + '/' + 'layer.tar')
+
+        #             print(repo_tag)
+        #             print(fileLayer)
+        #             # print("members")
+        #             # print(tar.getmembers())
+        #             # print("names")
+        #             # print(tar.getnames())
+
+
+        #             # image = client.images.load(f)[0]
+        #             # name = image.tags[0]
+        #             # newName = REGISTRY_ADDRESS + '/' + name
+        #             # docker_api.tag(name, newName)
+        #             # docker_api.push(newName)
+        #             return JsonResponse(RESPONSE.SUCCESS)
+        #         except docker.errors.DockerException as e:
+        #             response = RESPONSE.SERVER_ERROR
+        #             response['payload']['docker exception'] = str(e)
+        #             return JsonResponse(response)
+        # except Exception as e:
+        #     response = RESPONSE.OPERATION_FAILED
+        #     response['message'] += str(e)
+        #     return JsonResponse(response)
+        # return JsonResponse(RESPONSE.NOT_IMPLEMENTED)
         try:
             client = docker.DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
             docker_api = docker.APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
@@ -296,12 +342,31 @@ class RepositoryHandler(View):
         return JsonResponse(RESPONSE.NOT_IMPLEMENTED)
 
     def delete(self, request, **kwargs):
-        response_code = self.util.delete_tag(kwargs.get('repo'), kwargs.get('tag'))
-        print(response_code)
-        if response_code == 202:
+        try:
+            repo = kwargs.get('repo')
+            tag = kwargs.get('tag')
+            dxf = DXF(REGISTRY_ADDRESS, repo)
+            digest = dxf.get_digest(tag)
+            print(digest)
+            print("before delete")
+            try:
+                dxf.del_blob(digest)
+            except urllib.error.HTTPError as ex:
+                response = RESPONSE.SERVER_ERROR
+                response['payload']['error'] = str(ex)
+                return JsonResponse(response)
+            print("after delete")
             return JsonResponse(RESPONSE.SUCCESS)
-        else:
-            return JsonResponse(RESPONSE.OPERATION_FAILED)
+        except Exception as ex:
+            response = RESPONSE.OPERATION_FAILED
+            response['payload']['error'] = str(ex)
+            return JsonResponse(response)
+        # response_code = self.util.delete_tag(kwargs.get('repo'), kwargs.get('tag'))
+        # print(response_code)
+        # if response_code == 202:
+        #     return JsonResponse(RESPONSE.SUCCESS)
+        # else:
+        #     return JsonResponse(RESPONSE.OPERATION_FAILED)
         # try:
         #     client = docker.DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
         #     docker_api = docker.APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
