@@ -207,13 +207,13 @@ class StorageFileHandler(View):
             if f.status == 0:
                 FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED)
                 try:
-                    self.api_instance.delete_namespaced_pod(pod_name, KUBERNETES_NAMESPACE)
+                    self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
                 except ApiException as ex:
                     LOGGER.warning(ex)
             elif f.status == 1:
                 FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED)
                 try:
-                    self.api_instance.delete_namespaced_pod(pod_name, KUBERNETES_NAMESPACE)
+                    self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
                 except ApiException as ex:
                     LOGGER.warning(ex)
             elif f.status == 2 or f.status == 3:
@@ -223,7 +223,7 @@ class StorageFileHandler(View):
                 uploading.start()
             elif f.status == 4:
                 try:
-                    self.api_instance.delete_namespaced_pod(pod_name, KUBERNETES_NAMESPACE)
+                    self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
                 except ApiException as ex:
                     LOGGER.warning(ex)
 
@@ -286,7 +286,7 @@ class StorageFileHandler(View):
         @apiVersion 0.1.0
         @apiParamExample {json} Request-Example:
         {
-            "file": [FILE],
+            "file[]": [FILE1, FILE2, ...],
             "pvcName": "mypvc",
             "mountPath": "data/"
         }
@@ -306,7 +306,11 @@ class StorageFileHandler(View):
             files = request.FILES.getlist('file[]', None)
             if files is None:
                 response = RESPONSE.INVALID_REQUEST
-                response['message'] += " File is empty."
+                response['message'] += " file[] is missing."
+                return JsonResponse(response)
+            if not files:
+                response = RESPONSE.INVALID_REQUEST
+                response['message'] += " file[] is empty."
                 return JsonResponse(response)
             pvc_name = request.POST.get('pvcName', None)
             path = request.POST.get('mountPath', None)
@@ -315,6 +319,7 @@ class StorageFileHandler(View):
         except AssertionError:
             response = RESPONSE.INVALID_REQUEST
             return JsonResponse(response)
+
         # check if pvc exists
         try:
             self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name,
@@ -322,7 +327,7 @@ class StorageFileHandler(View):
         except ApiException as ex:
             LOGGER.warning(ex)
             response = RESPONSE.OPERATION_FAILED
-            response['message'] += " PVC {} does not exist in namespaced {}".format(pvc_name, KUBERNETES_NAMESPACE)
+            response['message'] += " PVC {} does not exist in namespaced {}.".format(pvc_name, KUBERNETES_NAMESPACE)
             return JsonResponse(response)
 
         # create if namespace does not exist
@@ -333,6 +338,7 @@ class StorageFileHandler(View):
                                                                       labels={"name": KUBERNETES_NAMESPACE})))
         except ApiException as ex:
             LOGGER.warning(ex)
+
         for file_upload in files:
             # record file
             upload_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
