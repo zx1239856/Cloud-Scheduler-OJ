@@ -46,7 +46,7 @@ urlpatterns = [
     path('registry/', registry_mgmt_views.RegistryHandler.as_view()),
     path('registry/<str:repo>/', registry_mgmt_views.RepositoryHandler.as_view()),
     path('registry/upload/', registry_mgmt_views.RepositoryHandler.as_view()),
-    path('registry/<str:repo>/delete/<str:tag>/', registry_mgmt_views.RepositoryHandler.as_view())
+    path('registry/<str:repo>/<str:tag>/', registry_mgmt_views.RepositoryHandler.as_view())
 ]
 
 

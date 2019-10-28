@@ -30,7 +30,7 @@
           <span>{{ new Date(scope.row.Created).toLocaleString() }}</span>
         </template>
       </el-table-column>
-      <el-table-column width="100" align="center">
+      <el-table-column label="Action" width="100" align="center">
         <template slot-scope="{row}">
           <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name == 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
         </template>
@@ -44,9 +44,9 @@
       :visible.sync="deleteDialogVisible"
       width="30%"
     >
-      <span>Are you sure to delete Image {{ selectedData.Repo + ':' + selectedData.Tag }}?</span>
+      <span>Are you sure to delete Image {{ Repo + ':' + selectedData.Tag }}?</span>
       <span slot="footer" class="dialog-footer">
-        <el-button @click="deleteDialogVisible = false">Cancel</el-button>
+        <el-button @click="deleteDialogVisible=false">Cancel</el-button>
         <el-button type="danger" @click="deleteImage">Delete</el-button>
       </span>
     </el-dialog>
@@ -100,6 +100,7 @@ export default {
         };
     },
     created() {
+        this.Repo = this.$route.query.repo;
         this.getRepositoryList();
     },
     methods: {
@@ -116,15 +117,16 @@ export default {
             this.deleteDialogVisible = true;
         },
         deleteImage() {
+            this.deleteDialogVisible = false;
             this.$message({
                 showClose: true,
-                message: this.selectedData.Repo,
+                message: this.Repo,
                 type: 'success'
             });
-            deleteImage({
-                repo: this.selectedData.Repo,
-                tag: this.selectedData.Tag
-            }).then(response => {
+            deleteImage(
+                this.Repo,
+                this.selectedData.Tag
+            ).then(response => {
                 this.$message({
                     showClose: true,
                     message: 'Deleted!',

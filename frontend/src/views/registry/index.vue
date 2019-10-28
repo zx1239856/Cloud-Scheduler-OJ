@@ -44,7 +44,7 @@
     <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getRepositories" />
 
     <el-dialog :title="dialogType" :visible.sync="dialogFormVisible">
-      <el-form ref="dialogForm" :rules="dialogRules" :model="dialogData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
+      <el-form ref="dialogForm" :model="dialogData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
         <el-form-item label="file" prop="file">
           <el-upload
             action="no"
@@ -54,15 +54,9 @@
             <i class="el-icon-plus" />
           </el-upload>
         </el-form-item>
-        <!-- <el-form-item label="Repository" prop="repo">
-          <el-input v-model="dialogData.repo" />
-        </el-form-item>
-        <el-form-item label="Tag" prop="tag">
-          <el-input v-model="dialogData.tag" />
-        </el-form-item> -->
       </el-form>
       <div slot="footer" class="dialog-footer">
-        <el-button @click="dialogFormVisible = false">
+        <el-button @click="dialogFormVisible=false">
           Cancel
         </el-button>
         <el-button type="primary" @click="handleDialogConfirm">
@@ -97,18 +91,6 @@ export default {
             },
             dialogData: {
                 file: []
-            },
-            dialogRules: {
-                // pvc: [{
-                //     required: true,
-                //     message: 'concurrency is required',
-                //     trigger: 'change'
-                // }],
-                // path: [{
-                //     required: true,
-                //     message: 'path is required',
-                //     trigger: 'change'
-                // }]
             }
         };
     },
@@ -162,8 +144,6 @@ export default {
                 if (valid) {
                     if (this.dialogType === 'Upload') {
                         this.uploading();
-                    } else {
-                        //
                     }
                 } else {
                     return false;
