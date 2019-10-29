@@ -210,7 +210,6 @@ class MockTaskExecutor:
             'spec': DotDict({'node_name': 'test_node'})
         })
 
-
 class MockWSClient:
     def __init__(self, **_):
         self.counter = 1000
@@ -243,4 +242,117 @@ class MockWSClient:
             return ''
 
     def run_forever(self, timeout):
+        pass
+
+class MockDXFBase:
+    def __init__(self, *_, **__):
+        pass
+
+    @staticmethod
+    def list_repos(**__):
+        return ['test_repo']
+
+class MockDXF:
+    def __init__(self, *_, **__):
+        pass
+
+    @staticmethod
+    def get_digest(*_):
+        return ''
+
+    @staticmethod
+    def list_aliases(**_):
+        return ['test_alias']
+
+    @staticmethod
+    def del_blob(*_):
+        pass
+
+class MockRequest:
+    def __init__(self, *args, **_):
+        if 'manifests' in args[0]:
+            self.url = 'manifests'
+        elif 'blobs' in args[0]:
+            self.url = 'blobs'
+        elif 'tags' in args[0]:
+            self.url = 'tags'
+
+def MockUrlOpen(request, **_):
+    if request.url == 'manifests':
+        return {
+            "schemaVersion": 1,
+            "name": "test_repo",
+            "tag": "test_alias",
+            "architecture": "amd64",
+            "fsLayers": [
+                {
+                    "blobSum": "sha256:test-latest"
+                }
+            ],
+            "history": [
+                {
+                    "v1Compatibility": "{\"architecture\":\"amd64\",\"config\":{\"Hostname\":\"\",\"Domainname\":\"\",\"User\":\"\",\"AttachStdin\":false,\"AttachStdout\":false,\"AttachStderr\":false,\"Tty\":false,\"OpenStdin\":false,\"StdinOnce\":false,\"Env\":[\"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"],\"Cmd\":[\"/hello\"],\"ArgsEscaped\":true,\"Image\":\"sha256:a6d1aaad8ca65655449a26146699fe9d61240071f6992975be7e720f1cd42440\",\"Volumes\":null,\"WorkingDir\":\"\",\"Entrypoint\":null,\"OnBuild\":null,\"Labels\":null},\"container\":\"8e2caa5a514bb6d8b4f2a2553e9067498d261a0fd83a96aeaaf303943dff6ff9\",\"container_config\":{\"Hostname\":\"8e2caa5a514b\",\"Domainname\":\"\",\"User\":\"\",\"AttachStdin\":false,\"AttachStdout\":false,\"AttachStderr\":false,\"Tty\":false,\"OpenStdin\":false,\"StdinOnce\":false,\"Env\":[\"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"],\"Cmd\":[\"/bin/sh\",\"-c\",\"#(nop) \",\"CMD [\\\"/hello\\\"]\"],\"ArgsEscaped\":true,\"Image\":\"sha256:a6d1aaad8ca65655449a26146699fe9d61240071f6992975be7e720f1cd42440\",\"Volumes\":null,\"WorkingDir\":\"\",\"Entrypoint\":null,\"OnBuild\":null,\"Labels\":{}},\"created\":\"2019-01-01T01:29:27.650294696Z\",\"docker_version\":\"18.06.1-ce\",\"id\":\"9f5834b25059239faef06a9ba681db7b7c572fc0d87d2b140b10e90e50902b53\",\"os\":\"linux\",\"parent\":\"65b27d3bd74d2cf4ea3aa9e250be6c632f0a347e8abd5485345c55fa6eed0258\",\"throwaway\":true}"
+                }
+            ]
+        }
+    elif request.url == 'blobs':
+        class MockResponse:
+            def __init__(self, response_code, contentLength):
+                self.status = response_code
+                self.contentLength = contentLength
+
+            def info(self):
+                return {
+                    'Content-Length': self.contentLength
+                }
+
+        return MockResponse(200, '0')
+    elif request.url == 'tags':
+        return {
+            'tags': 'test-latest'
+        }
+    else:
+        return None
+
+def MockJsonRequest(*_):
+    return {
+        "schemaVersion": 1,
+        "name": "test_repo",
+        "tag": "test_alias",
+        "architecture": "amd64",
+        "fsLayers": [
+            {
+                "blobSum": "sha256:test-latest"
+            }
+        ],
+        "history": [
+            {
+                "v1Compatibility": "{\"architecture\":\"amd64\",\"config\":{\"Hostname\":\"\",\"Domainname\":\"\",\"User\":\"\",\"AttachStdin\":false,\"AttachStdout\":false,\"AttachStderr\":false,\"Tty\":false,\"OpenStdin\":false,\"StdinOnce\":false,\"Env\":[\"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"],\"Cmd\":[\"/hello\"],\"ArgsEscaped\":true,\"Image\":\"sha256:a6d1aaad8ca65655449a26146699fe9d61240071f6992975be7e720f1cd42440\",\"Volumes\":null,\"WorkingDir\":\"\",\"Entrypoint\":null,\"OnBuild\":null,\"Labels\":null},\"container\":\"8e2caa5a514bb6d8b4f2a2553e9067498d261a0fd83a96aeaaf303943dff6ff9\",\"container_config\":{\"Hostname\":\"8e2caa5a514b\",\"Domainname\":\"\",\"User\":\"\",\"AttachStdin\":false,\"AttachStdout\":false,\"AttachStderr\":false,\"Tty\":false,\"OpenStdin\":false,\"StdinOnce\":false,\"Env\":[\"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"],\"Cmd\":[\"/bin/sh\",\"-c\",\"#(nop) \",\"CMD [\\\"/hello\\\"]\"],\"ArgsEscaped\":true,\"Image\":\"sha256:a6d1aaad8ca65655449a26146699fe9d61240071f6992975be7e720f1cd42440\",\"Volumes\":null,\"WorkingDir\":\"\",\"Entrypoint\":null,\"OnBuild\":null,\"Labels\":{}},\"created\":\"2019-01-01T01:29:27.650294696Z\",\"docker_version\":\"18.06.1-ce\",\"id\":\"9f5834b25059239faef06a9ba681db7b7c572fc0d87d2b140b10e90e50902b53\",\"os\":\"linux\",\"parent\":\"65b27d3bd74d2cf4ea3aa9e250be6c632f0a347e8abd5485345c55fa6eed0258\",\"throwaway\":true}"
+            }
+        ]
+    }
+
+def MockGetTags(*_):
+    return ['test_alias']
+
+class MockDockerClient:
+    def __init__(self, *_, **__):
+        class MockImageCollection:
+            def load(self, *_):
+                class MockImage:
+                    def __init__(self):
+                        self.tags = [
+                            'test_upload_image'
+                        ]
+                return [MockImage()]
+        self.images = MockImageCollection()
+
+class MockAPIClient:
+    def __init__(self, **_):
+        pass
+
+    def tag(self, *_, **__):
+        pass
+
+    def push(self, *_, **__):
         pass

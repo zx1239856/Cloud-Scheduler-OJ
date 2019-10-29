@@ -1,10 +1,9 @@
 import logging
 import json
 import re
-import urllib.error
-import urllib.request
-import urllib.parse
-import docker
+from urllib.request import Request
+from urllib.request import urlopen
+from docker import DockerClient, APIClient
 from django.http import JsonResponse
 from django.views import View
 from dxf import DXF
@@ -17,69 +16,9 @@ from registry_manager.manifest import makeManifest
 LOGGER = logging.getLogger(__name__)
 
 class ConnectionUtils:
-    client = docker.DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-    docker_api = docker.APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-    dxfBase = DXFBase(REGISTRY_ADDRESS)
-
-    GET_ALL_REPOS_TEMPLATE = '{url}/_catalog'
     GET_MANIFEST_TEMPLATE = '{url}/{repo}/manifests/{tag}'
     GET_LAYER_TEMPLATE = '{url}/{repo}/blobs/{digest}'
     GET_ALL_TAGS_TEMPLATE = '{url}/{repo}/tags/list'
-    HEAD_LAYER_TEMPLATE = '{url}/{repo}/blobs/{digest}'
-    POST_LAYER_TEMPLATE = '{url}/{repo}/blobs/uploads/'
-
-    def delete_tag(self, repo, tag):
-        digest = self.request_registry(
-            self.GET_MANIFEST_TEMPLATE.format(
-                url=REGISTRY_V2_API_ADDRESS,
-                repo=repo,
-                tag=tag
-            ),
-            method='HEAD',
-            headers={'Accept': 'application/vnd.docker.distribution.manifest.v2+json'}
-        ).info()['Docker-Content-Digest']
-
-        try:
-            response = self.request_registry(
-                self.GET_MANIFEST_TEMPLATE.format(
-                    url=REGISTRY_V2_API_ADDRESS,
-                    repo=repo,
-                    tag=digest
-                ),
-                method='DELETE'
-            )
-            print('there')
-            return response.status
-        except Exception as ex:
-            LOGGER.error(ex)
-
-    def check_layer_exist(self, repo, digest):
-        try:
-            response = self.json_request(
-                self.HEAD_LAYER_TEMPLATE.format(
-                    url=REGISTRY_V2_API_ADDRESS,
-                    repo=repo,
-                    digest=digest
-                ),
-                method='HEAD'
-            )
-            return response.status
-        except Exception as ex:
-            LOGGER.error(ex)
-
-    def upload_layer_start(self, repo):
-        try:
-            response = self.json_request(
-                self.POST_LAYER_TEMPLATE.format(
-                    url=REGISTRY_V2_API_ADDRESS,
-                    repo=repo
-                ),
-                method='POST',
-                headers={'Accept': 'application/vnd.docker.distribution.manifest.v2+json'}
-            )
-            return response
-        except Exception as ex:
-            LOGGER.error(ex)
 
     # get the manifest of a specific tagged image
     def get_manifest(self, repo, tag):
@@ -131,15 +70,6 @@ class ConnectionUtils:
 
         return result
 
-    # get the size of a repository
-    def get_size_of_repo(self, repo):
-        result = 0
-
-        for tag in self.get_tags(repo):
-            result += self.get_size_of_layers(repo, tag)
-
-        return result
-
     # get tag information
     def get_tag(self, repo, tag):
         try:
@@ -157,19 +87,18 @@ class ConnectionUtils:
             if response.status == 200:
                 manifest = self.get_manifest(repo, tag)
                 tag_info['Tag'] = tag
-                tag_info['Size'] = self.get_size_of_layers(repo, tag)
-                tag_info['Layers'] = self.get_number_of_layers(repo, tag)
                 tag_info['Created'] = manifest.get_created_date()
                 tag_info['Entrypoint'] = manifest.get_entrypoint()
                 tag_info['Docker Version'] = manifest.get_docker_version()
                 tag_info['Exposed Ports'] = manifest.get_exposed_ports()
                 tag_info['Volumes'] = manifest.get_volumes()
+                tag_info['Size'] = self.get_size_of_layers(repo, tag)
+                tag_info['Layers'] = self.get_number_of_layers(repo, tag)
                 return tag_info
             else:
                 return None
         except Exception as ex:
             LOGGER.error(ex)
-            return None
 
     # get tags of a repository in list
     def get_tags(self, repo):
@@ -184,16 +113,13 @@ class ConnectionUtils:
         except Exception as ex:
             LOGGER.error(ex)
 
-    # get number of tags of a repository
-    def get_number_of_tags(self, repo):
-        return len(self.get_tags(repo))
-
     # get information of a repository
     def get_repository(self, repo):
         try:
             dxf = DXF(REGISTRY_ADDRESS, repo)
             images = []
             repo_size = 0
+
             for tag_name in dxf.list_aliases():
                 image = self.get_tag(repo, tag_name)
                 if image is not None:
@@ -206,12 +132,12 @@ class ConnectionUtils:
             }
             return response
         except Exception as ex:
-            LOGGER.error(ex)
+            return str(ex)
 
     # urllib request
     def request_registry(self, *args, **kwargs):
-        request = urllib.request.Request(*args, **kwargs)
-        response = urllib.request.urlopen(request, timeout=5)
+        request = Request(*args, **kwargs)
+        response = urlopen(request, timeout=5)
         return response
 
     # decoder of json request
@@ -234,12 +160,13 @@ class RegistryHandler(View):
         response = RESPONSE.SUCCESS
         try:
             response['payload']['entity'] = []
-            for repository in self.util.dxfBase.list_repos():
+            dxfBase = DXFBase(REGISTRY_ADDRESS)
+            for repository in dxfBase.list_repos():
                 response['payload']['entity'].append(self.util.get_repository(repository))
             response['payload']['count'] = len(response['payload']['entity'])
             return JsonResponse(response)
-        except Exception as ex:
-            LOGGER.error(ex)
+        except Exception:
+            return JsonResponse(RESPONSE.OPERATION_FAILED)
 
 class RepositoryHandler(View):
     http_method_names = ['get', 'post', 'put', 'delete']
@@ -255,8 +182,8 @@ class RepositoryHandler(View):
                     response['payload']['entity'].append(image)
             response['payload']['count'] = len(response['payload']['entity'])
             return JsonResponse(response)
-        except Exception as ex:
-            LOGGER.error(ex)
+        except Exception:
+            return JsonResponse(RESPONSE.OPERATION_FAILED)
 
     def post(self, request, **kwargs):
         """
@@ -277,8 +204,10 @@ class RepositoryHandler(View):
         @apiUse OperationFailed
         """
         try:
+            client = DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
+            docker_api = APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
             files = request.FILES.getlist('file[]', None)
-            if files is None:
+            if files is None or len(files) == 0:
                 response = RESPONSE.INVALID_REQUEST
                 response['message'] += " File is empty."
                 return JsonResponse(response)
@@ -286,22 +215,14 @@ class RepositoryHandler(View):
                 tar_pattern = "[.](tar)$"
                 searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
                 if searched_tar:
-                    try:
-                        image = self.util.client.images.load(f)[0]
-                        name = image.tags[0]
-                        newName = REGISTRY_ADDRESS + '/' + name
-                        self.util.docker_api.tag(name, newName)
-                        self.util.docker_api.push(newName)
-                    except docker.errors.DockerException as e:
-                        response = RESPONSE.SERVER_ERROR
-                        response['payload']['docker exception'] = str(e)
-                        return JsonResponse(response)
+                    image = client.images.load(f)[0]
+                    name = image.tags[0]
+                    newName = REGISTRY_ADDRESS + '/' + name
+                    docker_api.tag(name, newName)
+                    docker_api.push(newName)
             return JsonResponse(RESPONSE.SUCCESS)
-        except Exception as e:
-            response = RESPONSE.OPERATION_FAILED
-            response['message'] += str(e)
-            return JsonResponse(response)
-        return JsonResponse(RESPONSE.NOT_IMPLEMENTED)
+        except Exception:
+            return JsonResponse(RESPONSE.OPERATION_FAILED)
 
     def delete(self, request, **kwargs):
         try:
@@ -309,14 +230,7 @@ class RepositoryHandler(View):
             tag = kwargs.get('tag')
             dxf = DXF(REGISTRY_ADDRESS, repo)
             digest = dxf.get_digest(tag)
-            try:
-                dxf.del_blob(digest)
-            except urllib.error.HTTPError as ex:
-                response = RESPONSE.SERVER_ERROR
-                response['payload']['error'] = str(ex)
-                return JsonResponse(response)
+            dxf.del_blob(digest)
             return JsonResponse(RESPONSE.SUCCESS)
-        except Exception as ex:
-            response = RESPONSE.OPERATION_FAILED
-            response['payload']['error'] = str(ex)
-            return JsonResponse(response)
+        except Exception:
+            return JsonResponse(RESPONSE.OPERATION_FAILED)
