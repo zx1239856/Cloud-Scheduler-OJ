@@ -4,7 +4,6 @@ Unit Test for Storage
 import json
 import os
 import mock
-import kubernetes
 from django.test import TestCase, Client
 from api.common import RESPONSE
 import storage.views
@@ -12,8 +11,30 @@ from storage.views import StorageFileHandler
 from storage.models import FileModel
 from .common import MockCoreV1Api, mockGetK8sClient
 
+class Mock_WSClient:
+    class Mock_Sock:
+        def send(self, payload, **kwargs):
+            pass
+    sock = Mock_Sock()
+    def is_open(self):
+        return True
+    def update(self, timeout, **kwargs):
+        pass
+    def write_channel(self, channel, data):
+        pass
+    def peek_stdout(self):
+        return True
+    def peek_stderr(self):
+        return True
+    def read_stdout(self):
+        return True
+    def read_stderr(self):
+        return True
+    def close(self):
+        pass
+
 def mock_stream(_connect_get_namespaced_pod_exec, _name, _namespace, _command, **_):
-    return ""
+    return Mock_WSClient()
 
 def mock_caching(_self, _file_upload, _pvc_name, _path, _md):
     pass
@@ -21,6 +42,7 @@ def mock_caching(_self, _file_upload, _pvc_name, _path, _md):
 def mock_uploading(_self, _file_name, _pvc_name, _path, _md):
     pass
 
+# pylint: disable=R0904
 class TestStorage(TestCase):
     def setUp(self):
         self.client = Client()
@@ -39,15 +61,42 @@ class TestStorage(TestCase):
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
         self.assertEqual(response['payload']['count'], 5)
 
+    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
+    def testGetFileListValueError(self):
+        response = self.client.get('/storage/upload_file/', data={'page': -1})
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
+
     # test getting PVC list
     @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
-    def testGetPVCList(self):
+    def testGetPVCListValueError(self):
+        response = self.client.get('/storage/', data={'page': 4})
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
+
+    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
+    def testGetPVCListNoPage(self):
         response = self.client.get('/storage/')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], 200)
         self.assertEqual(response['payload']['count'], 51)
+        self.assertEqual(response['payload']['page_count'], 3)
+
+    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
+    def testGetPVCListWithPage(self):
+        response = self.client.get('/storage/', data={'page': 3})
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], 200)
+        self.assertEqual(response['payload']['count'], 51)
+        self.assertEqual(response['payload']['page_count'], 3)
 
     # test creating PVC
     def testCreatePVCRequestError1(self):
@@ -117,6 +166,17 @@ class TestStorage(TestCase):
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
         self.assertEqual(response['message'], "Invalid request. file[] is empty.")
 
+    def testUploadFileRequestError3(self):
+        f = open('test2.txt', 'w')
+        f.close()
+        f = open('test2.txt', 'r')
+        response = self.client.post('/storage/upload_file/', data={'file[]': [f], 'mountPath': "test/"})
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
+        f.close()
+        os.remove('test2.txt')
+
     def testUploadFileEmptyFiles(self):
         response = self.client.post('/storage/upload_file/', data={'file[]': [], 'pvcName': 'pvc'})
         self.assertEqual(response.status_code, 200)
@@ -165,6 +225,6 @@ class TestStorage(TestCase):
 
     @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
-    @mock.patch.object(kubernetes.stream, 'stream', mock_stream)
+    @mock.patch.object(storage.views, 'stream', mock_stream)
     def testFileUploading(self):
         StorageFileHandler().uploading("test3.txt", 'test-pvc', 'test', 'testid')

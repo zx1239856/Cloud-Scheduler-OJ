@@ -323,11 +323,7 @@ class StorageFileHandler(View):
         """
         try:
             files = request.FILES.getlist('file[]', None)
-            if files is None:
-                response = RESPONSE.INVALID_REQUEST
-                response['message'] += " file[] is missing."
-                return JsonResponse(response)
-            if not files:
+            if files is None or not files:
                 response = RESPONSE.INVALID_REQUEST
                 response['message'] += " file[] is empty."
                 return JsonResponse(response)
@@ -410,9 +406,6 @@ class StorageFileHandler(View):
             LOGGER.warning("Kubernetes ApiException %d: %s", e.status, e.reason)
             if e.status != 409:
                 return
-        except ValueError as e:
-            LOGGER.warning(e)
-            return
         except Exception as e:
             LOGGER.error(e)
 
@@ -422,9 +415,6 @@ class StorageFileHandler(View):
                 time.sleep(1)
         except ApiException as e:
             LOGGER.warning("Kubernetes ApiException %d: %s", e.status, e.reason)
-            return
-        except ValueError as e:
-            LOGGER.warning(e)
             return
         except Exception as e:
             LOGGER.error(e)

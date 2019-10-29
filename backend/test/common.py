@@ -1,7 +1,6 @@
 import json
 import hashlib
 import random
-import mock
 from django.test import Client, TestCase
 from kubernetes.stream import ws_client
 from kubernetes.client.rest import ApiException
@@ -24,11 +23,6 @@ def loginTestUser(user):
 
 def mockGetK8sClient():
     return 1
-
-class Mock_WSClient:
-    is_open = True
-    def write_channel(self, channel, data):
-        pass
 
 class TestCaseWithBasicUser(TestCase):
     def setUp(self):
@@ -180,10 +174,8 @@ class MockCoreV1Api:
     def read_namespaced_pod_status(*_, **__):
         return DotDict({'status': DotDict({'phase': 'Running'})})
 
-    @mock.patch.object(ws_client, "WSClient", Mock_WSClient)
-    def connect_get_namespaced_pod_exec(self, _name, _namespace, command, **_):
-        assert command is not None
-        return Mock_WSClient()
+    def connect_get_namespaced_pod_exec(self, _name, _namespace, _command, **_):
+        pass
 
 
 class MockBatchV1Api:
