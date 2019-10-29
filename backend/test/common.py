@@ -264,6 +264,10 @@ class MockDXF:
     def list_aliases(**_):
         return ['test_alias']
 
+    @staticmethod
+    def del_blob(*_):
+        pass
+
 class MockRequest:
     def __init__(self, *args, **_):
         if 'manifests' in args[0]:
@@ -330,3 +334,25 @@ def MockJsonRequest(*_):
 
 def MockGetTags(*_):
     return ['test_alias']
+
+class MockDockerClient:
+    def __init__(self, *_, **__):
+        class MockImageCollection:
+            def load(self, *_):
+                class MockImage:
+                    def __init__(self):
+                        self.tags = [
+                            'test_upload_image'
+                        ]
+                return [MockImage()]
+        self.images = MockImageCollection()
+
+class MockAPIClient:
+    def __init__(self, **_):
+        pass
+
+    def tag(self, *_, **__):
+        pass
+
+    def push(self, *_, **__):
+        pass

@@ -1,30 +1,10 @@
-import abc
 import functools
 import json
 import operator
 
-
-class DockerRegistryManifest(abc.ABC):
+class DockerRegistrySchema1Manifest:
     def __init__(self, content):
         self._content = content
-
-    def get_created_date(self):
-        raise NotImplementedError
-
-    def get_entrypoint(self):
-        raise NotImplementedError
-
-    def get_exposed_ports(self):
-        raise NotImplementedError
-
-    def get_docker_version(self):
-        raise NotImplementedError
-
-    def get_volumes(self):
-        raise NotImplementedError
-
-
-class DockerRegistrySchema1Manifest(DockerRegistryManifest):
 
     def __get_sorted_history(self):
         history = []
