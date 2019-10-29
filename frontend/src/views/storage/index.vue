@@ -62,6 +62,7 @@
           <el-upload
             action="no"
             multiple
+            :on-remove="rmFile"
             :http-request="getFile"
           >
             <i class="el-icon-plus" />
@@ -331,6 +332,14 @@ export default {
         },
         getFile(item) {
             this.dialogFileData.file.push(item.file);
+        },
+        rmFile(file, fileList) {
+            this.dialogFileData.file.forEach(function(item, index, arr) {
+                if (item.name === file.name) {
+                    arr.splice(index, 1);
+                    throw new Error('EndIterative');
+                }
+            });
         },
         uploading() {
             this.dialogUploadVisible = false;
