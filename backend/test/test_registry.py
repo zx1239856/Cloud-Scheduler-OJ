@@ -1,139 +1,54 @@
 """
 Unit Test for Registry
 """
-import os
 import json
-import docker
 import mock
-from django.test import TestCase, Client
+from django.test import TestCase
 from api.common import RESPONSE
 import registry_manager.views as registry_views
-import registry_manager.manifest as manifest_views
-from .common import MockRequest, MockUrlOpen, MockDXFBase, MockDXF
+from .common import MockRequest, MockUrlOpen, MockDXF, MockDXFBase, MockJsonRequest, MockGetTags
 
-class TestRegistryHandler_get(TestCase):
-    def setUp(self):
-        self.url = '/registry/'
-        self.client = Client()
-        self.local_client = docker.from_env()
-
-    # @mock.patch.object(registry_views, 'Request', MockRequest)
-    # @mock.patch.object(registry_views, 'urlopen', MockUrlOpen)
-    # @mock.patch.object(registry_views, 'DXFBase', MockDXFBase)
-    # @mock.patch.object(registry_views, 'DXF', MockDXF)
+class TestRegistryHandler(TestCase):
+    @mock.patch.object(registry_views, 'Request', MockRequest)
+    @mock.patch.object(registry_views, 'urlopen', MockUrlOpen)
+    @mock.patch.object(registry_views, 'DXFBase', MockDXFBase)
+    @mock.patch.object(registry_views, 'DXF', MockDXF)
+    @mock.patch.object(registry_views.ConnectionUtils, 'json_request', MockJsonRequest)
     def test_RegistryHandler_get(self):
         response = self.client.get('/registry/')
         resp = json.loads(response.content)
-        # self.assertEqual(resp['payload']['entity'], [])
-        self.assertContains(response=response, text='entity')
+        self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])
+        self.assertEqual(resp['payload']['entity'], [{'NumberOfTags': 1, 'Repo': 'test_repo', 'SizeOfRepository': 0}])
 
+class TestRepositoryHander(TestCase):
+    @mock.patch.object(registry_views, 'Request', MockRequest)
+    @mock.patch.object(registry_views, 'urlopen', MockUrlOpen)
+    @mock.patch.object(registry_views, 'DXF', MockDXF)
+    @mock.patch.object(registry_views.ConnectionUtils, 'json_request', MockJsonRequest)
+    @mock.patch.object(registry_views.ConnectionUtils, 'get_tags', MockGetTags)
     def test_RepositoryHandler_get(self):
-        response = self.client.get('/registry/ubuntu/')
+        response = self.client.get('/registry/test_repo/')
         resp = json.loads(response.content)
-        self.assertEquals('entity' in resp['payload'], True)
+        self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])
+        self.assertEqual(
+            resp['payload']['entity'],
+            [
+                {
+                    'Created': '2019-01-01T01:29:27.650294696Z',
+                    'Docker Version': '18.06.1-ce',
+                    'Entrypoint': None,
+                    'Exposed Ports': None,
+                    'Layers': 1,
+                    'Size': 0,
+                    'Tag': 'test_alias',
+                    'Volumes': None
+                }
+            ]
+        )
 
-    # def test_dockerfile_upload1(self):
-    #     url = self.url + 'dockerfile/'
-    #     filename = 'Dockerfile'
-    #     f = open('Dockerfile', 'w')
-    #     f.write('FROM hello-world')
-    #     f.close()
-    #     f = open('Dockerfile', 'r')
-    #     response = self.client.post(url, data={'file': f})
-    #     f.close()
-    #     os.remove(filename)
-    #     self.assertEqual(response.status_code, 200)
-    #     response = json.loads(response.content)
-    #     # self.assertEqual(response['message'], RESPONSE.SUCCESS['message'])
-    #     self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
+    # def test_RepositoryHandler_post(self):
 
-    # def test_dockerfile_upload2(self):
-    #     url = self.url + 'dockerfile/'
-    #     filename = 'Dockerfile'
-    #     f = open(filename, 'w')
-    #     f.close()
-    #     f = open(filename, 'r')
-    #     response = self.client.post(url, data={'file': f})
-    #     f.close()
-    #     os.remove(filename)
-    #     self.assertEqual(response.status_code, 200)
-    #     response = json.loads(response.content)
-    #     # self.assertEqual(response['message'], RESPONSE.SERVER_ERROR['message'])
-    #     self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
-
-    # def test_dockerfile_upload3(self):
-    #     url = self.url + 'dockerfile/'
-    #     response = self.client.post(url)
-    #     self.assertEqual(response.status_code, 200)
-    #     response = json.loads(response.content)
-    #     self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
-
-    # # def test_dockerfile_upload4(self):
-    # #     url = self.url + 'dockerfile/'
-    # #     filename = 'Dockerfile'
-    # #     f = open(filename, 'w')
-    # #     f.write("FROM hello-world")
-    # #     f.close()
-    # #     f = open(filename, 'r')
-    # #     response = self.client.post(url, data={'file': f})
-    # #     f.close()
-    # #     os.remove(filename)
-    # #     self.assertEqual(response.status_code, 200)
-    # #     response = json.loads(response.content)
-    # #     self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
-
-    # def test_image_upload1(self):
-    #     url = self.url + 'image/'
-    #     imagename = 'hello-world'
-    #     filename = 'hello-world.tar'
-    #     registry_views.client.images.pull(imagename)
-    #     image = registry_views.docker_api.get_image(imagename)
-    #     f = open(filename, 'wb+')
-    #     for chunk in image:
-    #         f.write(chunk)
-    #     f.close()
-    #     f = open(filename, 'rb+')
-    #     response = self.client.post(url, data={'file': f})
-    #     f.close()
-    #     os.remove(filename)
-    #     self.assertEqual(response.status_code, 200)
-    #     response = json.loads(response.content)
-    #     self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
-
-    # def test_image_upload2(self):
-    #     url = self.url + 'image/'
-    #     filename = 'hello-world.tar'
-    #     f = open(filename, 'wb+')
-    #     f.close()
-    #     f = open(filename, 'rb+')
-    #     response = self.client.post(url, data={'file': f})
-    #     f.close()
-    #     os.remove(filename)
-    #     self.assertEqual(response.status_code, 200)
-    #     response = json.loads(response.content)
-    #     self.assertEqual(response['status'], RESPONSE.SERVER_ERROR['status'])
-
-    # def test_image_upload3(self):
-    #     url = self.url + 'image/'
-    #     response = self.client.post(url)
-    #     self.assertEqual(response.status_code, 200)
-    #     response = json.loads(response.content)
-    #     self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
-
-    # # def test_image_upload4(self):
-    # #     url = self.url + 'image/'
-    # #     imagename = 'hello-world'
-    # #     filename = 'hello-world.tar'
-    # #     registry_views.client.images.pull(imagename)
-    # #     image = registry_views.docker_api.get_image(imagename)
-    # #     f = open(filename, 'wb+')
-    # #     for chunk in image:
-    # #         f.write(chunk)
-    # #     f.close()
-    # #     f = open(filename, 'r')
-    # #     response = self.client.post(url, data={'file': f})
-    # #     f.close()
-    # #     os.remove(filename)
-    # #     self.assertEqual(response.status_code, 200)
-    # #     response = json.loads(response.content)
-    # #     self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+    # def test_RepositoryHandler_delete_error1(self):
+    #     response = self.client.delete('/registry/test/test/')
+    #     resp = json.loads(response.content)
+    #     self.assertEqual(resp['status'], RESPONSE.OPERATION_FAILED['status'])

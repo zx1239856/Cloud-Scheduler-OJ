@@ -2,7 +2,8 @@ import logging
 import json
 import re
 import urllib.error
-from urllib.request import Request, urlopen
+from urllib.request import Request
+from urllib.request import urlopen
 import urllib.parse
 import docker
 from django.http import JsonResponse
@@ -19,7 +20,6 @@ LOGGER = logging.getLogger(__name__)
 class ConnectionUtils:
     client = docker.DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
     docker_api = docker.APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-    dxfBase = DXFBase(REGISTRY_ADDRESS)
 
     GET_MANIFEST_TEMPLATE = '{url}/{repo}/manifests/{tag}'
     GET_LAYER_TEMPLATE = '{url}/{repo}/blobs/{digest}'
@@ -92,13 +92,13 @@ class ConnectionUtils:
             if response.status == 200:
                 manifest = self.get_manifest(repo, tag)
                 tag_info['Tag'] = tag
-                tag_info['Size'] = self.get_size_of_layers(repo, tag)
-                tag_info['Layers'] = self.get_number_of_layers(repo, tag)
                 tag_info['Created'] = manifest.get_created_date()
                 tag_info['Entrypoint'] = manifest.get_entrypoint()
                 tag_info['Docker Version'] = manifest.get_docker_version()
                 tag_info['Exposed Ports'] = manifest.get_exposed_ports()
                 tag_info['Volumes'] = manifest.get_volumes()
+                tag_info['Size'] = self.get_size_of_layers(repo, tag)
+                tag_info['Layers'] = self.get_number_of_layers(repo, tag)
                 return tag_info
             else:
                 return None
@@ -125,6 +125,7 @@ class ConnectionUtils:
             dxf = DXF(REGISTRY_ADDRESS, repo)
             images = []
             repo_size = 0
+
             for tag_name in dxf.list_aliases():
                 image = self.get_tag(repo, tag_name)
                 if image is not None:
@@ -138,6 +139,7 @@ class ConnectionUtils:
             return response
         except Exception as ex:
             LOGGER.error(ex)
+            return str(ex)
 
     # urllib request
     def request_registry(self, *args, **kwargs):
@@ -165,12 +167,15 @@ class RegistryHandler(View):
         response = RESPONSE.SUCCESS
         try:
             response['payload']['entity'] = []
-            for repository in self.util.dxfBase.list_repos():
+            dxfBase = DXFBase(REGISTRY_ADDRESS)
+            for repository in dxfBase.list_repos():
                 response['payload']['entity'].append(self.util.get_repository(repository))
             response['payload']['count'] = len(response['payload']['entity'])
             return JsonResponse(response)
         except Exception as ex:
-            LOGGER.error(ex)
+            response = RESPONSE.OPERATION_FAILED
+            response['payload']['error'] = str(ex)
+            return JsonResponse(response)
 
 class RepositoryHandler(View):
     http_method_names = ['get', 'post', 'put', 'delete']
@@ -187,7 +192,9 @@ class RepositoryHandler(View):
             response['payload']['count'] = len(response['payload']['entity'])
             return JsonResponse(response)
         except Exception as ex:
-            LOGGER.error(ex)
+            response = RESPONSE.OPERATION_FAILED
+            response['payload']['error'] = str(ex)
+            return JsonResponse(response)
 
     def post(self, request, **kwargs):
         """
