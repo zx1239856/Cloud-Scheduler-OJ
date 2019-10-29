@@ -63,13 +63,33 @@ class StorageHandler(View):
         @apiUse PermissionDenied
         """
         try:
+            page = int(request.GET.get('page', -1))
             pvc_list = self.api_instance.list_namespaced_persistent_volume_claim(namespace=KUBERNETES_NAMESPACE).items
-            payload = {'count': len(pvc_list), 'entry': []}
-            for pvc in pvc_list:
+            payload = {
+                'count': len(pvc_list),
+                'page_count': (len(pvc_list) + 24) // 25,
+                'entry': []
+            }
+
+            if page < -1 or page > payload['page_count']:
+                if page == 1 and payload['page_count'] == 0:
+                    pass
+                else:
+                    raise ValueError()
+
+            if page >= 0:
+                pvc_list_slice = pvc_list[25 * (page - 1): 25 * page]
+            else:
+                pvc_list_slice = pvc_list
+            for pvc in pvc_list_slice:
                 payload['entry'].append({'name': pvc.metadata.name, 'capacity': pvc.spec.resources.requests['storage'],
-                                         'time': pvc.metadata.creation_timestamp})
+                                         'time': pvc.metadata.creation_timestamp, 'mode': pvc.spec.access_modes[0],
+                                         'status': pvc.status.phase})
             response = RESPONSE.SUCCESS
             response['payload'] = payload
+        except ValueError as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.INVALID_REQUEST
         except Exception as ex:
             LOGGER.error(ex)
             response = RESPONSE.SERVER_ERROR
@@ -252,7 +272,6 @@ class StorageFileHandler(View):
         """
         try:
             page = int(request.GET.get('page', 1))
-
             file_list = FileModel.objects.all().order_by('-uploadtime')
             response = RESPONSE.SUCCESS
             payload = {

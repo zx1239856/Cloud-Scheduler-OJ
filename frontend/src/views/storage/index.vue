@@ -18,7 +18,7 @@
       highlight-current-row
       style="width: 100%;"
     >
-      <el-table-column label="PVC Name" min-width="200" align="center">
+      <el-table-column label="PVC Name" min-width="140" align="center">
         <template slot-scope="scope">
           <span>{{ scope.row.name }}</span>
         </template>
@@ -28,12 +28,22 @@
           <span>{{ scope.row.capacity }}</span>
         </template>
       </el-table-column>
+      <el-table-column label="Access Mode" width="130" align="center">
+        <template slot-scope="scope">
+          <span>{{ scope.row.mode }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="Create Time" width="200" align="center">
         <template slot-scope="scope">
           <span>{{ new Date(scope.row.time).toLocaleString() }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" min-width="200" align="center">
+      <el-table-column label="Status" width="110" align="center">
+        <template slot-scope="scope">
+          <span>{{ scope.row.status }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Actions" min-width="120" align="center">
         <template slot-scope="{row}">
           <el-button type="primary" size="small" @click="handleUpload(row)">
             upload
@@ -249,7 +259,7 @@ export default {
     methods: {
         getList() {
             this.listLoading = true;
-            getPVCList(this.listQuery.page).then(response => {
+            getPVCList(this.listQuery).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
                 this.listLoading = false;
@@ -291,11 +301,6 @@ export default {
             this.deleteDialogVisible = true;
         },
         deletePVC() {
-            this.$message({
-                showClose: true,
-                message: this.selectedData.name,
-                type: 'success'
-            });
             deletePVC({
                 name: this.selectedData.name
             }).then(response => {
@@ -305,6 +310,7 @@ export default {
                     type: 'success'
                 });
                 this.getList();
+                this.deleteDialogVisible = false;
             });
         },
         handleUpload(row) {

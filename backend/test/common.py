@@ -136,7 +136,12 @@ class MockCoreV1Api:
                         'resources':
                             DotDict({
                                 'requests': {'storage': '100Mi'}
-                            })
+                            }),
+                        'access_modes': ['ReadWriteMany']
+                    }),
+                'status':
+                    DotDict({
+                        'phase': "Bound"
                     })
             }))
         return ReturnItemsList(item_list)

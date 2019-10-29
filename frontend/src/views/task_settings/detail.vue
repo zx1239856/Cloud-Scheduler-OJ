@@ -15,7 +15,12 @@
       </el-form-item>
       <el-form-item label="Persistent Volume">
         <el-select v-model="formData.persistent_volume_name" placeholder="cephfs-pvc">
-          <el-option label="cephfs-pvc" value="cephfs-pvc" />
+          <el-option
+            v-for="item in pvcList"
+            :key="item.name"
+            :label="item.name"
+            :value="item.name"
+          />
         </el-select>
       </el-form-item>
       <el-form-item label="Mount Path" prop="persistent_volume_mount_path">
@@ -68,7 +73,7 @@
 
 <script>
 import { getTaskSettings, createTaskSettings, updateTaskSettings } from '@/api/task_settings';
-
+import { getPVCList } from '@/api/storage';
 export default {
     data() {
         return {
@@ -87,6 +92,8 @@ export default {
                 ttl_interval: 3,
                 max_sharing_users: 1
             },
+            pvcList: null,
+            pvcCount: 0,
             dialogRules: {
                 name: [{
                     required: true,
@@ -144,8 +151,15 @@ export default {
                 this.formData = this.toFrontendForm(response.payload);
             });
         }
+        this.getList();
     },
     methods: {
+        getList() {
+            getPVCList({ 'page': -1 }).then(response => {
+                this.pvcList = response.payload.entry;
+                this.pvcCount = response.payload.count;
+            });
+        },
         toBackendForm(form) {
             return {
                 name: form.name,

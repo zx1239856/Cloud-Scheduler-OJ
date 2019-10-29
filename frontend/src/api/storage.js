@@ -30,7 +30,8 @@ export function reuploadFile(query) {
 export function getPVCList(query) {
     return request({
         url: '/storage/',
-        method: 'get'
+        method: 'get',
+        params: query
     });
 }
 
