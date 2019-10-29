@@ -33,7 +33,7 @@ class Mock_WSClient:
     def close(self):
         pass
 
-def mock_stream(_connect_get_namespaced_pod_exec, _name, _namespace, _command, **_):
+def mock_stream(_connect_get_namespaced_pod_exec, _name, _namespace, **_kwargs):
     return Mock_WSClient()
 
 def mock_caching(_self, _file_upload, _pvc_name, _path, _md):
