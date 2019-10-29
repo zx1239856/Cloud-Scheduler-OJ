@@ -2,7 +2,7 @@ import logging
 import json
 import re
 import urllib.error
-import urllib.request
+from urllib.request import Request, urlopen
 import urllib.parse
 import docker
 from django.http import JsonResponse
@@ -21,65 +21,9 @@ class ConnectionUtils:
     docker_api = docker.APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
     dxfBase = DXFBase(REGISTRY_ADDRESS)
 
-    GET_ALL_REPOS_TEMPLATE = '{url}/_catalog'
     GET_MANIFEST_TEMPLATE = '{url}/{repo}/manifests/{tag}'
     GET_LAYER_TEMPLATE = '{url}/{repo}/blobs/{digest}'
     GET_ALL_TAGS_TEMPLATE = '{url}/{repo}/tags/list'
-    HEAD_LAYER_TEMPLATE = '{url}/{repo}/blobs/{digest}'
-    POST_LAYER_TEMPLATE = '{url}/{repo}/blobs/uploads/'
-
-    def delete_tag(self, repo, tag):
-        digest = self.request_registry(
-            self.GET_MANIFEST_TEMPLATE.format(
-                url=REGISTRY_V2_API_ADDRESS,
-                repo=repo,
-                tag=tag
-            ),
-            method='HEAD',
-            headers={'Accept': 'application/vnd.docker.distribution.manifest.v2+json'}
-        ).info()['Docker-Content-Digest']
-
-        try:
-            response = self.request_registry(
-                self.GET_MANIFEST_TEMPLATE.format(
-                    url=REGISTRY_V2_API_ADDRESS,
-                    repo=repo,
-                    tag=digest
-                ),
-                method='DELETE'
-            )
-            print('there')
-            return response.status
-        except Exception as ex:
-            LOGGER.error(ex)
-
-    def check_layer_exist(self, repo, digest):
-        try:
-            response = self.json_request(
-                self.HEAD_LAYER_TEMPLATE.format(
-                    url=REGISTRY_V2_API_ADDRESS,
-                    repo=repo,
-                    digest=digest
-                ),
-                method='HEAD'
-            )
-            return response.status
-        except Exception as ex:
-            LOGGER.error(ex)
-
-    def upload_layer_start(self, repo):
-        try:
-            response = self.json_request(
-                self.POST_LAYER_TEMPLATE.format(
-                    url=REGISTRY_V2_API_ADDRESS,
-                    repo=repo
-                ),
-                method='POST',
-                headers={'Accept': 'application/vnd.docker.distribution.manifest.v2+json'}
-            )
-            return response
-        except Exception as ex:
-            LOGGER.error(ex)
 
     # get the manifest of a specific tagged image
     def get_manifest(self, repo, tag):
@@ -131,15 +75,6 @@ class ConnectionUtils:
 
         return result
 
-    # get the size of a repository
-    def get_size_of_repo(self, repo):
-        result = 0
-
-        for tag in self.get_tags(repo):
-            result += self.get_size_of_layers(repo, tag)
-
-        return result
-
     # get tag information
     def get_tag(self, repo, tag):
         try:
@@ -184,10 +119,6 @@ class ConnectionUtils:
         except Exception as ex:
             LOGGER.error(ex)
 
-    # get number of tags of a repository
-    def get_number_of_tags(self, repo):
-        return len(self.get_tags(repo))
-
     # get information of a repository
     def get_repository(self, repo):
         try:
@@ -210,8 +141,8 @@ class ConnectionUtils:
 
     # urllib request
     def request_registry(self, *args, **kwargs):
-        request = urllib.request.Request(*args, **kwargs)
-        response = urllib.request.urlopen(request, timeout=5)
+        request = Request(*args, **kwargs)
+        response = urlopen(request, timeout=5)
         return response
 
     # decoder of json request

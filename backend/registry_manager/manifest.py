@@ -25,6 +25,7 @@ class DockerRegistryManifest(abc.ABC):
 
 
 class DockerRegistrySchema1Manifest(DockerRegistryManifest):
+    
     def __get_sorted_history(self):
         history = []
 
