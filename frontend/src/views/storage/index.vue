@@ -4,6 +4,9 @@
       <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleCreate">
         Create PVC
       </el-button>
+      <el-button icon="el-icon-time" type="primary" @click="handleUploadHistory(row)">
+        Upload History
+      </el-button>
     </div>
 
     <el-table
@@ -15,29 +18,106 @@
       highlight-current-row
       style="width: 100%;"
     >
-      <el-table-column label="PVC Name" width="200" align="center">
+      <el-table-column label="PVC Name" min-width="200" align="center">
         <template slot-scope="scope">
           <span>{{ scope.row.name }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Capacity" min-width="300" align="center">
+      <el-table-column label="Capacity" width="100" align="center">
         <template slot-scope="scope">
           <span>{{ scope.row.capacity }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Create Time" min-width="300" align="center">
+      <el-table-column label="Create Time" width="200" align="center">
         <template slot-scope="scope">
           <span>{{ new Date(scope.row.time).toLocaleString() }}</span>
         </template>
       </el-table-column>
-      <el-table-column width="100" align="center">
+      <el-table-column label="Actions" min-width="200" align="center">
         <template slot-scope="{row}">
+          <el-button type="primary" size="small" @click="handleUpload(row)">
+            upload
+            <i class="el-icon-upload el-icon--right" />
+          </el-button>
           <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name == 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
         </template>
       </el-table-column>
     </el-table>
 
     <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
+
+    <el-dialog :title="dialogType" :visible.sync="dialogUploadVisible">
+      <el-form ref="dialogForm" :model="dialogFileData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
+        <el-form-item label="file" prop="file">
+          <el-upload
+            action="no"
+            multiple
+            :http-request="getFile"
+          >
+            <i class="el-icon-plus" />
+          </el-upload>
+        </el-form-item>
+        <el-form-item label="path" prop="path">
+          <el-input v-model="dialogFileData.path" />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="handleUploadCancel">
+          Cancel
+        </el-button>
+        <el-button type="primary" @click="handleUploadConfirm">
+          Upload
+        </el-button>
+      </div>
+    </el-dialog>
+    <el-dialog title="Upload History" :visible.sync="dialogHistoryVisible">
+
+      <div>
+        <el-table
+          :key="historyList.tableKey"
+          v-loading="historyList.listLoading"
+          :data="historyList.list"
+          border
+          fit
+          highlight-current-row
+          style="width: 100%;"
+        >
+          <el-table-column label="File Name" width="100" align="center" height="10">
+            <template slot-scope="scope">
+              <span>{{ scope.row.name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Storage" min-width="100" align="center">
+            <template slot-scope="scope">
+              <span>{{ scope.row.pvc }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Target Path" min-width="100" align="center">
+            <template slot-scope="scope">
+              <span>{{ scope.row.path }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Upload Time" min-width="150" align="center">
+            <template slot-scope="scope">
+              <span>{{ scope.row.time }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Status" class-name="status-col" width="110" align="center">
+            <template slot-scope="{row}">
+              <el-tag :type="row.status | statusFilter">
+                {{ statusMap[row.status] }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+        <pagination v-show="historyList.total>0" :total="historyList.total" :page.sync="historyList.listQuery.page" :limit.sync="historyList.listQuery.limit" :page-sizes="historyList.pageSizes" @pagination="getHistoryList" />
+        <div align="right">
+          <el-button type="primary" icon="el-icon-refresh" @click="handleReupload">
+            Re-upload
+          </el-button>
+        </div>
+      </div>
+    </el-dialog>
 
     <el-dialog :title="dialogType" :visible.sync="dialogFormVisible">
       <el-form ref="dialogForm" :rules="dialogRules" :model="dialogData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
@@ -73,7 +153,7 @@
 </template>
 
 <script>
-import { getPVCList, createPVC, deletePVC } from '@/api/storage';
+import { getPVCList, createPVC, deletePVC, uploadFile, getFileList, reuploadFile } from '@/api/storage';
 import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 import { mapGetters } from 'vuex';
@@ -88,6 +168,8 @@ export default {
             dialogType: 'Create',
             dialogFormVisible: false,
             deleteDialogVisible: false,
+            dialogUploadVisible: false,
+            dialogHistoryVisible: false,
             selectedData: {
                 name: ''
             },
@@ -99,6 +181,11 @@ export default {
             listQuery: {
                 page: 1,
                 limit: 25
+            },
+            dialogFileData: {
+                file: [],
+                pvc: '',
+                path: ''
             },
             dialogData: {
                 name: '',
@@ -115,6 +202,38 @@ export default {
                     message: 'capacity is required',
                     trigger: 'change'
                 }]
+            },
+            historyList: {
+                tableKey: 0,
+                list: null,
+                total: 0,
+                listLoading: true,
+                pageSizes: [25],
+                listQuery: {
+                    page: 1,
+                    limit: 25
+                }
+            },
+            statusMap: {
+                0: 'Pending',
+                1: 'Caching',
+                2: 'Cached',
+                3: 'Uploading',
+                4: 'Succeeded',
+                5: 'Failed'
+            },
+            filters: {
+                statusFilter(status) {
+                    const map = {
+                        0: 'warning',
+                        1: 'info',
+                        2: 'info',
+                        3: 'info',
+                        4: 'success',
+                        5: 'danger'
+                    };
+                    return map[status];
+                }
             }
         };
     },
@@ -125,6 +244,7 @@ export default {
     },
     created() {
         this.getList();
+        this.getHistoryList();
     },
     methods: {
         getList() {
@@ -185,6 +305,71 @@ export default {
                     type: 'success'
                 });
                 this.getList();
+            });
+        },
+        handleUpload(row) {
+            this.dialogUploadVisible = true;
+            this.dialogType = 'Upload';
+            this.dialogFileData.pvc = row.name;
+        },
+        handleUploadConfirm() {
+            if (this.dialogFileData.file.length === 0) {
+                this.$message({
+                    showClose: true,
+                    message: 'file required',
+                    type: 'error'
+                });
+                return false;
+            }
+            this.uploading();
+        },
+        getFile(item) {
+            this.dialogFileData.file.push(item.file);
+        },
+        uploading() {
+            this.dialogUploadVisible = false;
+            var formData = new FormData();
+
+            for (var f of this.dialogFileData.file) {
+                formData.append('file[]', f);
+            }
+
+            formData.append('pvcName', this.dialogFileData.pvc);
+            formData.append('mountPath', this.dialogFileData.path);
+
+            uploadFile(formData).then(response => {
+                this.$message({
+                    showClose: true,
+                    message: 'File Uploading',
+                    type: 'success'
+                });
+                this.getHistoryList();
+            });
+        },
+        handleUploadCancel() {
+            this.dialogUploadVisible = false;
+            this.dialogFileData.pvc = '';
+        },
+        getHistoryList() {
+            this.historyList.listLoading = true;
+            getFileList(this.historyList.listQuery).then(response => {
+                this.historyList.list = response.payload.entry;
+                this.historyList.total = response.payload.count;
+                this.historyList.listLoading = false;
+            });
+        },
+        handleUploadHistory(row) {
+            this.getHistoryList();
+            this.dialogHistoryVisible = true;
+        },
+        handleReupload() {
+            reuploadFile({}).then(response => {
+                this.$message({
+                    showClose: true,
+                    message: 'File ReUploading',
+                    type: 'success'
+                });
+                this.getHistoryList();
             });
         }
     }
