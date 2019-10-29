@@ -16,6 +16,11 @@
               Home
             </el-dropdown-item>
           </router-link>
+          <router-link to="/profile/">
+            <el-dropdown-item>
+              Profile
+            </el-dropdown-item>
+          </router-link>
           <a target="_blank" href="https://gitlab.secoder.net/SIGQUIT/cloud-scheduler">
             <el-dropdown-item>GitLab</el-dropdown-item>
           </a>
