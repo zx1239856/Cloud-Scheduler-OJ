@@ -12,6 +12,7 @@ import hashlib
 from threading import Thread
 from django.views import View
 from django.http import JsonResponse
+from django.utils.decorators import method_decorator
 from kubernetes import client
 from kubernetes.stream import stream
 from kubernetes.stream.ws_client import six, ABNF, STDIN_CHANNEL
@@ -21,6 +22,7 @@ from api.common import RESPONSE
 from api.common import getKubernetesAPIClient
 from config import KUBERNETES_NAMESPACE
 from storage.models import FileModel, FileStatusCode
+from user_model.views import permission_required
 
 LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +45,7 @@ class StorageHandler(View):
         super().__init__(**kwargs)
         self.api_instance = CoreV1Api(getKubernetesAPIClient())
 
+    @method_decorator(permission_required)
     def get(self, request, **_):
         """
         @api {get} /storage/ Get PVC list
@@ -63,18 +66,39 @@ class StorageHandler(View):
         @apiUse PermissionDenied
         """
         try:
+            page = int(request.GET.get('page', -1))
             pvc_list = self.api_instance.list_namespaced_persistent_volume_claim(namespace=KUBERNETES_NAMESPACE).items
-            payload = {'count': len(pvc_list), 'entry': []}
-            for pvc in pvc_list:
+            payload = {
+                'count': len(pvc_list),
+                'page_count': (len(pvc_list) + 24) // 25,
+                'entry': []
+            }
+
+            if page < -1 or page > payload['page_count']:
+                if page == 1 and payload['page_count'] == 0:
+                    pass
+                else:
+                    raise ValueError()
+
+            if page >= 0:
+                pvc_list_slice = pvc_list[25 * (page - 1): 25 * page]
+            else:
+                pvc_list_slice = pvc_list
+            for pvc in pvc_list_slice:
                 payload['entry'].append({'name': pvc.metadata.name, 'capacity': pvc.spec.resources.requests['storage'],
-                                         'time': pvc.metadata.creation_timestamp})
+                                         'time': pvc.metadata.creation_timestamp, 'mode': pvc.spec.access_modes[0],
+                                         'status': pvc.status.phase})
             response = RESPONSE.SUCCESS
             response['payload'] = payload
+        except ValueError as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.INVALID_REQUEST
         except Exception as ex:
             LOGGER.error(ex)
             response = RESPONSE.SERVER_ERROR
         return JsonResponse(response)
 
+    @method_decorator(permission_required)
     def post(self, request, **_):
         """
         @api {post} /storage/ Create a PVC
@@ -135,6 +159,7 @@ class StorageHandler(View):
 
         return JsonResponse(response)
 
+    @method_decorator(permission_required)
     def delete(self, request, **_):
         """
         @api {delete} /storage/ Delete a PV claim
@@ -181,6 +206,7 @@ class StorageFileHandler(View):
         self.save_dir = "storage/data/"
         self.api_instance = CoreV1Api(getKubernetesAPIClient())
 
+    @method_decorator(permission_required)
     def put(self, request, **_):
         """
         @api {post} /storage/upload_file/ re-upload cached files
@@ -207,13 +233,13 @@ class StorageFileHandler(View):
             if f.status == 0:
                 FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED)
                 try:
-                    self.api_instance.delete_namespaced_pod(pod_name, KUBERNETES_NAMESPACE)
+                    self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
                 except ApiException as ex:
                     LOGGER.warning(ex)
             elif f.status == 1:
                 FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED)
                 try:
-                    self.api_instance.delete_namespaced_pod(pod_name, KUBERNETES_NAMESPACE)
+                    self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
                 except ApiException as ex:
                     LOGGER.warning(ex)
             elif f.status == 2 or f.status == 3:
@@ -223,10 +249,11 @@ class StorageFileHandler(View):
                 uploading.start()
             elif f.status == 4:
                 try:
-                    self.api_instance.delete_namespaced_pod(pod_name, KUBERNETES_NAMESPACE)
+                    self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
                 except ApiException as ex:
                     LOGGER.warning(ex)
 
+    @method_decorator(permission_required)
     def get(self, request, **_):
         """
         @api {post} /storage/upload_file/ get uploading file list
@@ -252,7 +279,6 @@ class StorageFileHandler(View):
         """
         try:
             page = int(request.GET.get('page', 1))
-
             file_list = FileModel.objects.all().order_by('-uploadtime')
             response = RESPONSE.SUCCESS
             payload = {
@@ -278,6 +304,7 @@ class StorageFileHandler(View):
         except ValueError:
             return JsonResponse(RESPONSE.INVALID_REQUEST)
 
+    @method_decorator(permission_required)
     def post(self, request, **_):
         """
         @api {post} /storage/upload_file/ Upload a file into a pvc storage
@@ -286,7 +313,7 @@ class StorageFileHandler(View):
         @apiVersion 0.1.0
         @apiParamExample {json} Request-Example:
         {
-            "file": [FILE],
+            "file[]": [FILE1, FILE2, ...],
             "pvcName": "mypvc",
             "mountPath": "data/"
         }
@@ -304,9 +331,9 @@ class StorageFileHandler(View):
         """
         try:
             files = request.FILES.getlist('file[]', None)
-            if files is None:
+            if files is None or not files:
                 response = RESPONSE.INVALID_REQUEST
-                response['message'] += " File is empty."
+                response['message'] += " file[] is empty."
                 return JsonResponse(response)
             pvc_name = request.POST.get('pvcName', None)
             path = request.POST.get('mountPath', None)
@@ -315,6 +342,7 @@ class StorageFileHandler(View):
         except AssertionError:
             response = RESPONSE.INVALID_REQUEST
             return JsonResponse(response)
+
         # check if pvc exists
         try:
             self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name,
@@ -322,7 +350,7 @@ class StorageFileHandler(View):
         except ApiException as ex:
             LOGGER.warning(ex)
             response = RESPONSE.OPERATION_FAILED
-            response['message'] += " PVC {} does not exist in namespaced {}".format(pvc_name, KUBERNETES_NAMESPACE)
+            response['message'] += " PVC {} does not exist in namespaced {}.".format(pvc_name, KUBERNETES_NAMESPACE)
             return JsonResponse(response)
 
         # create if namespace does not exist
@@ -333,6 +361,7 @@ class StorageFileHandler(View):
                                                                       labels={"name": KUBERNETES_NAMESPACE})))
         except ApiException as ex:
             LOGGER.warning(ex)
+
         for file_upload in files:
             # record file
             upload_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -385,9 +414,6 @@ class StorageFileHandler(View):
             LOGGER.warning("Kubernetes ApiException %d: %s", e.status, e.reason)
             if e.status != 409:
                 return
-        except ValueError as e:
-            LOGGER.warning(e)
-            return
         except Exception as e:
             LOGGER.error(e)
 
@@ -398,29 +424,24 @@ class StorageFileHandler(View):
         except ApiException as e:
             LOGGER.warning("Kubernetes ApiException %d: %s", e.status, e.reason)
             return
-        except ValueError as e:
-            LOGGER.warning(e)
-            return
         except Exception as e:
             LOGGER.error(e)
             return
 
-        try:
-            # create file dir
-            exec_command = ['mkdir', '/cephfs-data/' + path]
-            _ = stream(self.api_instance.connect_get_namespaced_pod_exec, pod_name, KUBERNETES_NAMESPACE,
-                       command=exec_command,
-                       stderr=True, stdin=False, stdout=True, tty=False, _preload_content=False)
+        error = False
 
+        try:
+            if path[-1] != '/':
+                path += '/'
             FileModel.objects.filter(hashid=md).update(status=FileStatusCode.UPLOADING)
-            exec_command = ['tar', 'xvf', '-', '-C', '/cephfs-data/' + path]
+            exec_command = ['tar', 'xvf', '-', '-C', '/cephfs-data/']
             resp = stream(self.api_instance.connect_get_namespaced_pod_exec, pod_name, KUBERNETES_NAMESPACE,
                           command=exec_command,
                           stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
             resp.write_channel = types.MethodType(write_channel, resp)
             with TemporaryFile() as tar_buffer:
                 with tarfile.open(fileobj=tar_buffer, mode='w') as tar:
-                    tar.add(self.save_dir + file_name, arcname=file_name)
+                    tar.add(self.save_dir + file_name, arcname=path + file_name)
 
                 tar_buffer.seek(0)
                 commands = [tar_buffer.read()]
@@ -439,6 +460,7 @@ class StorageFileHandler(View):
                 resp.close()
         except Exception as e:
             LOGGER.error(e)
+            error = True
 
         # delete pod when finished
         try:
@@ -450,5 +472,9 @@ class StorageFileHandler(View):
         if os.path.exists(self.save_dir + file_name):
             os.remove(self.save_dir + file_name)
 
-        FileModel.objects.filter(hashid=md).update(status=FileStatusCode.SUCCEEDED)
-        LOGGER.info("File uploaded successfully.")
+        if error:
+            FileModel.objects.filter(hashid=md).update(status=FileStatusCode.FAILED)
+            LOGGER.info("File uploading failed.")
+        else:
+            FileModel.objects.filter(hashid=md).update(status=FileStatusCode.SUCCEEDED)
+            LOGGER.info("File uploaded successfully.")

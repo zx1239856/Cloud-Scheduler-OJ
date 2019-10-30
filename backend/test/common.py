@@ -4,6 +4,7 @@ import random
 from django.test import Client, TestCase
 from kubernetes.stream import ws_client
 from kubernetes.client.rest import ApiException
+from kubernetes.client.api_client import ApiClient
 from user_model.models import UserModel, UserType
 from task_manager.views import getUUID
 
@@ -22,7 +23,6 @@ def loginTestUser(user):
 
 def mockGetK8sClient():
     return 1
-
 
 class TestCaseWithBasicUser(TestCase):
     def setUp(self):
@@ -67,6 +67,7 @@ class MockCoreV1Api:
     def __init__(self, _):
         self.pod_dict = {}
         self.pvc_list = []
+        self.api_client = ApiClient()
 
     def list_namespaced_pod(self, **kwargs):
         label_selector = kwargs['label_selector']
@@ -129,7 +130,12 @@ class MockCoreV1Api:
                         'resources':
                             DotDict({
                                 'requests': {'storage': '100Mi'}
-                            })
+                            }),
+                        'access_modes': ['ReadWriteMany']
+                    }),
+                'status':
+                    DotDict({
+                        'phase': "Bound"
                     })
             }))
         return ReturnItemsList(item_list)
@@ -168,8 +174,7 @@ class MockCoreV1Api:
     def read_namespaced_pod_status(*_, **__):
         return DotDict({'status': DotDict({'phase': 'Running'})})
 
-    @staticmethod
-    def connect_get_namespaced_pod_exec(**_):
+    def connect_get_namespaced_pod_exec(self, _name, _namespace, _command, **_):
         pass
 
 

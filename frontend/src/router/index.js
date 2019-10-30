@@ -124,19 +124,12 @@ export const constantRoutes = [
         component: Layout,
         meta: { title: 'Storage', icon: 'storage' },
         children: [{
-            path: 'index',
-            name: 'files',
-            component: () => import('@/views/files/index'),
-            meta: { title: 'File Upload History' }
-        },
-        {
-            path: 'pvc',
-            name: 'PV claims',
+            path: 'storage',
+            name: 'Storage',
             component: () => import('@/views/storage/index'),
-            meta: { title: 'PV claims' }
+            meta: { title: 'Storage', icon: 'storage' }
         }]
     },
-
     {
         path: '/registry',
         name: 'registry',
