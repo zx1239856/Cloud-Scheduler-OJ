@@ -4,6 +4,7 @@ KUBERNETES_CLUSTER_TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5
 KUBERNETES_API_SERVER_URL = "https://152.136.222.117:30000"
 KUBERNETES_NAMESPACE = "cloud-scheduler"
 DEBUG = True
+SECRET_KEY = '(t@s1tb(r%^7q0s6^$%vfzb!)5(=ywp3(%vu0d0gwidsdizkav'
 
 USER_TOKEN_EXPIRE_TIME = 900  # in seconds
 
@@ -13,6 +14,7 @@ REGISTRY_V2_API_ADDRESS = "https://registry.dropthu.online:30443/v2"
 
 DAEMON_WORKERS = 2
 TASK_DISPATCH_WORKERS = 4
+IPC_PORT = 50000
 
 CEPH_STORAGE_CLASS_NAME = "csi-cephfs"
 GLOBAL_TASK_TIME_LIMIT = 3600  # one hour

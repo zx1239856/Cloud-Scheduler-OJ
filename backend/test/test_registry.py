@@ -6,7 +6,7 @@ import json
 import mock
 from api.common import RESPONSE
 import registry_manager.views as registry_views
-from .common import MockRequest, MockUrlOpen, MockDXF, MockDXFBase, MockJsonRequest, MockGetTags, MockDockerClient, MockAPIClient, TestCaseWithBasicUser, loginTestUser
+from .common import MockRequest, MockUrlOpen, MockDXF, MockDXFBase, MockJsonRequest, MockGetTags, MockDockerClient, MockAPIClient, TestCaseWithBasicUser, login_test_user
 
 class TestRegistryHandler(TestCaseWithBasicUser):
     @mock.patch.object(registry_views, 'Request', MockRequest)
@@ -15,7 +15,7 @@ class TestRegistryHandler(TestCaseWithBasicUser):
     @mock.patch.object(registry_views, 'DXF', MockDXF)
     @mock.patch.object(registry_views.ConnectionUtils, 'json_request', MockJsonRequest)
     def test_RegistryHandler_get(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.get('/registry/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         resp = json.loads(response.content)
         self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])
@@ -28,7 +28,7 @@ class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views.ConnectionUtils, 'json_request', MockJsonRequest)
     @mock.patch.object(registry_views.ConnectionUtils, 'get_tags', MockGetTags)
     def test_RepositoryHandler_get(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.get('/registry/test_repo/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         resp = json.loads(response.content)
         self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])
@@ -53,7 +53,7 @@ class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views, 'DXF', MockDXF)
     @mock.patch.object(registry_views.ConnectionUtils, 'get_tags', MockGetTags)
     def test_RepositoryHandler_get_2(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.get('/registry/test_repo/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         resp = json.loads(response.content)
         self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])
@@ -66,7 +66,7 @@ class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views, 'DockerClient', MockDockerClient)
     @mock.patch.object(registry_views, 'APIClient', MockAPIClient)
     def test_RepositoryHandler_post(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         f = open('test.tar', 'w')
         f.close()
         f = open('test.tar', 'r')
@@ -84,7 +84,7 @@ class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views, 'DockerClient', MockDockerClient)
     @mock.patch.object(registry_views, 'APIClient', MockAPIClient)
     def test_RepositoryHandler_post_error1(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.post('/registry/upload/', data={}, HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
@@ -96,7 +96,7 @@ class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views.ConnectionUtils, 'json_request', MockJsonRequest)
     @mock.patch.object(registry_views.ConnectionUtils, 'get_tags', MockGetTags)
     def test_RepositoryHandler_delete(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.delete('/registry/test/test/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         resp = json.loads(response.content)
         self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])

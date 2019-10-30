@@ -2,7 +2,7 @@ import logging
 from django.http import JsonResponse
 from django.views import View
 from kubernetes.client import CoreV1Api
-from api.common import RESPONSE, getKubernetesAPIClient
+from api.common import RESPONSE, get_kubernetes_api_client
 
 LOGGER = logging.getLogger(__name__)
 
@@ -16,8 +16,8 @@ class PodListHandler(View):
             params = request.GET
             page = params.get('page', '1')
             page = int(page)
-            v1 = CoreV1Api(getKubernetesAPIClient())
-            ret = v1.list_pod_for_all_namespaces(watch=False)
+            api = CoreV1Api(get_kubernetes_api_client())
+            ret = api.list_pod_for_all_namespaces(watch=False)
             response['payload'] = {
                 'count': len(ret.items),
                 'page_count': (len(ret.items) + 24) // 25,

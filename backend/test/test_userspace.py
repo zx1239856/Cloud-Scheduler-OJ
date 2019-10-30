@@ -4,7 +4,7 @@ from kubernetes.stream import ws_client
 from api.common import RESPONSE
 import user_space.views as views
 from task_manager.models import TaskSettings
-from .common import loginTestUser, TestCaseWithBasicUser, MockCoreV1Api, MockTaskExecutor, MockWSClient
+from .common import login_test_user, TestCaseWithBasicUser, MockCoreV1Api, MockTaskExecutor, MockWSClient
 
 
 class MockWsClientUserSpace(MockWSClient):
@@ -47,8 +47,8 @@ class TestUserSpace(TestCaseWithBasicUser):
                                                          max_sharing_users=1)
 
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
-    def testGetFilesInvalidRequest(self):
-        token = loginTestUser('admin')
+    def test_get_files_invalid_request(self):
+        token = login_test_user('admin')
         response = self.client.get('/user_space/my_uuid/', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -56,8 +56,8 @@ class TestUserSpace(TestCaseWithBasicUser):
         self.assertTrue(response['status'], RESPONSE.INVALID_REQUEST)
 
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
-    def testNullExecutor(self):
-        token = loginTestUser('admin')
+    def test_null_executor(self):
+        token = login_test_user('admin')
         response = self.client.get('/user_space/my_uuid/', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -65,8 +65,8 @@ class TestUserSpace(TestCaseWithBasicUser):
         self.assertTrue(response['status'], RESPONSE.OPERATION_FAILED)
 
     @mock.patch.object(views, 'TaskExecutor', MockNullPodExecutor)
-    def testNullPod(self):
-        token = loginTestUser('admin')
+    def test_null_pod(self):
+        token = login_test_user('admin')
         response = self.client.get('/user_space/my_uuid/', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -74,8 +74,8 @@ class TestUserSpace(TestCaseWithBasicUser):
         self.assertTrue(response['status'], RESPONSE.OPERATION_FAILED)
 
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
-    def testInvalidTaskSettings(self):
-        token = loginTestUser('admin')
+    def test_invalid_task_settings(self):
+        token = login_test_user('admin')
         response = self.client.post('/user_space/invalid_uuid/', data='invalid_json',
                                     content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
                                     HTTP_X_ACCESS_TOKEN=token,
@@ -85,8 +85,8 @@ class TestUserSpace(TestCaseWithBasicUser):
         self.assertTrue(response['status'], RESPONSE.OPERATION_FAILED)
 
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
-    def testPostFilesInvalidRequest(self):
-        token = loginTestUser('admin')
+    def test_post_files_invalid_request(self):
+        token = login_test_user('admin')
         response = self.client.post('/user_space/my_uuid/', data='invalid_json',
                                     content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
                                     HTTP_X_ACCESS_TOKEN=token,
@@ -96,8 +96,8 @@ class TestUserSpace(TestCaseWithBasicUser):
         self.assertTrue(response['status'], RESPONSE.INVALID_REQUEST)
 
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
-    def testPutFilesInvalidRequest(self):
-        token = loginTestUser('admin')
+    def test_put_files_invalid_request(self):
+        token = login_test_user('admin')
         response = self.client.post('/user_space/my_uuid/', data=json.dumps({
             'old_file': 'old_file',
             'path': 'path'
@@ -109,8 +109,8 @@ class TestUserSpace(TestCaseWithBasicUser):
         self.assertTrue(response['status'], RESPONSE.INVALID_REQUEST)
 
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
-    def testFileCRUD(self):
-        token = loginTestUser('admin')
+    def test_file_crud(self):
+        token = login_test_user('admin')
         response = self.client.get('/user_space/my_uuid/?file=~/a.cpp',
                                    HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
@@ -146,8 +146,8 @@ class TestUserSpace(TestCaseWithBasicUser):
         self.assertTrue(response['status'], RESPONSE.SUCCESS)
 
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
-    def testPathCRUD(self):
-        token = loginTestUser('admin')
+    def test_path_crud(self):
+        token = login_test_user('admin')
         response = self.client.get('/user_space/my_uuid/?path=~/a.cpp',
                                    HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
@@ -183,8 +183,8 @@ class TestUserSpace(TestCaseWithBasicUser):
 
     @mock.patch.object(views, 'stream', mock_bad_stream)
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
-    def testCommandFailure(self):
-        token = loginTestUser('admin')
+    def test_command_failure(self):
+        token = login_test_user('admin')
         response = self.client.get('/user_space/my_uuid/?path=~/a.cpp',
                                    HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
