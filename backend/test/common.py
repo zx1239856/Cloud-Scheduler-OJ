@@ -69,7 +69,7 @@ class MockCoreV1Api:
         self.api_client = ApiClient()
 
     def list_namespaced_pod(self, **kwargs):
-        label_selector = kwargs['label_selector']
+        label_selector = kwargs.get('label_selector', 'pod_label_selector')
         namespace = kwargs['namespace']
         if label_selector not in self.pod_dict.keys():
             self.pod_dict[label_selector] = 'Pending'
@@ -85,7 +85,11 @@ class MockCoreV1Api:
                 'creation_timestamp': '000',
                 'uid': 'uid_test',
             }),
-            'spec': DotDict({'node_name': 'test_node'})
+            'spec':
+                DotDict({
+                    'node_name': 'test_node',
+                    'volumes': [DotDict({}), DotDict({'persistent_volume_claim': DotDict({'claim_name': 'test-pvc-using'})})]
+                })
         })]
         return ReturnItemsList(item_list)
 
