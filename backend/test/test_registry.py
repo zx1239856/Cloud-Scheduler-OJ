@@ -4,31 +4,32 @@ Unit Test for Registry
 import os
 import json
 import mock
-from django.test import TestCase
 from api.common import RESPONSE
 import registry_manager.views as registry_views
-from .common import MockRequest, MockUrlOpen, MockDXF, MockDXFBase, MockJsonRequest, MockGetTags, MockDockerClient, MockAPIClient
+from .common import MockRequest, MockUrlOpen, MockDXF, MockDXFBase, MockJsonRequest, MockGetTags, MockDockerClient, MockAPIClient, TestCaseWithBasicUser, loginTestUser
 
-class TestRegistryHandler(TestCase):
+class TestRegistryHandler(TestCaseWithBasicUser):
     @mock.patch.object(registry_views, 'Request', MockRequest)
     @mock.patch.object(registry_views, 'urlopen', MockUrlOpen)
     @mock.patch.object(registry_views, 'DXFBase', MockDXFBase)
     @mock.patch.object(registry_views, 'DXF', MockDXF)
     @mock.patch.object(registry_views.ConnectionUtils, 'json_request', MockJsonRequest)
     def test_RegistryHandler_get(self):
-        response = self.client.get('/registry/')
+        token = loginTestUser('admin')
+        response = self.client.get('/registry/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         resp = json.loads(response.content)
         self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])
         self.assertEqual(resp['payload']['entity'], [{'NumberOfTags': 1, 'Repo': 'test_repo', 'SizeOfRepository': 0}])
 
-class TestRepositoryHander(TestCase):
+class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views, 'Request', MockRequest)
     @mock.patch.object(registry_views, 'urlopen', MockUrlOpen)
     @mock.patch.object(registry_views, 'DXF', MockDXF)
     @mock.patch.object(registry_views.ConnectionUtils, 'json_request', MockJsonRequest)
     @mock.patch.object(registry_views.ConnectionUtils, 'get_tags', MockGetTags)
     def test_RepositoryHandler_get(self):
-        response = self.client.get('/registry/test_repo/')
+        token = loginTestUser('admin')
+        response = self.client.get('/registry/test_repo/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         resp = json.loads(response.content)
         self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])
         self.assertEqual(
@@ -52,7 +53,8 @@ class TestRepositoryHander(TestCase):
     @mock.patch.object(registry_views, 'DXF', MockDXF)
     @mock.patch.object(registry_views.ConnectionUtils, 'get_tags', MockGetTags)
     def test_RepositoryHandler_get_2(self):
-        response = self.client.get('/registry/test_repo/')
+        token = loginTestUser('admin')
+        response = self.client.get('/registry/test_repo/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         resp = json.loads(response.content)
         self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])
 
@@ -64,10 +66,11 @@ class TestRepositoryHander(TestCase):
     @mock.patch.object(registry_views, 'DockerClient', MockDockerClient)
     @mock.patch.object(registry_views, 'APIClient', MockAPIClient)
     def test_RepositoryHandler_post(self):
+        token = loginTestUser('admin')
         f = open('test.tar', 'w')
         f.close()
         f = open('test.tar', 'r')
-        response = self.client.post('/registry/upload/', data={'file[]': [f]})
+        response = self.client.post('/registry/upload/', data={'file[]': [f]}, HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
@@ -81,7 +84,8 @@ class TestRepositoryHander(TestCase):
     @mock.patch.object(registry_views, 'DockerClient', MockDockerClient)
     @mock.patch.object(registry_views, 'APIClient', MockAPIClient)
     def test_RepositoryHandler_post_error1(self):
-        response = self.client.post('/registry/upload/', data={})
+        token = loginTestUser('admin')
+        response = self.client.post('/registry/upload/', data={}, HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
@@ -92,6 +96,7 @@ class TestRepositoryHander(TestCase):
     @mock.patch.object(registry_views.ConnectionUtils, 'json_request', MockJsonRequest)
     @mock.patch.object(registry_views.ConnectionUtils, 'get_tags', MockGetTags)
     def test_RepositoryHandler_delete(self):
-        response = self.client.delete('/registry/test/test/')
+        token = loginTestUser('admin')
+        response = self.client.delete('/registry/test/test/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         resp = json.loads(response.content)
         self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])
