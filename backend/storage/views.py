@@ -12,6 +12,7 @@ import hashlib
 from threading import Thread
 from django.views import View
 from django.http import JsonResponse
+from django.utils.decorators import method_decorator
 from kubernetes import client
 from kubernetes.stream import stream
 from kubernetes.stream.ws_client import six, ABNF, STDIN_CHANNEL
@@ -21,6 +22,7 @@ from api.common import RESPONSE
 from api.common import getKubernetesAPIClient
 from config import KUBERNETES_NAMESPACE
 from storage.models import FileModel, FileStatusCode
+from user_model.views import permission_required
 
 LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +45,7 @@ class StorageHandler(View):
         super().__init__(**kwargs)
         self.api_instance = CoreV1Api(getKubernetesAPIClient())
 
+    @method_decorator(permission_required)
     def get(self, request, **_):
         """
         @api {get} /storage/ Get PVC list
@@ -95,6 +98,7 @@ class StorageHandler(View):
             response = RESPONSE.SERVER_ERROR
         return JsonResponse(response)
 
+    @method_decorator(permission_required)
     def post(self, request, **_):
         """
         @api {post} /storage/ Create a PVC
@@ -155,6 +159,7 @@ class StorageHandler(View):
 
         return JsonResponse(response)
 
+    @method_decorator(permission_required)
     def delete(self, request, **_):
         """
         @api {delete} /storage/ Delete a PV claim
@@ -201,6 +206,7 @@ class StorageFileHandler(View):
         self.save_dir = "storage/data/"
         self.api_instance = CoreV1Api(getKubernetesAPIClient())
 
+    @method_decorator(permission_required)
     def put(self, request, **_):
         """
         @api {post} /storage/upload_file/ re-upload cached files
@@ -247,6 +253,7 @@ class StorageFileHandler(View):
                 except ApiException as ex:
                     LOGGER.warning(ex)
 
+    @method_decorator(permission_required)
     def get(self, request, **_):
         """
         @api {post} /storage/upload_file/ get uploading file list
@@ -297,6 +304,7 @@ class StorageFileHandler(View):
         except ValueError:
             return JsonResponse(RESPONSE.INVALID_REQUEST)
 
+    @method_decorator(permission_required)
     def post(self, request, **_):
         """
         @api {post} /storage/upload_file/ Upload a file into a pvc storage
