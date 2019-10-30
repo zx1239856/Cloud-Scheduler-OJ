@@ -420,22 +420,20 @@ class StorageFileHandler(View):
             LOGGER.error(e)
             return
 
-        try:
-            # create file dir
-            exec_command = ['mkdir', '/cephfs-data/' + path]
-            _ = stream(self.api_instance.connect_get_namespaced_pod_exec, pod_name, KUBERNETES_NAMESPACE,
-                       command=exec_command,
-                       stderr=True, stdin=False, stdout=True, tty=False, _preload_content=False)
+        error = False
 
+        try:
+            if path[-1] != '/':
+                path += '/'
             FileModel.objects.filter(hashid=md).update(status=FileStatusCode.UPLOADING)
-            exec_command = ['tar', 'xvf', '-', '-C', '/cephfs-data/' + path]
+            exec_command = ['tar', 'xvf', '-', '-C', '/cephfs-data/']
             resp = stream(self.api_instance.connect_get_namespaced_pod_exec, pod_name, KUBERNETES_NAMESPACE,
                           command=exec_command,
                           stderr=True, stdin=True, stdout=True, tty=False, _preload_content=False)
             resp.write_channel = types.MethodType(write_channel, resp)
             with TemporaryFile() as tar_buffer:
                 with tarfile.open(fileobj=tar_buffer, mode='w') as tar:
-                    tar.add(self.save_dir + file_name, arcname=file_name)
+                    tar.add(self.save_dir + file_name, arcname=path + file_name)
 
                 tar_buffer.seek(0)
                 commands = [tar_buffer.read()]
@@ -454,6 +452,7 @@ class StorageFileHandler(View):
                 resp.close()
         except Exception as e:
             LOGGER.error(e)
+            error = True
 
         # delete pod when finished
         try:
@@ -465,5 +464,9 @@ class StorageFileHandler(View):
         if os.path.exists(self.save_dir + file_name):
             os.remove(self.save_dir + file_name)
 
-        FileModel.objects.filter(hashid=md).update(status=FileStatusCode.SUCCEEDED)
-        LOGGER.info("File uploaded successfully.")
+        if error:
+            FileModel.objects.filter(hashid=md).update(status=FileStatusCode.FAILED)
+            LOGGER.info("File uploading failed.")
+        else:
+            FileModel.objects.filter(hashid=md).update(status=FileStatusCode.SUCCEEDED)
+            LOGGER.info("File uploaded successfully.")

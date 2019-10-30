@@ -4,8 +4,8 @@
       <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleCreate">
         Create PVC
       </el-button>
-      <el-button icon="el-icon-time" type="primary" @click="handleUploadHistory(row)">
-        Upload History
+      <el-button icon="el-icon-time" type="info" @click="handleUploadHistory">
+        Upload Log
       </el-button>
     </div>
 
@@ -18,7 +18,7 @@
       highlight-current-row
       style="width: 100%;"
     >
-      <el-table-column label="PVC Name" min-width="140" align="center">
+      <el-table-column label="Storage Name" min-width="140" align="center">
         <template slot-scope="scope">
           <span>{{ scope.row.name }}</span>
         </template>
@@ -45,9 +45,8 @@
       </el-table-column>
       <el-table-column label="Actions" min-width="120" align="center">
         <template slot-scope="{row}">
-          <el-button type="primary" size="small" @click="handleUpload(row)">
+          <el-button icon="el-icon-upload" type="primary" size="small" @click="handleUpload(row)">
             upload
-            <i class="el-icon-upload el-icon--right" />
           </el-button>
           <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name == 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
         </template>
@@ -60,6 +59,7 @@
       <el-form ref="dialogForm" :model="dialogFileData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
         <el-form-item label="file" prop="file">
           <el-upload
+            ref="upload"
             action="no"
             multiple
             :on-remove="rmFile"
@@ -82,6 +82,11 @@
       </div>
     </el-dialog>
     <el-dialog title="Upload History" :visible.sync="dialogHistoryVisible">
+      <div class="filter-container" align="right" style="margin-top:-25px; margin-bottom:10px">
+        <el-button type="success" size="small" icon="el-icon-refresh" @click="handleReupload">
+          Re-upload
+        </el-button>
+      </div>
 
       <div>
         <el-table
@@ -114,19 +119,15 @@
             </template>
           </el-table-column>
           <el-table-column label="Status" class-name="status-col" width="110" align="center">
-            <template slot-scope="{row}">
-              <el-tag :type="row.status | statusFilter">
-                {{ statusMap[row.status] }}
+            <template slot-scope="scope">
+              <el-tag :type="scope.row.status | statusFilter">
+                {{ statusMap[scope.row.status] }}
               </el-tag>
             </template>
           </el-table-column>
         </el-table>
         <pagination v-show="historyList.total>0" :total="historyList.total" :page.sync="historyList.listQuery.page" :limit.sync="historyList.listQuery.limit" :page-sizes="historyList.pageSizes" @pagination="getHistoryList" />
-        <div align="right">
-          <el-button type="primary" icon="el-icon-refresh" @click="handleReupload">
-            Re-upload
-          </el-button>
-        </div>
+
       </div>
     </el-dialog>
 
@@ -173,6 +174,19 @@ export default {
     name: 'PVC',
     components: { Pagination },
     directives: { waves },
+    filters: {
+        statusFilter(status) {
+            const map = {
+                0: 'warning',
+                1: 'info',
+                2: 'info',
+                3: 'info',
+                4: 'success',
+                5: 'danger'
+            };
+            return map[status];
+        }
+    },
 
     data() {
         return {
@@ -232,19 +246,6 @@ export default {
                 3: 'Uploading',
                 4: 'Succeeded',
                 5: 'Failed'
-            },
-            filters: {
-                statusFilter(status) {
-                    const map = {
-                        0: 'warning',
-                        1: 'info',
-                        2: 'info',
-                        3: 'info',
-                        4: 'success',
-                        5: 'danger'
-                    };
-                    return map[status];
-                }
             }
         };
     },
@@ -315,6 +316,8 @@ export default {
             });
         },
         handleUpload(row) {
+            this.dialogFileData.file.splice(0, this.dialogFileData.file.length);
+            this.dialogFileData.path = '';
             this.dialogUploadVisible = true;
             this.dialogType = 'Upload';
             this.dialogFileData.pvc = row.name;
@@ -328,6 +331,7 @@ export default {
                 });
                 return false;
             }
+            this.$refs.upload.clearFiles();
             this.uploading();
         },
         getFile(item) {
@@ -373,7 +377,7 @@ export default {
                 this.historyList.listLoading = false;
             });
         },
-        handleUploadHistory(row) {
+        handleUploadHistory() {
             this.getHistoryList();
             this.dialogHistoryVisible = true;
         },
@@ -385,6 +389,13 @@ export default {
                     type: 'success'
                 });
                 this.getHistoryList();
+            });
+        },
+        handleClear() {
+            this.$message({
+                showClose: true,
+                message: 'Log Clear',
+                type: 'success'
             });
         }
     }
