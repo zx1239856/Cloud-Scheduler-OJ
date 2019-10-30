@@ -17,19 +17,33 @@
         </div>
         <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
         <div style="overflow-y: scroll;">
-          <el-tree :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick">
+          <el-tree id="el-tree" :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick">
             <span slot-scope="{ node }" class="custom-tree-node">
               <span>
-                <svg-icon v-if="!node.data.leaf && !node.data.expanded" icon-class="folder_closed" />
-                <svg-icon v-else-if="!node.data.leaf && node.data.expanded" icon-class="folder_open" />
-                <svg-icon v-else :icon-class="node.data.icon" />
+                <span>
+                  <svg-icon v-if="!node.data.leaf && !node.data.expanded" icon-class="folder_closed" />
+                  <svg-icon v-else-if="!node.data.leaf && node.data.expanded" icon-class="folder_open" />
+                  <svg-icon v-else :icon-class="node.data.icon" />
+                </span>
+                <span style="margin-left: 5px;">{{ node.data.name }}</span>
               </span>
-              <span style="margin-left: 5px;">{{ node.data.name }}</span>
-              <!-- <span style="float: right;">
-                <svg-icon icon-class="folder_open" style="float: right; text-align: right;" />
-              </span> -->
             </span>
           </el-tree>
+          <context-menu
+            class="right-menu"
+            :target="contextMenuTarget"
+            :show="contextMenuVisible"
+            @update:show="(show) => contextMenuVisible = show"
+          >
+            <a href="javascript:;" style="display: flex;" @click="renameNode">
+              <svg-icon icon-class="rename" />
+              <span style="float: right; margin-left: 5px;">Rename</span>
+            </a>
+            <a href="javascript:;" style="display: flex;" @click="deleteNode">
+              <svg-icon icon-class="delete" />
+              <span style="float: right; margin-left: 5px;">Delete</span>
+            </a>
+          </context-menu>
         </div>
         <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
         <div style="text-align: center; margin: 20px;">
@@ -90,6 +104,9 @@ export default {
     },
     data() {
         return {
+            nodeData: {},
+            contextMenuVisible: false,
+            contextMenuTarget: undefined,
             currentFile: '',
             uuid: this.$route.query.uuid,
             props: {
@@ -110,6 +127,18 @@ export default {
         };
     },
     mounted() {
+        this.$nextTick(() => {
+            // vue-context-menu 需要传入一个触发右键事件的元素，等页面 dom 渲染完毕后才可获取
+            this.contextMenuTarget = document.querySelector('#el-tree');
+            // 获取所有的 treeitem，循环监听右键事件
+            const tree = document.querySelectorAll('#el-tree [role="treeitem"]');
+            tree.forEach(item => {
+                item.addEventListener('contextmenu', event => {
+                    // 如果右键了，则模拟点击这个treeitem
+                    // event.target.click();
+                });
+            });
+        });
     },
     methods: {
         onCmReady(cm) {
@@ -120,6 +149,12 @@ export default {
         },
         onCmCodeChange(newCode) {
             console.log('editor update');
+        },
+        renameNode() {
+
+        },
+        deleteNode() {
+
         },
         loadNode(node, resolve) {
             if (node.level === 0) {
@@ -155,6 +190,7 @@ export default {
             });
         },
         handleNodeClick(nodeObj, node, nodeComponent) {
+            this.nodeData = node.data;
             if (node.data.label.charAt(node.data.label.length - 1) === '/') {
                 return;
             }
@@ -205,7 +241,7 @@ export default {
 .el-tree {
     height: 500px;
     .el-tree-node__content {
-        height: 40px;
+        height: 32px;
     }
     // .el-icon-caret-right:before
     // {
@@ -227,7 +263,15 @@ export default {
     //     // font-size: 18px;
     //     // background-size: 18px;
     // }
+}
 
+.custom-tree-node {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 14px;
+    padding-right: 8px;
 }
 
 // .el-tree-node__expand-icon.is-leaf::before
@@ -247,6 +291,31 @@ export default {
         .CodeMirror-scroll {
             overflow-y: hidden;
         }
+    }
+}
+
+.right-menu {
+    position: fixed;
+    background: #ffffff;
+    border: solid 1px #ffffff;
+    border-radius: 5px;
+    z-index: 999;
+    display: none;
+    box-shadow: 0 0.5em 1em 0 rgba(0,0,0,.1);
+    a{
+        padding: 8px;
+        // line-height: 28px;
+        font-size: 14px;
+        text-align: center;
+        display: block;
+        color: #1a1a1a;
+        text-decoration: none;
+    }
+    a:hover{
+        color: #ffffff;
+        background: #42b983;
+        border: solid 1px #ffffff;
+        border-radius: 5px;
     }
 }
 
