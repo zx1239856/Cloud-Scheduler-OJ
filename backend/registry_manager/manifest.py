@@ -1,30 +1,17 @@
-import abc
 import functools
 import json
 import operator
 
-
-class DockerRegistryManifest(abc.ABC):
+class DockerRegistrySchema1Manifest:
     def __init__(self, content):
         self._content = content
 
-    def get_created_date(self):
-        raise NotImplementedError
+    def returnCheck(self, stmt):
+        if stmt is None:
+            return 'null'
+        else:
+            return stmt
 
-    def get_entrypoint(self):
-        raise NotImplementedError
-
-    def get_exposed_ports(self):
-        raise NotImplementedError
-
-    def get_docker_version(self):
-        raise NotImplementedError
-
-    def get_volumes(self):
-        raise NotImplementedError
-
-
-class DockerRegistrySchema1Manifest(DockerRegistryManifest):
     def __get_sorted_history(self):
         history = []
 
@@ -43,16 +30,16 @@ class DockerRegistrySchema1Manifest(DockerRegistryManifest):
         return None
 
     def get_created_date(self):
-        return self.__get_first_value('created')
+        return self.returnCheck(self.__get_first_value('created'))
 
     def get_docker_version(self):
-        return self.__get_first_value('docker_version')
+        return self.returnCheck(self.__get_first_value('docker_version'))
 
     def get_entrypoint(self):
-        return self.__get_first_value('config', 'Entrypoint')
+        return self.returnCheck(self.__get_first_value('config', 'Entrypoint'))
 
     def get_exposed_ports(self):
-        return self.__get_first_value('config', 'ExposedPorts')
+        return self.returnCheck(self.__get_first_value('config', 'ExposedPorts'))
 
     def get_layer_ids(self):
         layer_ids = []
@@ -63,7 +50,7 @@ class DockerRegistrySchema1Manifest(DockerRegistryManifest):
         return set(layer_ids)
 
     def get_volumes(self):
-        return self.__get_first_value('config', 'Volumes')
+        return self.returnCheck(self.__get_first_value('config', 'Volumes'))
 
 
 def makeManifest(content):

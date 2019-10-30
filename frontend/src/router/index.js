@@ -58,6 +58,17 @@ export const constantRoutes = [
         }]
     },
     {
+        path: '/profile/',
+        component: Layout,
+        hidden: true,
+        children: [{
+            path: '/',
+            name: 'profile',
+            component: () => import('@/views/profile/index'),
+            meta: { title: 'Dashboard' }
+        }]
+    },
+    {
         path: '/webide/',
         component: Layout,
         hidden: true,
@@ -128,7 +139,7 @@ export const constantRoutes = [
             path: 'repositories',
             name: 'repositories',
             component: () => import('@/views/registry/index'),
-            meta: { title: 'Repositories', icon: 'list' }
+            meta: { title: 'Repositories', icon: 'repository' }
         }]
     },
     {
@@ -149,14 +160,13 @@ export const constantRoutes = [
 
 export const asyncRoutes = [
     {
-        path: '/pods',
+        path: '/pods/',
         component: Layout,
-        meta: { title: 'Pod List', icon: 'list', roles: ['admin'] },
         children: [{
-            path: 'index',
+            path: 'index/',
             name: 'pods',
             component: () => import('@/views/pods/index'),
-            meta: { title: 'Pod List', roles: ['admin'] }
+            meta: { title: 'Pods', icon: 'box', roles: ['admin'] }
         }]
     }
 ];
