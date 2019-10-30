@@ -106,7 +106,19 @@ export const constantRoutes = [
             }
         ]
     },
-
+    {
+        path: '/grafana',
+        name: 'grafana',
+        component: Layout,
+        meta: { title: 'Grafana', icon: 'task' },
+        children: [
+            {
+                path: '/',
+                name: 'grafana',
+                component: () => import('@/views/grafana/index')
+            }
+        ]
+    },
     {
         path: '/log/',
         name: 'log',
@@ -153,7 +165,6 @@ export const constantRoutes = [
         name: 'user-terminal',
         component: () => import('@/views/user_terminal/index')
     },
-
     // 404 page must be placed at the end !!!
     { path: '*', redirect: '/404', hidden: true }
 ];

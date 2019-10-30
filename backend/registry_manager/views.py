@@ -11,11 +11,12 @@ from dxf import DXF
 from dxf import DXFBase
 from api.common import RESPONSE
 from config import REGISTRY_V2_API_ADDRESS, DOCKER_ADDRESS, REGISTRY_ADDRESS
-from registry_manager.cache import cache_with_timeout
+from registry_manager.cache import CacheWithTimeout
 from registry_manager.manifest import makeManifest
 from user_model.views import permission_required
 
 LOGGER = logging.getLogger(__name__)
+
 
 class ConnectionUtils:
     GET_MANIFEST_TEMPLATE = '{url}/{repo}/manifests/{tag}'
@@ -39,7 +40,7 @@ class ConnectionUtils:
             LOGGER.error(ex)
 
     # get the size of a layer
-    @cache_with_timeout()
+    @CacheWithTimeout()
     def get_size_of_layer(self, repo, layer_id):
         try:
             return int(
@@ -103,7 +104,7 @@ class ConnectionUtils:
             LOGGER.error(ex)
 
     # get tags of a repository in list
-    @cache_with_timeout()
+    @CacheWithTimeout()
     def get_tags(self, repo):
         try:
             tags = self.json_request(
@@ -153,6 +154,7 @@ class ConnectionUtils:
         response = self.string_request(*args, **kwargs)
         return json.loads(response)
 
+
 class RegistryHandler(View):
     http_method_names = ['get']
     util = ConnectionUtils()
@@ -186,6 +188,7 @@ class RegistryHandler(View):
             return JsonResponse(response)
         except Exception:
             return JsonResponse(RESPONSE.OPERATION_FAILED)
+
 
 class RepositoryHandler(View):
     http_method_names = ['get', 'post', 'put', 'delete']
@@ -252,7 +255,7 @@ class RepositoryHandler(View):
             client = DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
             docker_api = APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
             files = request.FILES.getlist('file[]', None)
-            if files is None or len(files) == 0:
+            if not files:
                 response = RESPONSE.INVALID_REQUEST
                 response['message'] += " File is empty."
                 return JsonResponse(response)

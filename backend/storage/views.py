@@ -19,7 +19,7 @@ from kubernetes.stream.ws_client import six, ABNF, STDIN_CHANNEL
 from kubernetes.client.rest import ApiException
 from kubernetes.client import CoreV1Api
 from api.common import RESPONSE
-from api.common import getKubernetesAPIClient
+from api.common import get_kubernetes_api_client
 from config import KUBERNETES_NAMESPACE
 from storage.models import FileModel, FileStatusCode
 from user_model.views import permission_required
@@ -43,7 +43,7 @@ class StorageHandler(View):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.api_instance = CoreV1Api(getKubernetesAPIClient())
+        self.api_instance = CoreV1Api(get_kubernetes_api_client())
 
     @method_decorator(permission_required)
     def get(self, request, **_):
@@ -204,7 +204,7 @@ class StorageFileHandler(View):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.save_dir = "storage/data/"
-        self.api_instance = CoreV1Api(getKubernetesAPIClient())
+        self.api_instance = CoreV1Api(get_kubernetes_api_client())
 
     @method_decorator(permission_required)
     def put(self, request, **_):

@@ -8,7 +8,7 @@ from api.common import RESPONSE
 import storage.views
 from storage.views import StorageFileHandler
 from storage.models import FileModel
-from .common import MockCoreV1Api, mockGetK8sClient, TestCaseWithBasicUser, loginTestUser
+from .common import MockCoreV1Api, mock_get_k8s_client, TestCaseWithBasicUser, login_test_user
 
 class Mock_WSClient:
     class Mock_Sock:
@@ -51,10 +51,10 @@ class TestStorage(TestCaseWithBasicUser):
         FileModel.objects.create(filename='test', status=3, hashid='3')
         FileModel.objects.create(filename='test', status=4, hashid='4')
 
-    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'get_kubernetes_api_client', mock_get_k8s_client)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     def testGetFileList(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.get('/storage/upload_file/', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -62,10 +62,10 @@ class TestStorage(TestCaseWithBasicUser):
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
         self.assertEqual(response['payload']['count'], 5)
 
-    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'get_kubernetes_api_client', mock_get_k8s_client)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     def testGetFileListValueError(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.get('/storage/upload_file/', data={'page': -1}, HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -73,20 +73,20 @@ class TestStorage(TestCaseWithBasicUser):
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
     # test getting PVC list
-    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'get_kubernetes_api_client', mock_get_k8s_client)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     def testGetPVCListValueError(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.get('/storage/', data={'page': 4}, HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
-    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'get_kubernetes_api_client', mock_get_k8s_client)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     def testGetPVCListNoPage(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.get('/storage/', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -95,10 +95,10 @@ class TestStorage(TestCaseWithBasicUser):
         self.assertEqual(response['payload']['count'], 51)
         self.assertEqual(response['payload']['page_count'], 3)
 
-    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'get_kubernetes_api_client', mock_get_k8s_client)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     def testGetPVCListWithPage(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.get('/storage/', data={'page': 3}, HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -109,7 +109,7 @@ class TestStorage(TestCaseWithBasicUser):
 
     # test creating PVC
     def testCreatePVCRequestError1(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.post('/storage/', data=json.dumps('{invalid_json}'), content_type='application/json', HTTP_X_ACCESS_TOKEN=token,
                                     HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -117,7 +117,7 @@ class TestStorage(TestCaseWithBasicUser):
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
     def testCreatePVCRequestError2(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.post('/storage/', data=json.dumps({'name': 'pvc'}), content_type='application/json', HTTP_X_ACCESS_TOKEN=token,
                                     HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -125,17 +125,17 @@ class TestStorage(TestCaseWithBasicUser):
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
     def testCreatePVCRequestError3(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.post('/storage/', data=json.dumps({'capacity': '10Mi'}), content_type='application/json', HTTP_X_ACCESS_TOKEN=token,
                                     HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
-    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'get_kubernetes_api_client', mock_get_k8s_client)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     def testCreateExistingPVC(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.post('/storage/', data=json.dumps({'name': 'existing-pvc', 'capacity': '10Mi'}),
                                     content_type='application/json',
                                     HTTP_X_ACCESS_TOKEN=token,
@@ -147,7 +147,7 @@ class TestStorage(TestCaseWithBasicUser):
     # test deleting PVC
 
     def testDeletePVCRequestError(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.delete('/storage/', data=json.dumps({}), content_type='application/json',
                                       HTTP_X_ACCESS_TOKEN=token,
                                       HTTP_X_ACCESS_USERNAME='admin')
@@ -155,10 +155,10 @@ class TestStorage(TestCaseWithBasicUser):
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
-    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'get_kubernetes_api_client', mock_get_k8s_client)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     def testDeletePVCNotExists(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.delete('/storage/', data=json.dumps({'name': 'nonexistent-pvc'}),
                                       HTTP_X_ACCESS_TOKEN=token,
                                       HTTP_X_ACCESS_USERNAME='admin')
@@ -166,10 +166,10 @@ class TestStorage(TestCaseWithBasicUser):
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
-    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'get_kubernetes_api_client', mock_get_k8s_client)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     def testDeletePVC(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.delete('/storage/', data=json.dumps({'name': 'test-pvc'}),
                                       content_type='application/json', HTTP_X_ACCESS_TOKEN=token,
                                       HTTP_X_ACCESS_USERNAME='admin')
@@ -180,7 +180,7 @@ class TestStorage(TestCaseWithBasicUser):
     # test uploading files
 
     def testUploadFileRequestError(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.post('/storage/upload_file/', data={}, HTTP_X_ACCESS_TOKEN=token,
                                     HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -188,7 +188,7 @@ class TestStorage(TestCaseWithBasicUser):
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
     def testUploadFileRequestError2(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.post('/storage/upload_file/', data={'pvcName': "existing-pvc", 'mountPath': "test/"}, HTTP_X_ACCESS_TOKEN=token,
                                     HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -197,7 +197,7 @@ class TestStorage(TestCaseWithBasicUser):
         self.assertEqual(response['message'], "Invalid request. file[] is empty.")
 
     def testUploadFileRequestError3(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         f = open('test2.txt', 'w')
         f.close()
         f = open('test2.txt', 'r')
@@ -210,7 +210,7 @@ class TestStorage(TestCaseWithBasicUser):
         os.remove('test2.txt')
 
     def testUploadFileEmptyFiles(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.post('/storage/upload_file/', data={'file[]': [], 'pvcName': 'pvc'}, HTTP_X_ACCESS_TOKEN=token,
                                     HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
@@ -218,10 +218,10 @@ class TestStorage(TestCaseWithBasicUser):
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
         self.assertEqual(response['message'], "Invalid request. file[] is empty.")
 
-    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'get_kubernetes_api_client', mock_get_k8s_client)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     def testUploadFilePVCNotExists(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         f = open('test2.txt', 'w')
         f.close()
         f = open('test2.txt', 'r')
@@ -235,11 +235,11 @@ class TestStorage(TestCaseWithBasicUser):
         f.close()
         os.remove('test2.txt')
 
-    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'get_kubernetes_api_client', mock_get_k8s_client)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     @mock.patch.object(storage.views.StorageFileHandler, 'uploading', mock_uploading)
     def testFileUploadPost(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         f = open('test3.txt', 'w')
         f.close()
         f = open('test3.txt', 'r')
@@ -252,18 +252,18 @@ class TestStorage(TestCaseWithBasicUser):
         f.close()
         os.remove('test3.txt')
 
-    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'get_kubernetes_api_client', mock_get_k8s_client)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     @mock.patch.object(storage.views.StorageFileHandler, 'uploading', mock_uploading)
     def testRestart(self):
-        token = loginTestUser('admin')
+        token = login_test_user('admin')
         response = self.client.put('/storage/upload_file/', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
 
-    @mock.patch.object(storage.views, 'getKubernetesAPIClient', mockGetK8sClient)
+    @mock.patch.object(storage.views, 'get_kubernetes_api_client', mock_get_k8s_client)
     @mock.patch.object(storage.views, 'CoreV1Api', MockCoreV1Api)
     @mock.patch.object(storage.views, 'stream', mock_stream)
     def testFileUploading(self):

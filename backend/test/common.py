@@ -1,15 +1,15 @@
 import json
-import hashlib
 import random
+import bcrypt
 from django.test import Client, TestCase
 from kubernetes.stream import ws_client
 from kubernetes.client.rest import ApiException
 from kubernetes.client.api_client import ApiClient
 from user_model.models import UserModel, UserType
-from task_manager.views import getUUID
+from task_manager.views import get_uuid
 
 
-def loginTestUser(user):
+def login_test_user(user):
     client = Client()
     response = client.post('/user/login/', data=json.dumps({
         'username': user,
@@ -21,7 +21,7 @@ def loginTestUser(user):
     return response['payload']['token']
 
 
-def mockGetK8sClient():
+def mock_get_k8s_client():
     return 1
 
 class TestCaseWithBasicUser(TestCase):
@@ -29,14 +29,13 @@ class TestCaseWithBasicUser(TestCase):
         self.client = Client()
         # create 3o objects
         self.item_list = []
-        md5 = hashlib.md5()
-        md5.update('adminadmin_salt'.encode('utf8'))
-        self.admin = UserModel.objects.create(uuid=str(getUUID()), username='admin', password=md5.hexdigest(),
-                                              email='example@example.com', user_type=UserType.ADMIN, salt='admin_salt')
-        md5 = hashlib.md5()
-        md5.update('useruser_salt'.encode('utf8'))
-        self.user = UserModel.objects.create(uuid=str(getUUID()), username='user', password=md5.hexdigest(),
-                                             email='example@example.com', user_type=UserType.USER, salt='user_salt')
+        salt = bcrypt.gensalt()
+        passwd = bcrypt.hashpw('admin'.encode(), salt).decode()
+        self.admin = UserModel.objects.create(uuid=str(get_uuid()), username='admin', password=passwd,
+                                              email='example@example.com', user_type=UserType.ADMIN, salt=salt.decode())
+        passwd = bcrypt.hashpw('user'.encode(), salt).decode()
+        self.user = UserModel.objects.create(uuid=str(get_uuid()), username='user', password=passwd,
+                                             email='example@example.com', user_type=UserType.USER, salt=salt.decode())
 
 
 class DotDict(dict):
@@ -195,7 +194,7 @@ class MockTaskExecutor:
     def __init__(self):
         self.ready = True
 
-    def scheduleTaskSettings(self, *_, **__):
+    def schedule_task_settings(self, *_, **__):
         pass
 
     @classmethod

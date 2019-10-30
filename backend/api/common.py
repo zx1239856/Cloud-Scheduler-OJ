@@ -15,10 +15,10 @@ All users can access this API
 @apiHeader {String} X-Access-Username username
 """
 
-USERSPACE_NAME = "cloud-scheduler-userspace"
+USERSPACE_NAME = 'cloud-scheduler-userspace'
+OAUTH_LOGIN_URL = 'oauth/login/'
 
-
-def getKubernetesAPIClient():
+def get_kubernetes_api_client():
     conf = Configuration()
     conf.host = KUBERNETES_API_SERVER_URL
     conf.verify_ssl = False

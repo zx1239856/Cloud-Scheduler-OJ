@@ -15,6 +15,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'api.settings')
 
 application = get_wsgi_application()
 # pylint: disable=C0413
+# pylint: disable=C0103
 from task_manager.executor import TaskExecutor
 
 executor = TaskExecutor.instance()
