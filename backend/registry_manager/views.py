@@ -158,6 +158,21 @@ class RegistryHandler(View):
     get function for getting list of repositories with its info
     """
     def get(self, request):
+        """
+        @api {get} /registry/ Get Repository list
+        @apiName GetRepositories
+        @apiGroup RegistryManager
+        @apiVersion 0.1.0
+        @apiSuccess {Object} payload Response Object
+        @apiSuccess {Number} payload.count Count of total repositories
+        @apiSuccess {Object[]} payload.entry List of Repositoris
+        @apiSuccess {String} payload.entry.Repo Repository Name
+        @apiSuccess {String} payload.entry.NumberOfTags Number of Tags
+        @apiSuccess {String} payload.entry.SizeOfRepository Size of Repository
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse OperationFailed
+        """
         response = RESPONSE.SUCCESS
         try:
             response['payload']['entity'] = []
@@ -174,6 +189,26 @@ class RepositoryHandler(View):
     util = ConnectionUtils()
 
     def get(self, _, **kwargs):
+        """
+        @api {get} registry/<str:repo>/ Get Tag Lists of the given Repository
+        @apiName GetTags
+        @apiGroup RegistryManager
+        @apiVersion 0.1.0
+        @apiSuccess {Object} payload Response Object
+        @apiSuccess {Number} payload.count Count of total Tags
+        @apiSuccess {Object[]} payload.entry List of Tags
+        @apiSuccess {String} payload.entry.Tag Tag Name
+        @apiSuccess {String} payload.entry.Created Tag Created Time
+        @apiSuccess {String} payload.entry.Entrypoint Entrypoint of the Tag
+        @apiSuccess {String} payload.entry.DockerVersion Docker Version of the Tag
+        @apiSuccess {String} payload.entry.ExposedPorts Exposed Ports of the Tag
+        @apiSuccess {String} payload.entry.Volumes Volumes of the Tag
+        @apiSuccess {String} payload.entry.Size Size of the Tag
+        @apiSuccess {String} payload.entry.Layers Number of Layers of the Tag
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse OperationFailed
+        """
         response = RESPONSE.SUCCESS
         try:
             response['payload']['entity'] = []
@@ -188,13 +223,13 @@ class RepositoryHandler(View):
 
     def post(self, request, **kwargs):
         """
-        @api {post} /image_registry/image Upload image.tar
+        @api {post} /registry/upload/ Upload image.tar
         @apiName UploadImageTar
         @apiGroup RegistryManager
         @apiVersion 0.1.0
-        @apiParamExample {json} Request-Body-Example:
+        @apiParamExample {json} Request-Example:
         {
-            "file": fileObj
+            "file": [FILE]
         }
         @apiParam {Object} The image.tar file to be uploaded
         @apiSuccess {Object} payload Success payload is empty
@@ -226,6 +261,16 @@ class RepositoryHandler(View):
             return JsonResponse(RESPONSE.OPERATION_FAILED)
 
     def delete(self, request, **kwargs):
+        """
+        @api {delete} /registry/<str:repo>/<str:tag>/ Delete an image
+        @apiName DeleteImage
+        @apiGroup RegistryManager
+        @apiVersion 0.1.0
+        @apiSuccess {Object} payload Success payload is empty
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse OperationFailed
+        """
         try:
             repo = kwargs.get('repo')
             tag = kwargs.get('tag')
