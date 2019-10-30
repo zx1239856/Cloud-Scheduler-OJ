@@ -16,6 +16,7 @@ Including another URLconf
 # pylint: disable=C0412
 import sys
 from django.urls import path
+from oauth2_provider import views as oauth_views
 from wsocket import views as ws_views
 from task_manager import views as task_mgmt_views
 from user_model import views as user_views
@@ -24,6 +25,7 @@ from storage import views as storage_views
 from monitor import views as monitor_views
 from user_space import views as user_space_views
 from registry_manager import views as registry_mgmt_views
+from .common import OAUTH_LOGIN_URL
 
 # pylint: disable=C0103
 websocket_urlpatterns = [
@@ -32,17 +34,35 @@ websocket_urlpatterns = [
 ]
 
 urlpatterns = [
+    # task settings
     path('task_settings/', login_required(task_mgmt_views.TaskSettingsListHandler.as_view())),
     path('task_settings/<str:uuid>/', permission_required(task_mgmt_views.TaskSettingsItemHandler.as_view())),
     path('task/', login_required(task_mgmt_views.ConcreteTaskListHandler.as_view())),
     path('task/<str:uuid>/', login_required(task_mgmt_views.ConcreteTaskHandler.as_view())),
+    # user stuffs
     path('user/login/', user_views.UserLogin.as_view()),
     path('user/logout/', login_required(user_views.UserLogout.as_view())),
     path('user/', user_views.UserHandler.as_view()),
+    # oauth mgmt
+    path('oauth/applications/', permission_required(user_views.ApplicationListHandler.as_view())),
+    path('oauth/applications/<int:id>/', permission_required(user_views.ApplicationDetailHandler.as_view())),
+    path('oauth/authorized_tokens/', permission_required(user_views.AuthorizedTokensListHandler.as_view())),
+    path('oauth/authorized_tokens/<int:id>/', permission_required(user_views.AuthorizedTokensDeleteHandler.as_view())),
+    path(OAUTH_LOGIN_URL, user_views.OAuthUserLogin.as_view()),
+    # oauth std interfaces
+    # redirect to login page served by Django
+    path('oauth/authorize/', permission_required(oauth_views.AuthorizationView.as_view(), True, True), name='authorize'),
+    path('oauth/access_token/', oauth_views.TokenView.as_view(), name='token'),
+    path('oauth/revoke_token/', oauth_views.RevokeTokenView.as_view(), name='revoke-token'),
+    path('oauth/user_info/', user_views.OAuthUserInfoView.as_view()),
+    # pod list
     path('pods/', monitor_views.PodListHandler.as_view()),
+    # storage
     path('storage/', storage_views.StorageHandler.as_view()),
     path('storage/upload_file/', storage_views.StorageFileHandler.as_view()),
+    # user space for webIDE
     path('user_space/<str:uuid>/', login_required(user_space_views.UserSpaceHandler.as_view())),
+    # registry management
     path('registry/', registry_mgmt_views.RegistryHandler.as_view()),
     path('registry/<str:repo>/', registry_mgmt_views.RepositoryHandler.as_view()),
     path('registry/upload/', registry_mgmt_views.RepositoryHandler.as_view()),

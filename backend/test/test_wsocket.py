@@ -80,24 +80,6 @@ async def test_user_ssh_user_or_task_not_exist():
     await communicator.disconnect()
 
 
-@pytest.mark.django_db(transaction=True)
-@pytest.mark.asyncio
-async def test_user_ssh_executor_none(*_):
-    _ = UserModel.objects.create(username='admin', user_type=UserType.ADMIN, uuid='uuid', password='pass',
-                                 salt='salt', email='email@email.com', token='my_only_token',
-                                 token_expire_time=round(time.time()) + 100)
-    _ = TaskSettings.objects.create(name='test', uuid='my_uuid', description='', container_config='{}',
-                                    time_limit=1, replica=1, ttl_interval=1, max_sharing_users=1)
-    with mock.patch.object(wsocket.views, 'stream', mock_stream):
-        communicator = WebsocketCommunicator(UserWebSSH,
-                                             "/user_terminals/?uuid=my_uuid&token=my_only_token&username=admin")
-        connected, _ = await communicator.connect()
-        assert connected
-        response = await communicator.receive_from()
-        assert response == 'Internal server error occurred.\n'
-        await communicator.disconnect()
-
-
 def mock_connect(*_):
     class Conn:
         class Root:

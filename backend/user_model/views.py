@@ -11,16 +11,38 @@ import bcrypt
 from django.http import JsonResponse
 from django.views import View
 from django.utils.decorators import method_decorator
+from django.utils import timezone
 from django.db.utils import IntegrityError
+from django.db.models import Q
+from django.core import serializers
+from django.shortcuts import redirect, render
+from oauth2_provider.models import get_application_model as _get_application_model
+from oauth2_provider.models import get_access_token_model as _get_access_token_model
+from oauth2_provider.models import Application, AccessToken
+from oauth2_provider.views import ProtectedResourceView
 from user_model.models import UserModel, UserType
 from task_manager.views import get_uuid
-from api.common import RESPONSE
+from api.common import RESPONSE, OAUTH_LOGIN_URL
 from config import USER_TOKEN_EXPIRE_TIME
 
 LOGGER = logging.getLogger(__name__)
 
 
-def user_passes_test(test_func):
+def get_application_model(use_generic=True):
+    if use_generic:
+        return Application
+    else:
+        return _get_application_model()
+
+
+def get_access_token_model(use_generic=True):
+    if use_generic:
+        return AccessToken
+    else:
+        return _get_access_token_model()
+
+
+def user_passes_test(test_func, redirect_oauth):
     """
     Decorator for views that checks that the user passes the given test,
     redirecting to the log-in page if necessary. The test should be a callable
@@ -31,29 +53,36 @@ def user_passes_test(test_func):
         @wraps(view_func)
         def _wrapped_view(request, *args, **kwargs):
             ret = test_func(request)
-            if ret == 1:
-                return JsonResponse(RESPONSE.UNAUTHORIZED)
-            elif ret == -1:
-                return JsonResponse(RESPONSE.PERMISSION_DENIED)
-            else:
+            if isinstance(ret, UserModel):
                 kwargs['__user'] = ret
+                request.user = ret
                 return view_func(request, *args, **kwargs)
+            else:
+                if redirect_oauth:
+                    response = redirect('/' + OAUTH_LOGIN_URL + '?next={}'.format(request.build_absolute_uri()))
+                else:
+                    response = None
+                    if ret == 1:
+                        response = JsonResponse(RESPONSE.UNAUTHORIZED)
+                    elif ret == -1:
+                        response = JsonResponse(RESPONSE.PERMISSION_DENIED)
+                response.delete_cookie('username')
+                response.delete_cookie('token')
+                return response
 
         return _wrapped_view
 
     return decorator
 
 
-def login_required(function=None):
+def login_required(function=None, redirect_enabled=False, allow_cookie=False):
     """
     Decorator for views that checks that the user is logged in
     """
 
     def test_login(request):
-        if 'HTTP_X_ACCESS_TOKEN' in request.META.keys() and 'HTTP_X_ACCESS_USERNAME' in request.META.keys():
+        def wrapper(username, header_token):
             try:
-                username = request.META['HTTP_X_ACCESS_USERNAME']
-                header_token = request.META['HTTP_X_ACCESS_TOKEN']
                 user = UserModel.objects.get(username=username)
                 token = TokenManager.get_token(user)
                 if token == header_token:
@@ -64,25 +93,30 @@ def login_required(function=None):
             except Exception as ex:
                 LOGGER.warning(ex)
                 return 1
-        else:
-            return 1
 
-    actual_decorator = user_passes_test(test_login)
+        if 'HTTP_X_ACCESS_TOKEN' in request.META.keys() and 'HTTP_X_ACCESS_USERNAME' in request.META.keys():
+            ret = wrapper(request.META['HTTP_X_ACCESS_USERNAME'], request.META['HTTP_X_ACCESS_TOKEN'])
+        else:
+            ret = 1
+        if not isinstance(ret, UserModel) and allow_cookie and 'username' in request.COOKIES.keys() \
+                and 'token' in request.COOKIES.keys():
+            ret = wrapper(request.COOKIES['username'], request.COOKIES['token'])
+        return ret
+
+    actual_decorator = user_passes_test(test_login, redirect_enabled)
     if function:
         return actual_decorator(function)
     return actual_decorator
 
 
-def permission_required(function=None):
+def permission_required(function=None, redirect_enabled=False, allow_cookie=False):
     """
     Decorator for views that checks that the user is logged in
     """
 
     def test_permission(request):
-        if 'HTTP_X_ACCESS_TOKEN' in request.META.keys() and 'HTTP_X_ACCESS_USERNAME' in request.META.keys():
+        def wrapper(username, header_token):
             try:
-                username = request.META['HTTP_X_ACCESS_USERNAME']
-                header_token = request.META['HTTP_X_ACCESS_TOKEN']
                 user = UserModel.objects.get(username=username)
                 token = TokenManager.get_token(user)
                 if token == header_token:
@@ -96,10 +130,17 @@ def permission_required(function=None):
             except Exception as ex:
                 LOGGER.warning(ex)
                 return 1
-        else:
-            return 1
 
-    actual_decorator = user_passes_test(test_permission)
+        if 'HTTP_X_ACCESS_TOKEN' in request.META.keys() and 'HTTP_X_ACCESS_USERNAME' in request.META.keys():
+            ret = wrapper(request.META['HTTP_X_ACCESS_USERNAME'], request.META['HTTP_X_ACCESS_TOKEN'])
+        else:
+            ret = 1
+        if not isinstance(ret, UserModel) and allow_cookie and 'username' in request.COOKIES.keys() \
+                and 'token' in request.COOKIES.keys():
+            ret = wrapper(request.COOKIES['username'], request.COOKIES['token'])
+        return ret
+
+    actual_decorator = user_passes_test(test_permission, redirect_enabled)
     if function:
         return actual_decorator(function)
     return actual_decorator
@@ -107,10 +148,15 @@ def permission_required(function=None):
 
 class TokenManager:
     @staticmethod
-    def create_token(user):
-        token = str(uuid.uuid1())
+    def create_token(user, new=True):
+        if not new and user.token_expire_time > time.time():
+            token = user.token
+            expire_time = max(round(time.time()) + USER_TOKEN_EXPIRE_TIME, user.token_expire_time)
+        else:
+            token = str(uuid.uuid1())
+            expire_time = round(time.time()) + USER_TOKEN_EXPIRE_TIME
         user.token = token
-        user.token_expire_time = round(time.time()) + USER_TOKEN_EXPIRE_TIME
+        user.token_expire_time = expire_time
         try:
             user.save(force_update=True)
         except Exception as ex:
@@ -171,6 +217,8 @@ class UserLogin(View):
             if username is None or password is None:
                 raise ValueError()
             user = UserModel.objects.get(username=username)
+            user.last_login = timezone.now()
+            user.save(force_update=True)
             password = bcrypt.hashpw(password.encode('utf-8'), user.salt.encode('utf-8')).decode('utf-8')
             md5 = hashlib.md5()
             md5.update(user.email.encode('utf-8'))
@@ -379,3 +427,203 @@ class UserLogout(View):
                 return JsonResponse(RESPONSE.OPERATION_FAILED)
         else:
             return JsonResponse(RESPONSE.INVALID_REQUEST)
+
+
+# OAuth Implementations
+class OAuthUserLogin(View):
+    http_method_names = ['post', 'get']
+
+    def get(self, request, *_, **__):
+        return render(request, 'oauth2_provider/login.html')
+
+    def post(self, request, *_, **__):
+        username = request.POST.get('username', None)
+        password = request.POST.get('password', None)
+        if username is None or password is None:
+            return JsonResponse(RESPONSE.INVALID_REQUEST)
+        try:
+            user = UserModel.objects.get(username=username)
+            user.last_login = timezone.now()
+            user.save(force_update=True)
+            password = bcrypt.hashpw(password.encode('utf-8'), user.salt.encode('utf-8')).decode('utf-8')
+            if user.password != password:
+                raise UserModel.DoesNotExist()
+            token = TokenManager.create_token(user, new=False)
+            response = RESPONSE.SUCCESS
+            next = request.GET.get('next', None)
+            response['payload'] = {
+                'username': user.username,
+                'uuid': user.uuid,
+                'token': token,
+                'permission': 'admin' if user.user_type else 'user',
+                'next': next
+            }
+            return JsonResponse(response)
+        except UserModel.DoesNotExist:
+            return JsonResponse(RESPONSE.OPERATION_FAILED)
+        except Exception as ex:
+            LOGGER.exception(ex)
+            return JsonResponse(RESPONSE.SERVER_ERROR)
+
+
+class OAuthUserInfoView(ProtectedResourceView):
+    def get(self, request, *_, **__):
+        user = request.resource_owner
+        md5 = hashlib.md5()
+        md5.update(user.email.encode('utf-8'))
+        return JsonResponse({
+            'sub': user.uuid,
+            'name': user.username,
+            'email': user.email,
+            'picture': 'https://fdn.geekzu.org/avatar/{}'.format(md5.hexdigest()),
+            'updated_at': user.create_time
+        })
+
+
+class ApplicationListHandler(View):
+    http_method_names = ['get', 'post']
+
+    def get(self, _, **kwargs):
+        user = kwargs.get('__user', None)
+        apps = get_application_model().objects.filter(Q(user=user) | Q(user=None))
+        response = RESPONSE.SUCCESS
+        response['payload'] = json.loads(serializers.serialize('json', apps))
+        return JsonResponse(response)
+
+    def post(self, request, **kwargs):
+        user = kwargs.get('__user', None)
+        response = None
+        try:
+            request = json.loads(request.body)
+            model = get_application_model()
+            if 'name' not in request.keys() or not request['name'] or 'redirect_uris' not in request.keys() or \
+                    not isinstance(request['redirect_uris'], list):
+                raise ValueError()
+            if 'shared' in request.keys() and request['shared']:
+                user = None
+            item, _ = model.objects.get_or_create(name=request['name'], user=user,
+                                                  defaults={
+                                                      'name': request['name'],
+                                                      'user': user,
+                                                      'redirect_uris': ' '.join(request['redirect_uris']),
+                                                      'client_type': model.CLIENT_CONFIDENTIAL,
+                                                      'authorization_grant_type': model.GRANT_AUTHORIZATION_CODE,
+                                                      'skip_authorization': False
+                                                  })
+            response = RESPONSE.SUCCESS
+            response['payload'] = {
+                'id': item.id,
+                'name': item.name,
+                'client_id': item.client_id,
+                'client_secret': item.client_secret
+            }
+        except ValueError:
+            response = RESPONSE.INVALID_REQUEST
+        except Exception as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.SERVER_ERROR
+        finally:
+            return JsonResponse(response)
+
+
+class ApplicationDetailHandler(View):
+    http_method_names = ['get', 'put', 'delete']
+
+    def get(self, _, **kwargs):
+        try:
+            id = kwargs['id']
+            user = kwargs['__user']
+            item = get_application_model().objects.get(Q(user=user) | Q(user=None), id=id)
+            response = RESPONSE.SUCCESS
+            response['payload'] = {
+                'id': item.id,
+                'name': item.name,
+                'user': None if not item.user else item.user.username,
+                'client_id': item.client_id,
+                'redirect_uris': item.redirect_uris.split(),
+                'client_type': item.client_type,
+                'authorization_grant_type': item.authorization_grant_type,
+                'client_secret': item.client_secret,
+                'created': item.created,
+                'updated': item.updated
+            }
+            return JsonResponse(response)
+        except get_application_model().DoesNotExist:
+            return JsonResponse(RESPONSE.OPERATION_FAILED)
+        except ValueError:
+            return JsonResponse(RESPONSE.INVALID_REQUEST)
+        except Exception as ex:
+            LOGGER.error(ex)
+            return JsonResponse(RESPONSE.SERVER_ERROR)
+
+    def put(self, request, **kwargs):
+        response = None
+        try:
+            id = kwargs['id']
+            user = kwargs['__user']
+            request = json.loads(request.body)
+            model = get_application_model()
+            update_dict = {}
+            if 'name' in request.keys():
+                if not request['name']:
+                    raise ValueError()
+                update_dict['name'] = request['name']
+            if 'redirect_uris' in request.keys():
+                if not isinstance(request['redirect_uris'], list):
+                    raise ValueError()
+                update_dict['redirect_uris'] = ' '.join(request['redirect_uris'])
+            if 'shared' in request.keys():
+                update_dict['user'] = None if request['shared'] else user
+            model.objects.filter(Q(user=user) | Q(user=None), id=id).update(**update_dict)
+            response = RESPONSE.SUCCESS
+        except ValueError:
+            response = RESPONSE.INVALID_REQUEST
+        except Exception as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.SERVER_ERROR
+        finally:
+            return JsonResponse(response)
+
+    def delete(self, _, **kwargs):
+        response = None
+        try:
+            id = kwargs['id']
+            user = kwargs['__user']
+            model = get_application_model()
+            try:
+                model.objects.filter(Q(user=user) | Q(user=None), id=id).delete()
+            except model.DoesNotExist:
+                response = RESPONSE.OPERATION_FAILED
+        except Exception as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.SERVER_ERROR
+        finally:
+            return JsonResponse(response)
+
+
+class AuthorizedTokensListHandler(View):
+    def get(self, _, **kwargs):
+        user = kwargs.get('__user', None)
+        items = get_access_token_model().objects.get_queryset().select_related("application").filter(
+            user=user
+        )
+        response = RESPONSE.SUCCESS
+        response['payload'] = json.loads(serializers.serialize('json', items))
+        return JsonResponse(response)
+
+
+class AuthorizedTokensDeleteHandler(View):
+    http_method_names = ['delete']
+
+    def delete(self, _, **kwargs):
+        user = kwargs.get('__user', None)
+        id = kwargs.get('id', None)
+        model = get_access_token_model()
+        try:
+            model.objects.get(user=user, id=id).revoke()
+            return JsonResponse(RESPONSE.SUCCESS)
+        except model.DoesNotExist:
+            return JsonResponse(RESPONSE.OPERATION_FAILED)
+        except Exception as ex:
+            LOGGER.error(ex)
+            return JsonResponse(RESPONSE.SERVER_ERROR)
