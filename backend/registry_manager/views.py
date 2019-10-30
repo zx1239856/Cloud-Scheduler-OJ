@@ -89,8 +89,8 @@ class ConnectionUtils:
                 tag_info['Tag'] = tag
                 tag_info['Created'] = manifest.get_created_date()
                 tag_info['Entrypoint'] = manifest.get_entrypoint()
-                tag_info['Docker Version'] = manifest.get_docker_version()
-                tag_info['Exposed Ports'] = manifest.get_exposed_ports()
+                tag_info['DockerVersion'] = manifest.get_docker_version()
+                tag_info['ExposedPorts'] = manifest.get_exposed_ports()
                 tag_info['Volumes'] = manifest.get_volumes()
                 tag_info['Size'] = self.get_size_of_layers(repo, tag)
                 tag_info['Layers'] = self.get_number_of_layers(repo, tag)
