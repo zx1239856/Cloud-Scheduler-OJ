@@ -3,7 +3,6 @@
 {% load i18n %}
 {% block content %}
     <div class="block-center">
-        {% if not error %}
             <form id="loginForm" method="post" class="needs-validation" novalidate>
                 <h3 class="block-center-heading">Cloud Scheduler OAuth</h3>
                 {% csrf_token %}
@@ -24,18 +23,20 @@
                         Please enter password.
                     </div>
                 </div>
-                <div class="control-group">
+                <div class="{% if error %}form-group {% else %}control-group {% endif %}">
                     <div class="controls">
                         <button type="reset" class="btn btn-large btn-danger">Clear</button>
                         <input type="submit" class="btn btn-large btn-primary" name="allow" value="Login"/>
                     </div>
                 </div>
+                {% if error %}
+                <div class="control-group">
+                    <div class="alert alert-danger" role="alert">
+                        {{ error }}
+                    </div>
+                </div>
+                {% endif %}
             </form>
-
-        {% else %}
-            <h2>Error: {{ error.error }}</h2>
-            <p>{{ error.description }}</p>
-        {% endif %}
     </div>
     <script>
         // Example starter JavaScript for disabling form submissions if there are invalid fields
@@ -57,26 +58,6 @@
           }, false);
           $('#password').bind('input propertychange', function(event){
               $('#password_encrypt').val(md5($('#password').val()));
-          });
-          $('#loginForm').submit(function(e) {
-              e.preventDefault();
-              var form = $(this);
-              var url = form.attr('action');
-              $.ajax({
-                  type: 'POST',
-                  url: url,
-                  data: form.serialize(),
-                  success: function(data) {
-                      if(data.status != 200) {
-                        swal("Error", data.message, "error");
-                      } else {
-                          Cookies.set('username', data.payload.username);
-                          Cookies.set('token', data.payload.token);
-                          if(data.payload.next != '')
-                            $(location).attr('href', data.payload.next);
-                      }
-                  }
-              })
           });
         })();
     </script>

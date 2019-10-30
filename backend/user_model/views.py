@@ -7,6 +7,7 @@ import uuid
 import json
 import logging
 from functools import wraps
+from urllib.parse import quote
 import bcrypt
 from django.http import JsonResponse
 from django.views import View
@@ -23,7 +24,7 @@ from oauth2_provider.views import ProtectedResourceView
 from user_model.models import UserModel, UserType
 from task_manager.views import get_uuid
 from api.common import RESPONSE, OAUTH_LOGIN_URL
-from config import USER_TOKEN_EXPIRE_TIME
+from config import USER_TOKEN_EXPIRE_TIME, CLOUD_SCHEDULER_API_SERVER_BASE_URL
 
 LOGGER = logging.getLogger(__name__)
 
@@ -59,7 +60,8 @@ def user_passes_test(test_func, redirect_oauth):
                 return view_func(request, *args, **kwargs)
             else:
                 if redirect_oauth:
-                    response = redirect('/' + OAUTH_LOGIN_URL + '?next={}'.format(request.build_absolute_uri()))
+                    response = redirect(CLOUD_SCHEDULER_API_SERVER_BASE_URL + OAUTH_LOGIN_URL +
+                                        '?next={}'.format(quote(request.build_absolute_uri())))
                 else:
                     response = None
                     if ret == 1:
@@ -75,35 +77,38 @@ def user_passes_test(test_func, redirect_oauth):
     return decorator
 
 
+def user_login_common_wrapper(request, wrapper, allow_cookie):
+    if 'HTTP_X_ACCESS_TOKEN' in request.META.keys() and 'HTTP_X_ACCESS_USERNAME' in request.META.keys():
+        ret = wrapper(request.META['HTTP_X_ACCESS_USERNAME'], request.META['HTTP_X_ACCESS_TOKEN'])
+    else:
+        ret = 1
+    if not isinstance(ret, UserModel) and allow_cookie and 'username' in request.COOKIES.keys() \
+            and 'token' in request.COOKIES.keys():
+        ret = wrapper(request.COOKIES['username'], request.COOKIES['token'])
+    return ret
+
+
 def login_required(function=None, redirect_enabled=False, allow_cookie=False):
     """
     Decorator for views that checks that the user is logged in
     """
 
-    def test_login(request):
-        def wrapper(username, header_token):
-            try:
-                user = UserModel.objects.get(username=username)
-                token = TokenManager.get_token(user)
-                if token == header_token:
-                    TokenManager.update_token(user)
-                    return user
-                else:
-                    return 1
-            except Exception as ex:
-                LOGGER.warning(ex)
+    def test_login_wrapper(username, header_token):
+        try:
+            user = UserModel.objects.get(username=username)
+            token = TokenManager.get_token(user)
+            if token == header_token:
+                TokenManager.update_token(user)
+                return user
+            else:
                 return 1
+        except Exception as ex:
+            LOGGER.warning(ex)
+            return 1
 
-        if 'HTTP_X_ACCESS_TOKEN' in request.META.keys() and 'HTTP_X_ACCESS_USERNAME' in request.META.keys():
-            ret = wrapper(request.META['HTTP_X_ACCESS_USERNAME'], request.META['HTTP_X_ACCESS_TOKEN'])
-        else:
-            ret = 1
-        if not isinstance(ret, UserModel) and allow_cookie and 'username' in request.COOKIES.keys() \
-                and 'token' in request.COOKIES.keys():
-            ret = wrapper(request.COOKIES['username'], request.COOKIES['token'])
-        return ret
-
-    actual_decorator = user_passes_test(test_login, redirect_enabled)
+    actual_decorator = user_passes_test(lambda request:
+                                        user_login_common_wrapper(request, test_login_wrapper, allow_cookie),
+                                        redirect_enabled)
     if function:
         return actual_decorator(function)
     return actual_decorator
@@ -114,33 +119,25 @@ def permission_required(function=None, redirect_enabled=False, allow_cookie=Fals
     Decorator for views that checks that the user is logged in
     """
 
-    def test_permission(request):
-        def wrapper(username, header_token):
-            try:
-                user = UserModel.objects.get(username=username)
-                token = TokenManager.get_token(user)
-                if token == header_token:
-                    if user.user_type == UserType.ADMIN:
-                        TokenManager.update_token(user)
-                        return user
-                    else:
-                        return -1
+    def test_permission_wrapper(username, header_token):
+        try:
+            user = UserModel.objects.get(username=username)
+            token = TokenManager.get_token(user)
+            if token == header_token:
+                if user.user_type == UserType.ADMIN:
+                    TokenManager.update_token(user)
+                    return user
                 else:
-                    return 1
-            except Exception as ex:
-                LOGGER.warning(ex)
+                    return -1
+            else:
                 return 1
+        except Exception as ex:
+            LOGGER.warning(ex)
+            return 1
 
-        if 'HTTP_X_ACCESS_TOKEN' in request.META.keys() and 'HTTP_X_ACCESS_USERNAME' in request.META.keys():
-            ret = wrapper(request.META['HTTP_X_ACCESS_USERNAME'], request.META['HTTP_X_ACCESS_TOKEN'])
-        else:
-            ret = 1
-        if not isinstance(ret, UserModel) and allow_cookie and 'username' in request.COOKIES.keys() \
-                and 'token' in request.COOKIES.keys():
-            ret = wrapper(request.COOKIES['username'], request.COOKIES['token'])
-        return ret
-
-    actual_decorator = user_passes_test(test_permission, redirect_enabled)
+    actual_decorator = user_passes_test(lambda request:
+                                        user_login_common_wrapper(request, test_permission_wrapper, allow_cookie),
+                                        redirect_enabled)
     if function:
         return actual_decorator(function)
     return actual_decorator
@@ -449,21 +446,26 @@ class OAuthUserLogin(View):
             if user.password != password:
                 raise UserModel.DoesNotExist()
             token = TokenManager.create_token(user, new=False)
-            response = RESPONSE.SUCCESS
-            next = request.GET.get('next', None)
-            response['payload'] = {
-                'username': user.username,
-                'uuid': user.uuid,
-                'token': token,
-                'permission': 'admin' if user.user_type else 'user',
-                'next': next
-            }
-            return JsonResponse(response)
+            redirect_link = request.GET.get('next', None)
+            if redirect_link is not None:
+                LOGGER.debug(redirect_link)
+                response = redirect(redirect_link)
+                response.set_cookie('username', user.username, max_age=None)
+                response.set_cookie('token', token, max_age=None)
+                return response
+            else:
+                return render(request, 'oauth2_provider/login.html', {
+                    'error': 'Redirect link is not set.'
+                })
         except UserModel.DoesNotExist:
-            return JsonResponse(RESPONSE.OPERATION_FAILED)
+            return render(request, 'oauth2_provider/login.html', {
+                'error': 'Username or password is invalid.'
+            })
         except Exception as ex:
             LOGGER.exception(ex)
-            return JsonResponse(RESPONSE.SERVER_ERROR)
+            return render(request, 'oauth2_provider/login.html', {
+                'error': 'Internal server error.'
+            })
 
 
 class OAuthUserInfoView(ProtectedResourceView):
