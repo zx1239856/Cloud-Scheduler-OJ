@@ -36,13 +36,13 @@ class TestRepositoryHander(TestCase):
             [
                 {
                     'Created': '2019-01-01T01:29:27.650294696Z',
-                    'Docker Version': '18.06.1-ce',
-                    'Entrypoint': None,
-                    'Exposed Ports': None,
+                    'DockerVersion': '18.06.1-ce',
+                    'Entrypoint': 'null',
+                    'ExposedPorts': 'null',
                     'Layers': 1,
                     'Size': 0,
                     'Tag': 'test_alias',
-                    'Volumes': None
+                    'Volumes': 'null'
                 }
             ]
         )
