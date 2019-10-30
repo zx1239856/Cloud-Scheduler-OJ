@@ -2,37 +2,57 @@
   <div class="container">
     <el-container @keyup.ctrl.83="handleSave">
       <el-aside width="300px">
-        <el-tree
-          :props="props"
-          :load="loadNode"
-          lazy
-          @node-click="handleNodeClick"
-        />
+        <div style="margin: 20px;">
+          <span>
+            Edit
+          </span>
+          <span style="float: right;">
+            <el-tooltip class="item" effect="dark" content="New File" placement="top">
+              <svg-icon icon-class="new_file" style="cursor:pointer; margin-left: 5px;" />
+            </el-tooltip>
+            <el-tooltip class="item" effect="dark" content="New Directory" placement="top">
+              <svg-icon icon-class="new_directory" style="cursor:pointer; margin-left: 5px;" />
+            </el-tooltip>
+          </span>
+        </div>
+        <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
+        <div style="overflow-y: scroll;">
+          <el-tree :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick">
+            <span slot-scope="{ node }" class="custom-tree-node">
+              <span>
+                <svg-icon v-if="!node.data.leaf && !node.data.expanded" icon-class="folder_closed" />
+                <svg-icon v-else-if="!node.data.leaf && node.data.expanded" icon-class="folder_open" />
+                <svg-icon v-else :icon-class="node.data.icon" />
+              </span>
+              <span style="margin-left: 5px;">{{ node.data.name }}</span>
+              <!-- <span style="float: right;">
+                <svg-icon icon-class="folder_open" style="float: right; text-align: right;" />
+              </span> -->
+            </span>
+          </el-tree>
+        </div>
+        <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
+        <div style="text-align: center; margin: 20px;">
+          <el-button type="primary" style="width: 80%;" @click="handleSave">Save</el-button>
+        </div>
       </el-aside>
       <el-main>
         <!-- <tabs /> -->
         <!-- <inCoder :options="cmOptions" :value="code" /> -->
         <codemirror
           ref="codemirror"
+          v-model="code"
           class="codemirror"
-          :value="code"
           :options="cmOptions"
           @ready="onCmReady"
           @focus="onCmFocus"
           @input="onCmCodeChange"
         />
-        <el-button type="primary" style="margin-top: 10px;" @click="handleSave">Save</el-button>
+
       </el-main>
     </el-container>
   </div>
 </template>
-
-<style scoped>
-.container {
-  min-height: inherit;
-  min-width: 100%;
-}
-</style>
 
 <script>
 import { codemirror } from 'vue-codemirror';
@@ -75,7 +95,8 @@ export default {
             props: {
                 label: 'name',
                 children: 'zones',
-                isLeaf: 'leaf'
+                isLeaf: 'leaf',
+                icon: 'user'
             },
             code: '',
             cmOptions: {
@@ -98,26 +119,34 @@ export default {
             console.log('the editor is focus!', cm);
         },
         onCmCodeChange(newCode) {
-            console.log('update');
-            this.code = newCode;
+            console.log('editor update');
         },
         loadNode(node, resolve) {
             if (node.level === 0) {
                 return resolve([{
                     label: '~/',
                     name: '~/',
-                    leaf: false
+                    leaf: false,
+                    icon: 'user'
                 }]);
             }
             getTreePath(this.uuid, node.data.label).then(response => {
                 const paths = response.payload;
                 let resolveData = [];
+                const supportedSuffixes = ['c', 'cpp', 'cs', 'java', 'js', 'json', 'md', 'py', 's', 'txt'];
                 for (const path of paths) {
                     const isLeaf = (path.charAt(path.length - 1) !== '/');
+                    const suffix = path.substr(path.lastIndexOf('.') + 1);
+
+                    let icon = 'file';
+                    if (supportedSuffixes.includes(suffix)) {
+                        icon = suffix;
+                    }
                     resolveData = resolveData.concat({
                         name: path,
                         label: node.data.label + path,
-                        leaf: isLeaf
+                        leaf: isLeaf,
+                        icon: icon
                     });
                 }
                 return resolve(resolveData);
@@ -154,6 +183,57 @@ export default {
 </script>
 
 <style lang="scss">
+// .el-tree-node__expand-icon{
+//     border:0;
+//     background:url('../../icons/svg/box.svg');
+//     content: '';
+//     /*自定义，必要时用!important*/
+// }
+// .el-tree-node__expand-icon.expanded{
+//     /*自定义，必要时用!important*/
+// }
+// .el-tree-node__expand-icon.is-leaf::before{
+//     display: none;
+// }
+
+// .el-tree .el-tree-node__expand-icon.expanded
+// {
+//     -webkit-transform: rotate(0deg);
+//     transform: rotate(0deg);
+// }
+
+.el-tree {
+    height: 500px;
+    .el-tree-node__content {
+        height: 40px;
+    }
+    // .el-icon-caret-right:before
+    // {
+    //     background: url('https://dev.w3.org/SVG/tools/svgweb/samples/svg-files/410.svg') no-repeat 0 3px;
+    //     content: '';
+    //     // display: block;
+    //     // width: 18px;
+    //     // height: 18px;
+    //     // font-size: 18px;
+    //     // background-size: 18px;
+    // }
+    // .el-tree-node__expand-icon.expanded.el-icon-caret-right:before
+    // {
+    //     background: url('https://dev.w3.org/SVG/tools/svgweb/samples/svg-files/410.svg') no-repeat 0 3px;
+    //     content: '';
+    //     display: block;
+    //     // width: 18px;
+    //     // height: 18px;
+    //     // font-size: 18px;
+    //     // background-size: 18px;
+    // }
+
+}
+
+// .el-tree-node__expand-icon.is-leaf::before
+// {
+//     display: none;
+// }
 
 .codemirror{
     height: 80vh !important;
@@ -168,14 +248,6 @@ export default {
             overflow-y: hidden;
         }
     }
-}
-
-.code-mode-select {
-    position: absolute;
-    z-index: 2;
-    right: 25px;
-    top: 10px;
-    max-width: 130px;
 }
 
 </style>
