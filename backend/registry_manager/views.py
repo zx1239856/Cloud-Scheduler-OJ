@@ -101,6 +101,7 @@ class ConnectionUtils:
             LOGGER.error(ex)
 
     # get tags of a repository in list
+    @cache_with_timeout()
     def get_tags(self, repo):
         try:
             tags = self.json_request(
