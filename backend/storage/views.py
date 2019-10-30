@@ -181,16 +181,29 @@ class StorageHandler(View):
         @apiUse PermissionDenied
         """
         query = json.loads(request.body)
-        # query = request.GET
         try:
             pvc_name = query.get('name', None)
             assert pvc_name is not None
         except AssertionError:
             return JsonResponse(RESPONSE.INVALID_REQUEST)
 
+        class DeleteError(Exception):
+            pass
         try:
+            pod_list = self.api_instance.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE).items
+            for pod in pod_list:
+                volumes = pod.spec.volumes
+                for volume in volumes:
+                    if volume.persistent_volume_claim is None:
+                        continue
+                    if volume.persistent_volume_claim.claim_name == pvc_name:
+                        raise DeleteError()
             self.api_instance.delete_namespaced_persistent_volume_claim(name=pvc_name, namespace=KUBERNETES_NAMESPACE)
             response = RESPONSE.SUCCESS
+        except DeleteError as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " PVC {} is being mounted by some pods now.".format(pvc_name)
         except Exception as ex:
             LOGGER.error(ex)
             response = RESPONSE.OPERATION_FAILED
