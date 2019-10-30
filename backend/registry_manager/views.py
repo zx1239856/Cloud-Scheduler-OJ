@@ -6,12 +6,14 @@ from urllib.request import urlopen
 from docker import DockerClient, APIClient
 from django.http import JsonResponse
 from django.views import View
+from django.utils.decorators import method_decorator
 from dxf import DXF
 from dxf import DXFBase
 from api.common import RESPONSE
 from config import REGISTRY_V2_API_ADDRESS, DOCKER_ADDRESS, REGISTRY_ADDRESS
 from registry_manager.cache import cache_with_timeout
 from registry_manager.manifest import makeManifest
+from user_model.views import permission_required
 
 LOGGER = logging.getLogger(__name__)
 
@@ -154,15 +156,15 @@ class ConnectionUtils:
 class RegistryHandler(View):
     http_method_names = ['get']
     util = ConnectionUtils()
-    """
-    get function for getting list of repositories with its info
-    """
-    def get(self, request):
+
+    @method_decorator(permission_required)
+    def get(self, request, **_):
         """
         @api {get} /registry/ Get Repository list
         @apiName GetRepositories
         @apiGroup RegistryManager
         @apiVersion 0.1.0
+        @apiPermission admin
         @apiSuccess {Object} payload Response Object
         @apiSuccess {Number} payload.count Count of total repositories
         @apiSuccess {Object[]} payload.entry List of Repositoris
@@ -172,6 +174,7 @@ class RegistryHandler(View):
         @apiUse APIHeader
         @apiUse Success
         @apiUse OperationFailed
+        @apiUse Unauthorized
         """
         response = RESPONSE.SUCCESS
         try:
@@ -188,12 +191,14 @@ class RepositoryHandler(View):
     http_method_names = ['get', 'post', 'put', 'delete']
     util = ConnectionUtils()
 
+    @method_decorator(permission_required)
     def get(self, _, **kwargs):
         """
         @api {get} registry/<str:repo>/ Get Tag Lists of the given Repository
         @apiName GetTags
         @apiGroup RegistryManager
         @apiVersion 0.1.0
+        @apiPermission admin
         @apiSuccess {Object} payload Response Object
         @apiSuccess {Number} payload.count Count of total Tags
         @apiSuccess {Object[]} payload.entry List of Tags
@@ -208,6 +213,7 @@ class RepositoryHandler(View):
         @apiUse APIHeader
         @apiUse Success
         @apiUse OperationFailed
+        @apiUse Unauthorized
         """
         response = RESPONSE.SUCCESS
         try:
@@ -221,12 +227,14 @@ class RepositoryHandler(View):
         except Exception:
             return JsonResponse(RESPONSE.OPERATION_FAILED)
 
+    @method_decorator(permission_required)
     def post(self, request, **kwargs):
         """
         @api {post} /registry/upload/ Upload image.tar
         @apiName UploadImageTar
         @apiGroup RegistryManager
         @apiVersion 0.1.0
+        @apiPermission admin
         @apiParamExample {json} Request-Example:
         {
             "file": [FILE]
@@ -238,6 +246,7 @@ class RepositoryHandler(View):
         @apiUse ServerError
         @apiUse InvalidRequest
         @apiUse OperationFailed
+        @apiUse Unauthorized
         """
         try:
             client = DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
@@ -260,16 +269,19 @@ class RepositoryHandler(View):
         except Exception:
             return JsonResponse(RESPONSE.OPERATION_FAILED)
 
+    @method_decorator(permission_required)
     def delete(self, request, **kwargs):
         """
         @api {delete} /registry/<str:repo>/<str:tag>/ Delete an image
         @apiName DeleteImage
         @apiGroup RegistryManager
         @apiVersion 0.1.0
+        @apiPermission admin
         @apiSuccess {Object} payload Success payload is empty
         @apiUse APIHeader
         @apiUse Success
         @apiUse OperationFailed
+        @apiUse Unauthorized
         """
         try:
             repo = kwargs.get('repo')
