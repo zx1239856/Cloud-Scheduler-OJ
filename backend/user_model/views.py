@@ -7,7 +7,7 @@ import uuid
 import json
 import logging
 from functools import wraps
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 import bcrypt
 from django.http import JsonResponse
 from django.views import View
@@ -61,7 +61,10 @@ def user_passes_test(test_func, redirect_oauth):
             else:
                 if redirect_oauth:
                     response = redirect(CLOUD_SCHEDULER_API_SERVER_BASE_URL + OAUTH_LOGIN_URL +
-                                        '?next={}'.format(quote(request.build_absolute_uri())))
+                                        '?next={}'.format(
+                                            quote(
+                                                CLOUD_SCHEDULER_API_SERVER_BASE_URL +
+                                                request.get_full_path().lstrip('/'))))
                 else:
                     response = None
                     if ret == 1:
@@ -449,7 +452,7 @@ class OAuthUserLogin(View):
             redirect_link = request.GET.get('next', None)
             if redirect_link is not None:
                 LOGGER.debug(redirect_link)
-                response = redirect(redirect_link)
+                response = redirect(unquote(redirect_link))
                 response.set_cookie('username', user.username, max_age=None)
                 response.set_cookie('token', token, max_age=None)
                 return response
