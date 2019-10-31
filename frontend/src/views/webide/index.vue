@@ -2,7 +2,7 @@
   <div class="container">
     <el-container>
       <el-aside width="300px">
-        <div style="margin: 20px;">
+        <div style="height: 60px; padding: 20px;">
           <span>
             Edit
           </span>
@@ -48,12 +48,16 @@
           <el-button type="primary" style="width: 80%;" @click="handleSave">Save</el-button>
         </div>
       </el-aside>
-      <el-main>
-        <!-- <tabs /> -->
-        <!-- <inCoder :options="cmOptions" :value="code" /> -->
+      <el-main style="padding: 0px;">
+        <div style="height: 60px; padding-top: 19px;">
+          <el-tabs v-model="tabsValue" type="card" closable @edit="handleTabsEdit">
+            <el-tab-pane v-for="item in tabs" :key="item.key" :label="item.label" :name="item.key" tab-position="bottom" />
+          </el-tabs>
+        </div>
         <codemirror
           ref="codemirror"
           v-model="code"
+          v-loading="codeMirrorLoading"
           class="codemirror"
           :options="cmOptions"
           @ready="onCmReady"
@@ -92,7 +96,6 @@
 <script>
 import { codemirror } from 'vue-codemirror';
 import { getTreePath, getFile, updateFile, renameFile, renameDirectory, createFile, createDirectory, deleteFile, deleteDirectory } from '@/api/tree';
-// import tabs from './tabs';
 import 'codemirror/lib/codemirror.css';
 
 import 'codemirror/mode/javascript/javascript.js';
@@ -120,7 +123,6 @@ import 'codemirror/theme/cobalt.css';
 export default {
     name: 'WebIDE',
     components: {
-        // tabs: tabs,
         codemirror: codemirror
     },
     data() {
@@ -137,6 +139,11 @@ export default {
             callback();
         };
         return {
+            tabs: [{
+                key: 'dddddddddd',
+                label: '123'
+            }],
+            tabsValue: '1',
             deleteDialogVisible: false,
             dialogRules: {
                 name: [{
@@ -150,6 +157,7 @@ export default {
             },
             dialogTitle: '',
             selectedNode: undefined,
+            topLevelNode: undefined,
             dialogFormVisible: false,
             contextMenuVisible: false,
             contextMenuTarget: undefined,
@@ -160,6 +168,7 @@ export default {
                 children: 'children',
                 isLeaf: 'isLeaf'
             },
+            codeMirrorLoading: false,
             code: '',
             cmOptions: {
                 // codemirror options
@@ -194,6 +203,21 @@ export default {
         },
         onCmCodeChange(newCode) {
             console.log('editor update');
+        },
+        handleTabsEdit(targetKey, action) {
+            if (action === 'remove') {
+                if (this.tabsValue === targetKey) {
+                    this.tabs.forEach((tabs, index) => {
+                        if (tabs.key === targetKey) {
+                            const nextTab = this.tabs[index + 1] || this.tabs[index - 1];
+                            if (nextTab) {
+                                this.tabsValue = nextTab.key;
+                            }
+                        }
+                    });
+                }
+                this.tabs = this.tabs.filter(tab => tab.key !== targetKey);
+            }
         },
         getIconClass(filename) {
             if (filename.endsWith('/')) {
@@ -288,6 +312,9 @@ export default {
                     }
                 } else {
                     // create file or dir
+                    if (!this.selectedNode) {
+                        this.selectedNode = this.topLevelNode;
+                    }
                     if (!this.isDirectory(this.selectedNode.data.label)) {
                         this.selectedNode = this.selectedNode.parent;
                     }
@@ -337,7 +364,7 @@ export default {
                     isLeaf: false,
                     icon: 'folder_closed'
                 }]);
-                this.selectedNode = node.childNodes[0];
+                this.topLevelNode = node.childNodes[0];
                 return;
             }
 
@@ -365,6 +392,7 @@ export default {
                 return;
             }
             this.currentFile = node.data.label;
+            this.codeMirrorLoading = true;
             getFile(this.uuid, this.currentFile).then(response => {
                 this.code = response.payload;
 
@@ -373,6 +401,12 @@ export default {
                 } else if (this.currentFile.endsWith('.js')) {
                     this.cmOptions.mode = 'text/javascript';
                 }
+                this.codeMirrorLoading = false;
+                this.tabs.push({
+                    key: this.currentFile,
+                    label: this.currentFile.substr(this.currentFile.lastIndexOf('/') + 1)
+                });
+                this.tabsValue = this.currentFile;
             });
         },
         handleCreateFile() {
@@ -416,6 +450,14 @@ export default {
 //     -webkit-transform: rotate(0deg);
 //     transform: rotate(0deg);
 // }
+.el-tabs{
+    .el-tabs__header{
+        margin: 0px;
+    }
+    .el-tabs__content{
+        margin: 0px;
+    }
+}
 
 .el-tree {
     height: 500px;
