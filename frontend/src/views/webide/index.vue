@@ -33,11 +33,11 @@
             :show="contextMenuVisible"
             @update:show="(show) => contextMenuVisible = show"
           >
-            <a href="javascript:;" style="display: flex;" @click="renameNode">
+            <a href="javascript:;" style="display: flex;" @click="handleRename">
               <svg-icon icon-class="rename" />
               <span style="float: right; margin-left: 5px;">Rename</span>
             </a>
-            <a href="javascript:;" style="display: flex;" @click="deleteNode">
+            <a href="javascript:;" style="display: flex;" @click="handleDelete">
               <svg-icon icon-class="delete" />
               <span style="float: right; margin-left: 5px;">Delete</span>
             </a>
@@ -78,12 +78,20 @@
         </el-button>
       </div>
     </el-dialog>
+
+    <el-dialog title="Warning" :visible.sync="deleteDialogVisible" width="30%">
+      <span>Are you sure to delete?</span>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="deleteDialogVisible = false">Cancel</el-button>
+        <el-button type="danger" @click="deleteNode">Delete</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import { codemirror } from 'vue-codemirror';
-import { getTreePath, getFile, updateFile, renameFile, renameDirectory, createFile, createDirectory } from '@/api/tree';
+import { getTreePath, getFile, updateFile, renameFile, renameDirectory, createFile, createDirectory, deleteFile, deleteDirectory } from '@/api/tree';
 // import tabs from './tabs';
 import 'codemirror/lib/codemirror.css';
 
@@ -129,6 +137,7 @@ export default {
             callback();
         };
         return {
+            deleteDialogVisible: false,
             dialogRules: {
                 name: [{
                     required: true,
@@ -195,7 +204,10 @@ export default {
             const icon = (supportedSuffixes.includes(suffix) ? suffix : 'file');
             return icon;
         },
-        renameNode() {
+        handleRename() {
+            // close context menu
+            this.contextMenuVisible = false;
+            // open rename window
             this.dialogTitle = 'Rename';
             this.dialogFormData.name = this.selectedNode.data.name;
             if (this.dialogFormData.name.endsWith('/')) {
@@ -203,8 +215,36 @@ export default {
             }
             this.dialogFormVisible = true;
         },
+        handleDelete() {
+            this.contextMenuVisible = false;
+            this.deleteDialogVisible = true;
+        },
         deleteNode() {
-
+            if (this.isDirectory(this.selectedNode.data.label)) {
+                // delete dir
+                deleteDirectory(this.uuid, this.selectedNode.data.label)
+                    .then(response => {
+                        this.$message({
+                            message: 'Successfully Deleted',
+                            type: 'success'
+                        });
+                        this.deleteDialogVisible = false;
+                        // frontend delete
+                        this.$refs.tree.remove(this.selectedNode);
+                    });
+            } else {
+                // delete file
+                deleteFile(this.uuid, this.selectedNode.data.label)
+                    .then(response => {
+                        this.$message({
+                            message: 'Successfully Deleted',
+                            type: 'success'
+                        });
+                        this.deleteDialogVisible = false;
+                        // frontend delete
+                        this.$refs.tree.remove(this.selectedNode);
+                    });
+            }
         },
         isDirectory(path) {
             return path.endsWith('/');
@@ -216,21 +256,8 @@ export default {
                 }
                 if (this.dialogTitle === 'Rename') {
                     // rename file or directory
-                    if (this.selectedNode.data.isLeaf) {
-                        const dir = this.selectedNode.data.label.substr(0, this.selectedNode.data.label.lastIndexOf('/') + 1);
-                        renameFile(this.uuid, this.selectedNode.data.label, dir + this.dialogFormData.name)
-                            .then(response => {
-                                this.$message({
-                                    message: 'Successfully Renamed',
-                                    type: 'success'
-                                });
-                                this.dialogFormVisible = false;
-                                // frontend rename
-                                this.selectedNode.data.name = this.dialogFormData.name;
-                                this.selectedNode.data.label = dir + this.dialogFormData.name;
-                                this.selectedNode.data.icon = this.getIconClass(this.selectedNode.data.label);
-                            });
-                    } else {
+                    if (this.isDirectory(this.selectedNode.data.label)) {
+                        // rename dir
                         const oldPath = this.selectedNode.data.label;
                         const dir = oldPath.substr(0, oldPath.substr(0, oldPath.length - 1).lastIndexOf('/') + 1);
                         renameDirectory(this.uuid, this.selectedNode.data.label, dir + this.dialogFormData.name + '/')
@@ -243,6 +270,20 @@ export default {
                                 // frontend rename
                                 this.selectedNode.data.name = this.dialogFormData.name + '/';
                                 this.selectedNode.data.label = dir + this.dialogFormData.name + '/';
+                            });
+                    } else {
+                        const dir = this.selectedNode.data.label.substr(0, this.selectedNode.data.label.lastIndexOf('/') + 1);
+                        renameFile(this.uuid, this.selectedNode.data.label, dir + this.dialogFormData.name)
+                            .then(response => {
+                                this.$message({
+                                    message: 'Successfully Renamed',
+                                    type: 'success'
+                                });
+                                this.dialogFormVisible = false;
+                                // frontend rename
+                                this.selectedNode.data.name = this.dialogFormData.name;
+                                this.selectedNode.data.label = dir + this.dialogFormData.name;
+                                this.selectedNode.data.icon = this.getIconClass(this.selectedNode.data.label);
                             });
                     }
                 } else {

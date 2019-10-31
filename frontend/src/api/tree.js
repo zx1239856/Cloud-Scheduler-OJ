@@ -70,13 +70,22 @@ export function createDirectory(settingsUuid, dirName) {
     });
 }
 
-export function deleteFile(settingsUuid, oldFilename, newFilename) {
+export function deleteFile(settingsUuid, filename) {
     return request({
         url: '/user_space/' + settingsUuid + '/',
         method: 'delete',
         data: {
-            old_file: oldFilename,
-            file: newFilename
+            file: filename
+        }
+    });
+}
+
+export function deleteDirectory(settingsUuid, dirName) {
+    return request({
+        url: '/user_space/' + settingsUuid + '/',
+        method: 'delete',
+        data: {
+            path: dirName
         }
     });
 }
