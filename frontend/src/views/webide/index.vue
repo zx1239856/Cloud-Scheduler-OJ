@@ -1,6 +1,6 @@
 <template>
   <div class="container">
-    <el-container @keyup.ctrl.83="handleSave">
+    <el-container>
       <el-aside width="300px">
         <div style="margin: 20px;">
           <span>
@@ -8,22 +8,20 @@
           </span>
           <span style="float: right;">
             <el-tooltip class="item" effect="dark" content="New File" placement="top">
-              <svg-icon icon-class="new_file" style="cursor:pointer; margin-left: 5px;" />
+              <svg-icon icon-class="new_file" style="cursor:pointer; margin-left: 5px;" @click="handleCreateFile" />
             </el-tooltip>
             <el-tooltip class="item" effect="dark" content="New Directory" placement="top">
-              <svg-icon icon-class="new_directory" style="cursor:pointer; margin-left: 5px;" />
+              <svg-icon icon-class="new_directory" style="cursor:pointer; margin-left: 5px;" @click="handleCreateDirectory" />
             </el-tooltip>
           </span>
         </div>
         <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
         <div style="overflow-y: scroll;">
-          <el-tree id="el-tree" :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick">
+          <el-tree id="el-tree" ref="tree" :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick">
             <span slot-scope="{ node }" class="custom-tree-node">
               <span>
                 <span>
-                  <svg-icon v-if="!node.data.leaf && !node.data.expanded" icon-class="folder_closed" />
-                  <svg-icon v-else-if="!node.data.leaf && node.data.expanded" icon-class="folder_open" />
-                  <svg-icon v-else :icon-class="node.data.icon" />
+                  <svg-icon :icon-class="node.data.icon" />
                 </span>
                 <span style="margin-left: 5px;">{{ node.data.name }}</span>
               </span>
@@ -62,15 +60,30 @@
           @focus="onCmFocus"
           @input="onCmCodeChange"
         />
-
       </el-main>
     </el-container>
+
+    <el-dialog :title="dialogTitle" :visible.sync="dialogFormVisible">
+      <el-form ref="dialogForm" :rules="dialogRules" :model="dialogFormData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;" @submit.native.prevent>
+        <el-form-item label="Name" prop="name">
+          <el-input v-model="dialogFormData.name" />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="dialogFormVisible = false">
+          Cancel
+        </el-button>
+        <el-button type="primary" @click="handleDialogConfirm">
+          Confirm
+        </el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import { codemirror } from 'vue-codemirror';
-import { getTreePath, getFile, updateFile } from '@/api/tree';
+import { getTreePath, getFile, updateFile, renameFile, renameDirectory, createFile, createDirectory } from '@/api/tree';
 // import tabs from './tabs';
 import 'codemirror/lib/codemirror.css';
 
@@ -103,17 +116,40 @@ export default {
         codemirror: codemirror
     },
     data() {
+        const validateName = (rule, value, callback) => {
+            if (value.length === 0) {
+                return callback(new Error('Name is required'));
+            }
+            const invalidChars = '\\/:*?"<>|'.split('');
+            for (const char of invalidChars) {
+                if (value.includes(char)) {
+                    return callback(new Error('Invalid input'));
+                }
+            }
+            callback();
+        };
         return {
-            nodeData: {},
+            dialogRules: {
+                name: [{
+                    required: true,
+                    validator: validateName,
+                    trigger: 'change'
+                }]
+            },
+            dialogFormData: {
+                name: ''
+            },
+            dialogTitle: '',
+            selectedNode: undefined,
+            dialogFormVisible: false,
             contextMenuVisible: false,
             contextMenuTarget: undefined,
             currentFile: '',
             uuid: this.$route.query.uuid,
             props: {
                 label: 'name',
-                children: 'zones',
-                isLeaf: 'leaf',
-                icon: 'user'
+                children: 'children',
+                isLeaf: 'isLeaf'
             },
             code: '',
             cmOptions: {
@@ -130,12 +166,12 @@ export default {
         this.$nextTick(() => {
             // vue-context-menu 需要传入一个触发右键事件的元素，等页面 dom 渲染完毕后才可获取
             this.contextMenuTarget = document.querySelector('#el-tree');
-            // 获取所有的 treeitem，循环监听右键事件
+            // get all treeitem to listen to right click event
             const tree = document.querySelectorAll('#el-tree [role="treeitem"]');
             tree.forEach(item => {
                 item.addEventListener('contextmenu', event => {
-                    // 如果右键了，则模拟点击这个treeitem
-                    // event.target.click();
+                    // if right click, then left click to get the current node.
+                    event.target.click();
                 });
             });
         });
@@ -150,48 +186,141 @@ export default {
         onCmCodeChange(newCode) {
             console.log('editor update');
         },
+        getIconClass(filename) {
+            if (filename.endsWith('/')) {
+                return 'folder_closed';
+            }
+            const supportedSuffixes = ['c', 'cpp', 'cs', 'java', 'js', 'json', 'md', 'py', 's', 'txt'];
+            const suffix = filename.substr(filename.lastIndexOf('.') + 1);
+            const icon = (supportedSuffixes.includes(suffix) ? suffix : 'file');
+            return icon;
+        },
         renameNode() {
-
+            this.dialogTitle = 'Rename';
+            this.dialogFormData.name = this.selectedNode.data.name;
+            if (this.dialogFormData.name.endsWith('/')) {
+                this.dialogFormData.name = this.dialogFormData.name.substr(0, this.dialogFormData.name.length - 1);
+            }
+            this.dialogFormVisible = true;
         },
         deleteNode() {
 
         },
+        isDirectory(path) {
+            return path.endsWith('/');
+        },
+        handleDialogConfirm() {
+            this.$refs.dialogForm.validate(valid => {
+                if (!valid) {
+                    return false;
+                }
+                if (this.dialogTitle === 'Rename') {
+                    // rename file or directory
+                    if (this.selectedNode.data.isLeaf) {
+                        const dir = this.selectedNode.data.label.substr(0, this.selectedNode.data.label.lastIndexOf('/') + 1);
+                        renameFile(this.uuid, this.selectedNode.data.label, dir + this.dialogFormData.name)
+                            .then(response => {
+                                this.$message({
+                                    message: 'Successfully Renamed',
+                                    type: 'success'
+                                });
+                                this.dialogFormVisible = false;
+                                // frontend rename
+                                this.selectedNode.data.name = this.dialogFormData.name;
+                                this.selectedNode.data.label = dir + this.dialogFormData.name;
+                                this.selectedNode.data.icon = this.getIconClass(this.selectedNode.data.label);
+                            });
+                    } else {
+                        const oldPath = this.selectedNode.data.label;
+                        const dir = oldPath.substr(0, oldPath.substr(0, oldPath.length - 1).lastIndexOf('/') + 1);
+                        renameDirectory(this.uuid, this.selectedNode.data.label, dir + this.dialogFormData.name + '/')
+                            .then(response => {
+                                this.$message({
+                                    message: 'Successfully Renamed',
+                                    type: 'success'
+                                });
+                                this.dialogFormVisible = false;
+                                // frontend rename
+                                this.selectedNode.data.name = this.dialogFormData.name + '/';
+                                this.selectedNode.data.label = dir + this.dialogFormData.name + '/';
+                            });
+                    }
+                } else {
+                    // create file or dir
+                    if (!this.isDirectory(this.selectedNode.data.label)) {
+                        this.selectedNode = this.selectedNode.parent;
+                    }
+                    if (this.dialogTitle === 'Create File') {
+                        // create file
+                        createFile(this.uuid, this.selectedNode.data.label + this.dialogFormData.name).then(response => {
+                            this.$message({
+                                message: 'Successfully Created',
+                                type: 'success'
+                            });
+                            this.dialogFormVisible = false;
+                            // frontend create
+                            this.$refs.tree.append({
+                                name: this.dialogFormData.name,
+                                label: this.selectedNode.data.label + this.dialogFormData.name,
+                                isLeaf: true,
+                                icon: this.getIconClass(this.selectedNode.data.label + this.dialogFormData.name)
+                            }, this.selectedNode);
+                        });
+                    } else {
+                        // create directory
+                        const newBasePath = this.dialogFormData.name + '/';
+                        const newPath = this.selectedNode.data.label + newBasePath;
+                        createDirectory(this.uuid, newPath).then(response => {
+                            this.$message({
+                                message: 'Successfully Created',
+                                type: 'success'
+                            });
+                            this.dialogFormVisible = false;
+                            // frontend create
+                            this.$refs.tree.append({
+                                name: newBasePath,
+                                label: newPath,
+                                isLeaf: false,
+                                icon: this.getIconClass(newPath)
+                            }, this.selectedNode);
+                        });
+                    }
+                }
+            });
+        },
         loadNode(node, resolve) {
             if (node.level === 0) {
-                return resolve([{
+                resolve([{
                     label: '~/',
                     name: '~/',
-                    leaf: false,
-                    icon: 'user'
+                    isLeaf: false,
+                    icon: 'folder_closed'
                 }]);
+                this.selectedNode = node.childNodes[0];
+                return;
             }
+
             getTreePath(this.uuid, node.data.label).then(response => {
                 const paths = response.payload;
                 let resolveData = [];
-                const supportedSuffixes = ['c', 'cpp', 'cs', 'java', 'js', 'json', 'md', 'py', 's', 'txt'];
                 for (const path of paths) {
-                    const isLeaf = (path.charAt(path.length - 1) !== '/');
-                    const suffix = path.substr(path.lastIndexOf('.') + 1);
-
-                    let icon = 'file';
-                    if (supportedSuffixes.includes(suffix)) {
-                        icon = suffix;
-                    }
                     resolveData = resolveData.concat({
                         name: path,
                         label: node.data.label + path,
-                        leaf: isLeaf,
-                        icon: icon
+                        isLeaf: !this.isDirectory(path),
+                        icon: this.getIconClass(path)
                     });
                 }
+                node.data.icon = 'folder_open';
                 return resolve(resolveData);
             }).catch(() => {
-                resolve([]);
+
             });
         },
         handleNodeClick(nodeObj, node, nodeComponent) {
-            this.nodeData = node.data;
+            this.selectedNode = node;
             if (node.data.label.charAt(node.data.label.length - 1) === '/') {
+                node.data.icon = (node.expanded ? 'folder_open' : 'folder_closed');
                 return;
             }
             this.currentFile = node.data.label;
@@ -201,10 +330,19 @@ export default {
                 if (this.currentFile.endsWith('.cpp') || this.currentFile.endsWith('.c') || this.currentFile.endsWith('.s')) {
                     this.cmOptions.mode = 'text/x-c++src';
                 } else if (this.currentFile.endsWith('.js')) {
-                    console.log('js');
                     this.cmOptions.mode = 'text/javascript';
                 }
             });
+        },
+        handleCreateFile() {
+            this.dialogTitle = 'Create File';
+            this.dialogFormData.name = '';
+            this.dialogFormVisible = true;
+        },
+        handleCreateDirectory() {
+            this.dialogTitle = 'Create Directory';
+            this.dialogFormData.name = '';
+            this.dialogFormVisible = true;
         },
         handleSave() {
             updateFile(this.uuid, this.currentFile, this.code).then(response => {
