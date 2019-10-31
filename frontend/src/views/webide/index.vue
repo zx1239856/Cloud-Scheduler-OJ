@@ -2,7 +2,7 @@
   <div class="container">
     <el-container>
       <el-aside width="300px">
-        <div style="height: 60px; padding: 20px;">
+        <div style="height: 50px; padding: 18px;">
           <span>
             Edit
           </span>
@@ -17,7 +17,7 @@
         </div>
         <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
         <div style="overflow-y: scroll;">
-          <el-tree id="el-tree" ref="tree" :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick">
+          <el-tree id="el-tree" ref="tree" :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick" @click.native.prevent="handleNodeClick">
             <span slot-scope="{ node }" class="custom-tree-node">
               <span>
                 <span>
@@ -48,16 +48,15 @@
           <el-button type="primary" style="width: 80%;" @click="handleSave">Save</el-button>
         </div>
       </el-aside>
-      <el-main style="padding: 0px;">
-        <div style="height: 60px; padding-top: 19px;">
-          <el-tabs v-model="tabsValue" type="card" closable @edit="handleTabsEdit">
+      <el-main v-loading="codeMirrorLoading" style="padding: 0px;">
+        <div style="height: 50px; padding-top: 9px;">
+          <el-tabs v-model="currentFile" type="card" closable @edit="handleTabsEdit" @tab-click="handleTabClick">
             <el-tab-pane v-for="item in tabs" :key="item.key" :label="item.label" :name="item.key" tab-position="bottom" />
           </el-tabs>
         </div>
         <codemirror
           ref="codemirror"
           v-model="code"
-          v-loading="codeMirrorLoading"
           class="codemirror"
           :options="cmOptions"
           @ready="onCmReady"
@@ -139,11 +138,7 @@ export default {
             callback();
         };
         return {
-            tabs: [{
-                key: 'dddddddddd',
-                label: '123'
-            }],
-            tabsValue: '1',
+            tabs: [],
             deleteDialogVisible: false,
             dialogRules: {
                 name: [{
@@ -203,15 +198,20 @@ export default {
         },
         onCmCodeChange(newCode) {
             console.log('editor update');
+            const tabIndex = this.getTabIndexOfFile(this.currentFile);
+            if (tabIndex > -1) {
+                this.tabs[tabIndex].content = this.code;
+            }
         },
         handleTabsEdit(targetKey, action) {
             if (action === 'remove') {
-                if (this.tabsValue === targetKey) {
+                if (this.currentFile === targetKey) {
                     this.tabs.forEach((tabs, index) => {
                         if (tabs.key === targetKey) {
                             const nextTab = this.tabs[index + 1] || this.tabs[index - 1];
                             if (nextTab) {
-                                this.tabsValue = nextTab.key;
+                                this.currentFile = nextTab.key;
+                                this.code = nextTab.content;
                             }
                         }
                     });
@@ -269,6 +269,23 @@ export default {
                         this.$refs.tree.remove(this.selectedNode);
                     });
             }
+        },
+        handleTabClick(tab) {
+            if (this.codeMirrorLoading) {
+                this.$message('Loading. Please wait!');
+                return;
+            }
+            this.currentFile = this.tabs[tab.index].key;
+            this.code = this.tabs[tab.index].content;
+        },
+        getTabIndexOfFile(path) {
+            let tabIndex = -1;
+            this.tabs.forEach((tab, index) => {
+                if (tab.key === path) {
+                    tabIndex = index;
+                }
+            });
+            return tabIndex;
         },
         isDirectory(path) {
             return path.endsWith('/');
@@ -386,13 +403,26 @@ export default {
             });
         },
         handleNodeClick(nodeObj, node, nodeComponent) {
+            if (this.codeMirrorLoading) {
+                this.$message('Loading. Please wait!');
+                return;
+            }
             this.selectedNode = node;
             if (node.data.label.charAt(node.data.label.length - 1) === '/') {
                 node.data.icon = (node.expanded ? 'folder_open' : 'folder_closed');
                 return;
             }
-            this.currentFile = node.data.label;
+
+            const tabIndex = this.getTabIndexOfFile(node.data.label);
+            if (tabIndex > -1) {
+                this.currentFile = this.tabs[tabIndex].key;
+                this.code = this.tabs[tabIndex].content;
+                return;
+            }
+
             this.codeMirrorLoading = true;
+            this.currentFile = node.data.label;
+
             getFile(this.uuid, this.currentFile).then(response => {
                 this.code = response.payload;
 
@@ -401,12 +431,13 @@ export default {
                 } else if (this.currentFile.endsWith('.js')) {
                     this.cmOptions.mode = 'text/javascript';
                 }
-                this.codeMirrorLoading = false;
+
                 this.tabs.push({
                     key: this.currentFile,
-                    label: this.currentFile.substr(this.currentFile.lastIndexOf('/') + 1)
+                    label: this.currentFile.substr(this.currentFile.lastIndexOf('/') + 1),
+                    content: response.payload
                 });
-                this.tabsValue = this.currentFile;
+                this.codeMirrorLoading = false;
             });
         },
         handleCreateFile() {
