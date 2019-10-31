@@ -24,5 +24,5 @@ USER_SPACE_POD_TIMEOUT = 300  # 5 minutes
 DATABASE_USER = 'root'
 DATABASE_PASSWORD = 'mY#YtGwJ@UdeC9JT'
 DATABASE_NAME = 'cloud_scheduler'
-DATABASE_HOST = 'MySQL.SIGQUIT.secoder.local'
+DATABASE_HOST = 'database.SIGQUIT.secoder.local'
 DATABASE_PORT = 3306

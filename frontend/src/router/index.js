@@ -130,35 +130,6 @@ export const constantRoutes = [
         name: 'webssh',
         component: () => import('@/views/webssh/index')
     },
-    {
-        path: '/storage',
-        name: 'storage',
-        component: Layout,
-        meta: { title: 'Storage', icon: 'storage' },
-        children: [{
-            path: 'storage',
-            name: 'Storage',
-            component: () => import('@/views/storage/index'),
-            meta: { title: 'Storage', icon: 'storage' }
-        }]
-    },
-    {
-        path: '/registry',
-        name: 'registry',
-        component: Layout,
-        meta: { title: 'Registry', icon: 'list' },
-        children: [{
-            path: 'repositories',
-            name: 'repositories',
-            component: () => import('@/views/registry/index'),
-            meta: { title: 'Repositories', icon: 'repository' }
-        }]
-    },
-    {
-        path: '/registry/image/',
-        name: 'image',
-        component: () => import('@/views/registry/image')
-    },
 
     {
         path: '/user-terminal/',
@@ -179,6 +150,37 @@ export const asyncRoutes = [
             component: () => import('@/views/pods/index'),
             meta: { title: 'Pods', icon: 'box', roles: ['admin'] }
         }]
+    },
+    {
+        path: '/storage',
+        name: 'storage',
+        component: Layout,
+        children: [{
+            path: 'storage',
+            name: 'Storage',
+            component: () => import('@/views/storage/index'),
+            meta: { title: 'Storage', icon: 'storage', roles: ['admin'] }
+        }]
+    },
+    {
+        path: '/registry',
+        name: 'registry',
+        component: Layout,
+        children: [
+            {
+                path: 'repositories/',
+                name: 'repositories',
+                component: () => import('@/views/registry/index'),
+                meta: { title: 'Repositories', icon: 'repository', roles: ['admin'] }
+            },
+            {
+                path: 'image/',
+                name: 'image',
+                hidden: true,
+                component: () => import('@/views/registry/image'),
+                meta: { title: 'Image', roles: ['admin'] }
+            }
+        ]
     }
 ];
 

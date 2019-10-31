@@ -1,7 +1,7 @@
 <template>
   <div class="dashboard-container">
     <div class="dashboard-avatar">
-      <el-avatar :size="150" :src="avatar" />
+      <el-avatar :size="150" :src="avatar + '/?s=200'" />
     </div>
     <div class="dashboard-text">Hello, {{ name }} !</div>
   </div>

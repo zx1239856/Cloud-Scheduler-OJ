@@ -107,8 +107,7 @@ export default {
             });
         },
         handleImageInfo(row) {
-            const routeData = this.$router.resolve({ name: 'image', query: { repo: row.Repo }});
-            window.open(routeData.href);
+            this.$router.push({ name: 'image', query: { repo: row.Repo }});
         },
         handleUpload() {
             this.dialogFormVisible = true;
