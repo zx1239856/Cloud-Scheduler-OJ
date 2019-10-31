@@ -24,6 +24,7 @@ def login_test_user(user):
 def mock_get_k8s_client():
     return 1
 
+
 class TestCaseWithBasicUser(TestCase):
     def setUp(self):
         self.client = Client()
@@ -88,7 +89,8 @@ class MockCoreV1Api:
             'spec':
                 DotDict({
                     'node_name': 'test_node',
-                    'volumes': [DotDict({}), DotDict({'persistent_volume_claim': DotDict({'claim_name': 'test-pvc-using'})})]
+                    'volumes': [DotDict({}),
+                                DotDict({'persistent_volume_claim': DotDict({'claim_name': 'test-pvc-using'})})]
                 })
         })]
         return ReturnItemsList(item_list)
@@ -218,6 +220,7 @@ class MockTaskExecutor:
             'spec': DotDict({'node_name': 'test_node'})
         })
 
+
 class MockWSClient:
     def __init__(self, **_):
         self.counter = 1000
@@ -252,6 +255,7 @@ class MockWSClient:
     def run_forever(self, timeout):
         pass
 
+
 class MockDXFBase:
     def __init__(self, *_, **__):
         pass
@@ -259,6 +263,7 @@ class MockDXFBase:
     @staticmethod
     def list_repos(**__):
         return ['test_repo']
+
 
 class MockDXF:
     def __init__(self, *_, **__):
@@ -276,6 +281,7 @@ class MockDXF:
     def del_blob(*_):
         pass
 
+
 class MockRequest:
     def __init__(self, *args, **_):
         if 'manifests' in args[0]:
@@ -284,6 +290,7 @@ class MockRequest:
             self.url = 'blobs'
         elif 'tags' in args[0]:
             self.url = 'tags'
+
 
 def MockUrlOpen(request, **_):
     if request.url == 'manifests':
@@ -322,6 +329,7 @@ def MockUrlOpen(request, **_):
     else:
         return None
 
+
 def MockJsonRequest(*_):
     return {
         "schemaVersion": 1,
@@ -340,8 +348,10 @@ def MockJsonRequest(*_):
         ]
     }
 
+
 def MockGetTags(*_):
     return ['test_alias']
+
 
 class MockDockerClient:
     def __init__(self, *_, **__):
@@ -352,8 +362,11 @@ class MockDockerClient:
                         self.tags = [
                             'test_upload_image'
                         ]
+
                 return [MockImage()]
+
         self.images = MockImageCollection()
+
 
 class MockAPIClient:
     def __init__(self, **_):

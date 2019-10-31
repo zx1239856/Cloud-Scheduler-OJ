@@ -10,3 +10,4 @@ kubernetes
 python-dxf
 bcrypt
 rpyc
+mysqlclient
