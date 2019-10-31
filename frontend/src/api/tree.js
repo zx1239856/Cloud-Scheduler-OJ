@@ -16,17 +16,9 @@ export function getFile(settings_uuid, file) {
     });
 }
 
-export function createFile(path, filename, data) {
+export function updateFile(settingsUuid, filename, content) {
     return request({
-        url: '/tree/file/' + path + '/' + filename + '/',
-        method: 'post',
-        data
-    });
-}
-
-export function updateFile(settings_uuid, filename, content) {
-    return request({
-        url: '/user_space/' + settings_uuid + '/',
+        url: '/user_space/' + settingsUuid + '/',
         method: 'put',
         data: {
             file: filename,
@@ -36,23 +28,64 @@ export function updateFile(settings_uuid, filename, content) {
     });
 }
 
-export function deleteFile(path, filename) {
+export function renameFile(settingsUuid, oldFilename, newFilename) {
     return request({
-        url: '/tree/file/' + path + '/' + filename + '/',
-        method: 'delete'
+        url: '/user_space/' + settingsUuid + '/',
+        method: 'put',
+        data: {
+            old_file: oldFilename,
+            file: newFilename
+        }
     });
 }
 
-export function addDirectory(path, directoryname) {
+export function renameDirectory(settingsUuid, oldDir, newDir) {
     return request({
-        url: '/tree/directory/' + path + '/' + directoryname + '/',
-        method: 'post'
+        url: '/user_space/' + settingsUuid + '/',
+        method: 'put',
+        data: {
+            old_path: oldDir,
+            path: newDir
+        }
     });
 }
 
-export function deleteDirectory(path, directoryname) {
+export function createFile(settingsUuid, filename) {
     return request({
-        url: '/tree/directory/' + path + '/' + directoryname + '/',
-        method: 'delete'
+        url: '/user_space/' + settingsUuid + '/',
+        method: 'post',
+        data: {
+            file: filename
+        }
+    });
+}
+
+export function createDirectory(settingsUuid, dirName) {
+    return request({
+        url: '/user_space/' + settingsUuid + '/',
+        method: 'post',
+        data: {
+            path: dirName
+        }
+    });
+}
+
+export function deleteFile(settingsUuid, filename) {
+    return request({
+        url: '/user_space/' + settingsUuid + '/',
+        method: 'delete',
+        data: {
+            file: filename
+        }
+    });
+}
+
+export function deleteDirectory(settingsUuid, dirName) {
+    return request({
+        url: '/user_space/' + settingsUuid + '/',
+        method: 'delete',
+        data: {
+            path: dirName
+        }
     });
 }

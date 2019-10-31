@@ -1,43 +1,102 @@
 <template>
   <div class="container">
-    <el-container @keyup.ctrl.83="handleSave">
+    <el-container>
       <el-aside width="300px">
-        <el-tree
-          :props="props"
-          :load="loadNode"
-          lazy
-          @node-click="handleNodeClick"
-        />
+        <div style="height: 50px; padding: 18px;">
+          <span>
+            Edit
+          </span>
+          <span style="float: right;">
+            <el-tooltip class="item" effect="dark" content="New File" placement="top">
+              <svg-icon icon-class="new_file" style="cursor:pointer; margin-left: 5px;" @click="handleCreateFile" />
+            </el-tooltip>
+            <el-tooltip class="item" effect="dark" content="New Directory" placement="top">
+              <svg-icon icon-class="new_directory" style="cursor:pointer; margin-left: 5px;" @click="handleCreateDirectory" />
+            </el-tooltip>
+          </span>
+        </div>
+        <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
+        <div style="overflow-y: scroll;">
+          <el-tree id="el-tree" ref="tree" :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick" @click.native.prevent="handleNodeClick">
+            <span slot-scope="{ node }" class="custom-tree-node">
+              <span>
+                <span>
+                  <svg-icon :icon-class="node.data.icon" />
+                </span>
+                <span style="margin-left: 5px;">{{ node.data.name }}</span>
+              </span>
+            </span>
+          </el-tree>
+          <context-menu
+            class="right-menu"
+            :target="contextMenuTarget"
+            :show="contextMenuVisible"
+            @update:show="(show) => contextMenuVisible = show"
+          >
+            <a href="javascript:;" style="display: flex;" @click="handleRename">
+              <svg-icon icon-class="rename" />
+              <span style="float: right; margin-left: 5px;">Rename</span>
+            </a>
+            <a href="javascript:;" style="display: flex;" @click="handleDelete">
+              <svg-icon icon-class="delete" />
+              <span style="float: right; margin-left: 5px;">Delete</span>
+            </a>
+          </context-menu>
+        </div>
+        <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
+        <div style="text-align: center; margin: 20px;">
+          <el-button type="primary" style="width: 80%;" @click="handleSave">Save</el-button>
+        </div>
       </el-aside>
-      <el-main>
-        <!-- <tabs /> -->
-        <!-- <inCoder :options="cmOptions" :value="code" /> -->
+      <el-divider direction="vertical" />
+      <el-main v-loading="codeMirrorLoading" style="padding: 0px;">
+        <div style="height: 50px; padding-top: 9px;">
+          <el-tabs v-if="tabs.length" v-model="currentFile" type="border-card" closable @edit="handleTabsEdit" @tab-click="handleTabClick">
+            <el-tab-pane v-for="item in tabs" :key="item.key" :label="item.label" :name="item.key" tab-position="bottom" />
+          </el-tabs>
+        </div>
         <codemirror
+          v-if="tabs.length"
           ref="codemirror"
+          v-model="code"
           class="codemirror"
-          :value="code"
           :options="cmOptions"
           @ready="onCmReady"
           @focus="onCmFocus"
           @input="onCmCodeChange"
         />
-        <el-button type="primary" style="margin-top: 10px;" @click="handleSave">Save</el-button>
       </el-main>
     </el-container>
+
+    <el-dialog :title="dialogTitle" :visible.sync="dialogFormVisible">
+      <el-form ref="dialogForm" :rules="dialogRules" :model="dialogFormData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;" @submit.native.prevent>
+        <el-form-item label="Name" prop="name">
+          <el-input v-model="dialogFormData.name" />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="dialogFormVisible = false">
+          Cancel
+        </el-button>
+        <el-button type="primary" @click="handleDialogConfirm">
+          Confirm
+        </el-button>
+      </div>
+    </el-dialog>
+
+    <el-dialog title="Warning" :visible.sync="deleteDialogVisible" width="30%">
+      <span>Are you sure to delete?</span>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="deleteDialogVisible = false">Cancel</el-button>
+        <el-button type="danger" @click="deleteNode">Delete</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
-<style scoped>
-.container {
-  min-height: inherit;
-  min-width: 100%;
-}
-</style>
-
 <script>
 import { codemirror } from 'vue-codemirror';
-import { getTreePath, getFile, updateFile } from '@/api/tree';
-// import tabs from './tabs';
+import { getTreePath, getFile, updateFile, renameFile, renameDirectory, createFile, createDirectory, deleteFile, deleteDirectory } from '@/api/tree';
 import 'codemirror/lib/codemirror.css';
 
 import 'codemirror/mode/javascript/javascript.js';
@@ -52,7 +111,7 @@ import 'codemirror/mode/sql/sql.js';
 import 'codemirror/mode/swift/swift.js';
 import 'codemirror/mode/vue/vue.js';
 
-import 'codemirror/theme/cobalt.css';
+// import 'codemirror/theme/cobalt.css';
 
 // import 'codemirror/addon/fold/foldcode.js';
 // import 'codemirror/addon/fold/foldgutter.js';
@@ -65,23 +124,52 @@ import 'codemirror/theme/cobalt.css';
 export default {
     name: 'WebIDE',
     components: {
-        // tabs: tabs,
         codemirror: codemirror
     },
     data() {
+        const validateName = (rule, value, callback) => {
+            if (value.length === 0) {
+                return callback(new Error('Name is required'));
+            }
+            const invalidChars = '\\/:*?"<>|'.split('');
+            for (const char of invalidChars) {
+                if (value.includes(char)) {
+                    return callback(new Error('Invalid input'));
+                }
+            }
+            callback();
+        };
         return {
+            tabs: [],
+            deleteDialogVisible: false,
+            dialogRules: {
+                name: [{
+                    required: true,
+                    validator: validateName,
+                    trigger: 'change'
+                }]
+            },
+            dialogFormData: {
+                name: ''
+            },
+            dialogTitle: '',
+            selectedNode: undefined,
+            topLevelNode: undefined,
+            dialogFormVisible: false,
+            contextMenuVisible: false,
+            contextMenuTarget: undefined,
             currentFile: '',
             uuid: this.$route.query.uuid,
             props: {
                 label: 'name',
-                children: 'zones',
-                isLeaf: 'leaf'
+                children: 'children',
+                isLeaf: 'isLeaf'
             },
+            codeMirrorLoading: false,
             code: '',
             cmOptions: {
                 // codemirror options
                 tabSize: 4,
-                theme: 'cobalt',
                 mode: 'text/x-c++src',
                 lineNumbers: true
                 // line: true
@@ -89,6 +177,18 @@ export default {
         };
     },
     mounted() {
+        this.$nextTick(() => {
+            // vue-context-menu 需要传入一个触发右键事件的元素，等页面 dom 渲染完毕后才可获取
+            this.contextMenuTarget = document.querySelector('#el-tree');
+            // get all treeitem to listen to right click event
+            const tree = document.querySelectorAll('#el-tree [role="treeitem"]');
+            tree.forEach(item => {
+                item.addEventListener('contextmenu', event => {
+                    // if right click, then left click to get the current node.
+                    event.target.click();
+                });
+            });
+        });
     },
     methods: {
         onCmReady(cm) {
@@ -98,48 +198,258 @@ export default {
             console.log('the editor is focus!', cm);
         },
         onCmCodeChange(newCode) {
-            console.log('update');
-            this.code = newCode;
+            console.log('editor update');
+            const tabIndex = this.getTabIndexOfFile(this.currentFile);
+            if (tabIndex > -1) {
+                this.tabs[tabIndex].content = this.code;
+            }
+        },
+        handleTabsEdit(targetKey, action) {
+            if (action === 'remove') {
+                if (this.currentFile === targetKey) {
+                    this.tabs.forEach((tabs, index) => {
+                        if (tabs.key === targetKey) {
+                            const nextTab = this.tabs[index + 1] || this.tabs[index - 1];
+                            if (nextTab) {
+                                this.currentFile = nextTab.key;
+                                this.code = nextTab.content;
+                            }
+                        }
+                    });
+                }
+                this.tabs = this.tabs.filter(tab => tab.key !== targetKey);
+            }
+        },
+        getIconClass(filename) {
+            if (filename.endsWith('/')) {
+                return 'folder_closed';
+            }
+            const supportedSuffixes = ['c', 'cpp', 'cs', 'java', 'js', 'json', 'md', 'py', 's', 'txt'];
+            const suffix = filename.substr(filename.lastIndexOf('.') + 1);
+            const icon = (supportedSuffixes.includes(suffix) ? suffix : 'file');
+            return icon;
+        },
+        handleRename() {
+            // close context menu
+            this.contextMenuVisible = false;
+            // open rename window
+            this.dialogTitle = 'Rename';
+            this.dialogFormData.name = this.selectedNode.data.name;
+            if (this.dialogFormData.name.endsWith('/')) {
+                this.dialogFormData.name = this.dialogFormData.name.substr(0, this.dialogFormData.name.length - 1);
+            }
+            this.dialogFormVisible = true;
+        },
+        handleDelete() {
+            this.contextMenuVisible = false;
+            this.deleteDialogVisible = true;
+        },
+        deleteNode() {
+            if (this.isDirectory(this.selectedNode.data.label)) {
+                // delete dir
+                deleteDirectory(this.uuid, this.selectedNode.data.label)
+                    .then(response => {
+                        this.$message({
+                            message: 'Successfully Deleted',
+                            type: 'success'
+                        });
+                        this.deleteDialogVisible = false;
+                        // frontend delete
+                        this.$refs.tree.remove(this.selectedNode);
+                    });
+            } else {
+                // delete file
+                deleteFile(this.uuid, this.selectedNode.data.label)
+                    .then(response => {
+                        this.$message({
+                            message: 'Successfully Deleted',
+                            type: 'success'
+                        });
+                        this.deleteDialogVisible = false;
+                        // frontend delete
+                        this.$refs.tree.remove(this.selectedNode);
+                    });
+            }
+        },
+        handleTabClick(tab) {
+            if (this.codeMirrorLoading) {
+                this.$message('Loading. Please wait!');
+                return;
+            }
+            this.currentFile = this.tabs[tab.index].key;
+            this.code = this.tabs[tab.index].content;
+        },
+        getTabIndexOfFile(path) {
+            let tabIndex = -1;
+            this.tabs.forEach((tab, index) => {
+                if (tab.key === path) {
+                    tabIndex = index;
+                }
+            });
+            return tabIndex;
+        },
+        isDirectory(path) {
+            return path.endsWith('/');
+        },
+        handleDialogConfirm() {
+            this.$refs.dialogForm.validate(valid => {
+                if (!valid) {
+                    return false;
+                }
+                if (this.dialogTitle === 'Rename') {
+                    // rename file or directory
+                    if (this.isDirectory(this.selectedNode.data.label)) {
+                        // rename dir
+                        const oldPath = this.selectedNode.data.label;
+                        const dir = oldPath.substr(0, oldPath.substr(0, oldPath.length - 1).lastIndexOf('/') + 1);
+                        renameDirectory(this.uuid, this.selectedNode.data.label, dir + this.dialogFormData.name + '/')
+                            .then(response => {
+                                this.$message({
+                                    message: 'Successfully Renamed',
+                                    type: 'success'
+                                });
+                                this.dialogFormVisible = false;
+                                // frontend rename
+                                this.selectedNode.data.name = this.dialogFormData.name + '/';
+                                this.selectedNode.data.label = dir + this.dialogFormData.name + '/';
+                            });
+                    } else {
+                        const dir = this.selectedNode.data.label.substr(0, this.selectedNode.data.label.lastIndexOf('/') + 1);
+                        renameFile(this.uuid, this.selectedNode.data.label, dir + this.dialogFormData.name)
+                            .then(response => {
+                                this.$message({
+                                    message: 'Successfully Renamed',
+                                    type: 'success'
+                                });
+                                this.dialogFormVisible = false;
+                                // frontend rename
+                                this.selectedNode.data.name = this.dialogFormData.name;
+                                this.selectedNode.data.label = dir + this.dialogFormData.name;
+                                this.selectedNode.data.icon = this.getIconClass(this.selectedNode.data.label);
+                            });
+                    }
+                } else {
+                    // create file or dir
+                    if (!this.selectedNode) {
+                        this.selectedNode = this.topLevelNode;
+                    }
+                    if (!this.isDirectory(this.selectedNode.data.label)) {
+                        this.selectedNode = this.selectedNode.parent;
+                    }
+                    if (this.dialogTitle === 'Create File') {
+                        // create file
+                        createFile(this.uuid, this.selectedNode.data.label + this.dialogFormData.name).then(response => {
+                            this.$message({
+                                message: 'Successfully Created',
+                                type: 'success'
+                            });
+                            this.dialogFormVisible = false;
+                            // frontend create
+                            this.$refs.tree.append({
+                                name: this.dialogFormData.name,
+                                label: this.selectedNode.data.label + this.dialogFormData.name,
+                                isLeaf: true,
+                                icon: this.getIconClass(this.selectedNode.data.label + this.dialogFormData.name)
+                            }, this.selectedNode);
+                        });
+                    } else {
+                        // create directory
+                        const newBasePath = this.dialogFormData.name + '/';
+                        const newPath = this.selectedNode.data.label + newBasePath;
+                        createDirectory(this.uuid, newPath).then(response => {
+                            this.$message({
+                                message: 'Successfully Created',
+                                type: 'success'
+                            });
+                            this.dialogFormVisible = false;
+                            // frontend create
+                            this.$refs.tree.append({
+                                name: newBasePath,
+                                label: newPath,
+                                isLeaf: false,
+                                icon: this.getIconClass(newPath)
+                            }, this.selectedNode);
+                        });
+                    }
+                }
+            });
         },
         loadNode(node, resolve) {
             if (node.level === 0) {
-                return resolve([{
+                resolve([{
                     label: '~/',
                     name: '~/',
-                    leaf: false
+                    isLeaf: false,
+                    icon: 'folder_closed'
                 }]);
+                this.topLevelNode = node.childNodes[0];
+                return;
             }
+
             getTreePath(this.uuid, node.data.label).then(response => {
                 const paths = response.payload;
                 let resolveData = [];
                 for (const path of paths) {
-                    const isLeaf = (path.charAt(path.length - 1) !== '/');
                     resolveData = resolveData.concat({
                         name: path,
                         label: node.data.label + path,
-                        leaf: isLeaf
+                        isLeaf: !this.isDirectory(path),
+                        icon: this.getIconClass(path)
                     });
                 }
+                node.data.icon = 'folder_open';
                 return resolve(resolveData);
             }).catch(() => {
-                resolve([]);
+
             });
         },
         handleNodeClick(nodeObj, node, nodeComponent) {
-            if (node.data.label.charAt(node.data.label.length - 1) === '/') {
+            if (this.codeMirrorLoading) {
+                this.$message('Loading. Please wait!');
                 return;
             }
+            this.selectedNode = node;
+            if (node.data.label.charAt(node.data.label.length - 1) === '/') {
+                node.data.icon = (node.expanded ? 'folder_open' : 'folder_closed');
+                return;
+            }
+
+            const tabIndex = this.getTabIndexOfFile(node.data.label);
+            if (tabIndex > -1) {
+                this.currentFile = this.tabs[tabIndex].key;
+                this.code = this.tabs[tabIndex].content;
+                return;
+            }
+
+            this.codeMirrorLoading = true;
             this.currentFile = node.data.label;
+
             getFile(this.uuid, this.currentFile).then(response => {
                 this.code = response.payload;
 
                 if (this.currentFile.endsWith('.cpp') || this.currentFile.endsWith('.c') || this.currentFile.endsWith('.s')) {
                     this.cmOptions.mode = 'text/x-c++src';
                 } else if (this.currentFile.endsWith('.js')) {
-                    console.log('js');
                     this.cmOptions.mode = 'text/javascript';
                 }
+
+                this.tabs.push({
+                    key: this.currentFile,
+                    label: this.currentFile.substr(this.currentFile.lastIndexOf('/') + 1),
+                    content: response.payload
+                });
+                this.codeMirrorLoading = false;
             });
+        },
+        handleCreateFile() {
+            this.dialogTitle = 'Create File';
+            this.dialogFormData.name = '';
+            this.dialogFormVisible = true;
+        },
+        handleCreateDirectory() {
+            this.dialogTitle = 'Create Directory';
+            this.dialogFormData.name = '';
+            this.dialogFormVisible = true;
         },
         handleSave() {
             updateFile(this.uuid, this.currentFile, this.code).then(response => {
@@ -154,28 +464,77 @@ export default {
 </script>
 
 <style lang="scss">
+.el-tabs{
+    .el-tabs__header{
+        margin: 0px;
+    }
+    .el-tabs__content{
+        margin: 0px;
+    }
+}
 
-.codemirror{
-    height: 80vh !important;
+.el-tree {
+    height: 75vh;
+    .el-tree-node__content {
+        height: 32px;
+    }
+}
+
+.custom-tree-node {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 14px;
+    padding-right: 8px;
+}
+
+.vue-codemirror{
+    height: 86vh;
+    width: 100%;
     .CodeMirror {
         font-family: Consolas, monaco, monospace;
         z-index: 1;
-        height: 80vh !important;
+        height: 100%;
         .CodeMirror-code {
             line-height: 19px;
         }
         .CodeMirror-scroll {
-            overflow-y: hidden;
+            overflow-y: scroll;
+            overflow-x: scroll;
+            padding: 0px;
         }
     }
 }
 
-.code-mode-select {
-    position: absolute;
-    z-index: 2;
-    right: 25px;
-    top: 10px;
-    max-width: 130px;
+.el-divider.el-divider--vertical {
+    height: unset;
+    margin: 0px;
+}
+
+.right-menu {
+    position: fixed;
+    background: #ffffff;
+    border: solid 1px #ffffff;
+    border-radius: 5px;
+    z-index: 999;
+    display: none;
+    box-shadow: 0 0.5em 1em 0 rgba(0,0,0,.1);
+    a{
+        padding: 8px;
+        // line-height: 28px;
+        font-size: 14px;
+        text-align: center;
+        display: block;
+        color: #1a1a1a;
+        text-decoration: none;
+    }
+    a:hover{
+        color: #ffffff;
+        background: #42b983;
+        border: solid 1px #ffffff;
+        border-radius: 5px;
+    }
 }
 
 </style>
