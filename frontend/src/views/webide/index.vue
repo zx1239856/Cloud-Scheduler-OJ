@@ -48,13 +48,15 @@
           <el-button type="primary" style="width: 80%;" @click="handleSave">Save</el-button>
         </div>
       </el-aside>
+      <el-divider direction="vertical" />
       <el-main v-loading="codeMirrorLoading" style="padding: 0px;">
         <div style="height: 50px; padding-top: 9px;">
-          <el-tabs v-model="currentFile" type="card" closable @edit="handleTabsEdit" @tab-click="handleTabClick">
+          <el-tabs v-if="tabs.length" v-model="currentFile" type="border-card" closable @edit="handleTabsEdit" @tab-click="handleTabClick">
             <el-tab-pane v-for="item in tabs" :key="item.key" :label="item.label" :name="item.key" tab-position="bottom" />
           </el-tabs>
         </div>
         <codemirror
+          v-if="tabs.length"
           ref="codemirror"
           v-model="code"
           class="codemirror"
@@ -109,7 +111,7 @@ import 'codemirror/mode/sql/sql.js';
 import 'codemirror/mode/swift/swift.js';
 import 'codemirror/mode/vue/vue.js';
 
-import 'codemirror/theme/cobalt.css';
+// import 'codemirror/theme/cobalt.css';
 
 // import 'codemirror/addon/fold/foldcode.js';
 // import 'codemirror/addon/fold/foldgutter.js';
@@ -168,7 +170,6 @@ export default {
             cmOptions: {
                 // codemirror options
                 tabSize: 4,
-                theme: 'cobalt',
                 mode: 'text/x-c++src',
                 lineNumbers: true
                 // line: true
@@ -463,24 +464,6 @@ export default {
 </script>
 
 <style lang="scss">
-// .el-tree-node__expand-icon{
-//     border:0;
-//     background:url('../../icons/svg/box.svg');
-//     content: '';
-//     /*自定义，必要时用!important*/
-// }
-// .el-tree-node__expand-icon.expanded{
-//     /*自定义，必要时用!important*/
-// }
-// .el-tree-node__expand-icon.is-leaf::before{
-//     display: none;
-// }
-
-// .el-tree .el-tree-node__expand-icon.expanded
-// {
-//     -webkit-transform: rotate(0deg);
-//     transform: rotate(0deg);
-// }
 .el-tabs{
     .el-tabs__header{
         margin: 0px;
@@ -491,30 +474,10 @@ export default {
 }
 
 .el-tree {
-    height: 500px;
+    height: 75vh;
     .el-tree-node__content {
         height: 32px;
     }
-    // .el-icon-caret-right:before
-    // {
-    //     background: url('https://dev.w3.org/SVG/tools/svgweb/samples/svg-files/410.svg') no-repeat 0 3px;
-    //     content: '';
-    //     // display: block;
-    //     // width: 18px;
-    //     // height: 18px;
-    //     // font-size: 18px;
-    //     // background-size: 18px;
-    // }
-    // .el-tree-node__expand-icon.expanded.el-icon-caret-right:before
-    // {
-    //     background: url('https://dev.w3.org/SVG/tools/svgweb/samples/svg-files/410.svg') no-repeat 0 3px;
-    //     content: '';
-    //     display: block;
-    //     // width: 18px;
-    //     // height: 18px;
-    //     // font-size: 18px;
-    //     // background-size: 18px;
-    // }
 }
 
 .custom-tree-node {
@@ -526,24 +489,27 @@ export default {
     padding-right: 8px;
 }
 
-// .el-tree-node__expand-icon.is-leaf::before
-// {
-//     display: none;
-// }
-
-.codemirror{
-    height: 80vh !important;
+.vue-codemirror{
+    height: 86vh;
+    width: 100%;
     .CodeMirror {
         font-family: Consolas, monaco, monospace;
         z-index: 1;
-        height: 80vh !important;
+        height: 100%;
         .CodeMirror-code {
             line-height: 19px;
         }
         .CodeMirror-scroll {
-            overflow-y: hidden;
+            overflow-y: scroll;
+            overflow-x: scroll;
+            padding: 0px;
         }
     }
+}
+
+.el-divider.el-divider--vertical {
+    height: unset;
+    margin: 0px;
 }
 
 .right-menu {
