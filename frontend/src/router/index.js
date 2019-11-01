@@ -69,17 +69,6 @@ export const constantRoutes = [
         }]
     },
     {
-        path: '/webide/',
-        component: Layout,
-        hidden: true,
-        children: [{
-            path: '/',
-            name: 'webide',
-            component: () => import('@/views/webide/index'),
-            meta: { title: 'Web IDE' }
-        }]
-    },
-    {
         path: '/task',
         name: 'task',
         component: Layout,
@@ -103,6 +92,13 @@ export const constantRoutes = [
                 name: 'task-list',
                 component: () => import('@/views/task/index'),
                 meta: { title: 'Task List' }
+            },
+            {
+                path: 'webide/',
+                name: 'webide',
+                hidden: true,
+                component: () => import('@/views/webide/index'),
+                meta: { title: 'Web IDE' }
             }
         ]
     },

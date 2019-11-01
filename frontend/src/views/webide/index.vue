@@ -28,7 +28,7 @@
             </span>
           </el-tree>
           <context-menu
-            class="right-menu"
+            class="context-menu"
             :target="contextMenuTarget"
             :show="contextMenuVisible"
             @update:show="(show) => contextMenuVisible = show"
@@ -408,6 +408,10 @@ export default {
                 this.$message('Loading. Please wait!');
                 return;
             }
+            if (!node) {
+                this.selectedNode = this.topLevelNode;
+                return;
+            }
             this.selectedNode = node;
             if (node.data.label.charAt(node.data.label.length - 1) === '/') {
                 node.data.icon = (node.expanded ? 'folder_open' : 'folder_closed');
@@ -512,7 +516,7 @@ export default {
     margin: 0px;
 }
 
-.right-menu {
+.context-menu {
     position: fixed;
     background: #ffffff;
     border: solid 1px #ffffff;
