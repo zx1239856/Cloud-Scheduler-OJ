@@ -185,7 +185,7 @@ export default {
             window.open(routeData.href, '_blank');
         },
         handleIde(row) {
-            this.$router.push({ path: '/webide/', query: { uuid: row.uuid }});
+            this.$router.push({ name: 'webide', query: { uuid: row.uuid }});
         },
         deleteTaskSettings() {
             this.deleteDialogVisible = false;
