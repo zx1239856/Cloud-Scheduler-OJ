@@ -51,16 +51,18 @@
             <el-tab-pane v-for="item in tabs" :key="item.key" :label="item.label" :name="item.key" tab-position="bottom" />
           </el-tabs>
         </div>
-        <codemirror
-          v-if="tabs.length"
-          ref="codemirror"
-          v-model="code"
-          class="codemirror"
-          :options="cmOptions"
-          @ready="onCmReady"
-          @focus="onCmFocus"
-          @input="onCmCodeChange"
-        />
+        <div @keydown.ctrl.83.prevent="handleSave">
+          <codemirror
+            v-if="tabs.length"
+            ref="codemirror"
+            v-model="code"
+            class="codemirror"
+            :options="cmOptions"
+            @ready="onCmReady"
+            @focus="onCmFocus"
+            @input="onCmCodeChange"
+          />
+        </div>
       </el-main>
     </el-container>
 
@@ -447,11 +449,14 @@ export default {
             this.dialogFormVisible = true;
         },
         handleSave() {
+            this.codeMirrorLoading = true;
             updateFile(this.uuid, this.currentFile, this.code).then(response => {
                 this.$message({
                     message: 'Code saved',
                     type: 'success'
                 });
+            }).finally(() => {
+                this.codeMirrorLoading = false;
             });
         }
     }
