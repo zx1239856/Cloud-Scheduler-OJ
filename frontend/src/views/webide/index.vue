@@ -17,13 +17,13 @@
         </div>
         <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
         <div style="overflow-y: scroll;">
-          <el-tree id="el-tree" ref="tree" :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick" @click.native.prevent="handleNodeClick">
+          <el-tree id="el-tree" ref="tree" node-key="key" :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick" @node-contextmenu="handleNodeContextMenu" @click.native.prevent="handleNodeClick">
             <span slot-scope="{ node }" class="custom-tree-node">
               <span>
                 <span>
                   <svg-icon :icon-class="node.data.icon" />
                 </span>
-                <span style="margin-left: 5px;">{{ node.data.name }}</span>
+                <span style="margin-left: 5px;">{{ node.data.label }}</span>
               </span>
             </span>
           </el-tree>
@@ -161,7 +161,8 @@ export default {
             currentFile: '',
             uuid: this.$route.query.uuid,
             props: {
-                label: 'name',
+                label: 'label',
+                key: 'key',
                 children: 'children',
                 isLeaf: 'isLeaf'
             },
@@ -234,7 +235,7 @@ export default {
             this.contextMenuVisible = false;
             // open rename window
             this.dialogTitle = 'Rename';
-            this.dialogFormData.name = this.selectedNode.data.name;
+            this.dialogFormData.name = this.selectedNode.data.label;
             if (this.dialogFormData.name.endsWith('/')) {
                 this.dialogFormData.name = this.dialogFormData.name.substr(0, this.dialogFormData.name.length - 1);
             }
@@ -245,9 +246,9 @@ export default {
             this.deleteDialogVisible = true;
         },
         deleteNode() {
-            if (this.isDirectory(this.selectedNode.data.label)) {
+            if (this.isDirectory(this.selectedNode.data.key)) {
                 // delete dir
-                deleteDirectory(this.uuid, this.selectedNode.data.label)
+                deleteDirectory(this.uuid, this.selectedNode.data.key)
                     .then(response => {
                         this.$message({
                             message: 'Successfully Deleted',
@@ -259,7 +260,7 @@ export default {
                     });
             } else {
                 // delete file
-                deleteFile(this.uuid, this.selectedNode.data.label)
+                deleteFile(this.uuid, this.selectedNode.data.key)
                     .then(response => {
                         this.$message({
                             message: 'Successfully Deleted',
@@ -298,11 +299,11 @@ export default {
                 }
                 if (this.dialogTitle === 'Rename') {
                     // rename file or directory
-                    if (this.isDirectory(this.selectedNode.data.label)) {
+                    if (this.isDirectory(this.selectedNode.data.key)) {
                         // rename dir
-                        const oldPath = this.selectedNode.data.label;
+                        const oldPath = this.selectedNode.data.key;
                         const dir = oldPath.substr(0, oldPath.substr(0, oldPath.length - 1).lastIndexOf('/') + 1);
-                        renameDirectory(this.uuid, this.selectedNode.data.label, dir + this.dialogFormData.name + '/')
+                        renameDirectory(this.uuid, this.selectedNode.data.key, dir + this.dialogFormData.name + '/')
                             .then(response => {
                                 this.$message({
                                     message: 'Successfully Renamed',
@@ -310,12 +311,12 @@ export default {
                                 });
                                 this.dialogFormVisible = false;
                                 // frontend rename
-                                this.selectedNode.data.name = this.dialogFormData.name + '/';
-                                this.selectedNode.data.label = dir + this.dialogFormData.name + '/';
+                                this.selectedNode.data.label = this.dialogFormData.name + '/';
+                                this.selectedNode.data.key = dir + this.dialogFormData.name + '/';
                             });
                     } else {
-                        const dir = this.selectedNode.data.label.substr(0, this.selectedNode.data.label.lastIndexOf('/') + 1);
-                        renameFile(this.uuid, this.selectedNode.data.label, dir + this.dialogFormData.name)
+                        const dir = this.selectedNode.data.key.substr(0, this.selectedNode.data.key.lastIndexOf('/') + 1);
+                        renameFile(this.uuid, this.selectedNode.data.key, dir + this.dialogFormData.name)
                             .then(response => {
                                 this.$message({
                                     message: 'Successfully Renamed',
@@ -323,9 +324,9 @@ export default {
                                 });
                                 this.dialogFormVisible = false;
                                 // frontend rename
-                                this.selectedNode.data.name = this.dialogFormData.name;
-                                this.selectedNode.data.label = dir + this.dialogFormData.name;
-                                this.selectedNode.data.icon = this.getIconClass(this.selectedNode.data.label);
+                                this.selectedNode.data.label = this.dialogFormData.name;
+                                this.selectedNode.data.key = dir + this.dialogFormData.name;
+                                this.selectedNode.data.icon = this.getIconClass(this.selectedNode.data.key);
                             });
                     }
                 } else {
@@ -333,12 +334,12 @@ export default {
                     if (!this.selectedNode) {
                         this.selectedNode = this.topLevelNode;
                     }
-                    if (!this.isDirectory(this.selectedNode.data.label)) {
+                    if (!this.isDirectory(this.selectedNode.data.key)) {
                         this.selectedNode = this.selectedNode.parent;
                     }
                     if (this.dialogTitle === 'Create File') {
                         // create file
-                        createFile(this.uuid, this.selectedNode.data.label + this.dialogFormData.name).then(response => {
+                        createFile(this.uuid, this.selectedNode.data.key + this.dialogFormData.name).then(response => {
                             this.$message({
                                 message: 'Successfully Created',
                                 type: 'success'
@@ -346,16 +347,16 @@ export default {
                             this.dialogFormVisible = false;
                             // frontend create
                             this.$refs.tree.append({
-                                name: this.dialogFormData.name,
-                                label: this.selectedNode.data.label + this.dialogFormData.name,
+                                label: this.dialogFormData.name,
+                                key: this.selectedNode.data.key + this.dialogFormData.name,
                                 isLeaf: true,
-                                icon: this.getIconClass(this.selectedNode.data.label + this.dialogFormData.name)
+                                icon: this.getIconClass(this.selectedNode.data.key + this.dialogFormData.name)
                             }, this.selectedNode);
                         });
                     } else {
                         // create directory
                         const newBasePath = this.dialogFormData.name + '/';
-                        const newPath = this.selectedNode.data.label + newBasePath;
+                        const newPath = this.selectedNode.data.key + newBasePath;
                         createDirectory(this.uuid, newPath).then(response => {
                             this.$message({
                                 message: 'Successfully Created',
@@ -364,8 +365,8 @@ export default {
                             this.dialogFormVisible = false;
                             // frontend create
                             this.$refs.tree.append({
-                                name: newBasePath,
-                                label: newPath,
+                                label: newBasePath,
+                                key: newPath,
                                 isLeaf: false,
                                 icon: this.getIconClass(newPath)
                             }, this.selectedNode);
@@ -377,8 +378,8 @@ export default {
         loadNode(node, resolve) {
             if (node.level === 0) {
                 resolve([{
+                    key: '~/',
                     label: '~/',
-                    name: '~/',
                     isLeaf: false,
                     icon: 'folder_closed'
                 }]);
@@ -386,13 +387,13 @@ export default {
                 return;
             }
 
-            getTreePath(this.uuid, node.data.label).then(response => {
+            getTreePath(this.uuid, node.data.key).then(response => {
                 const paths = response.payload;
                 let resolveData = [];
                 for (const path of paths) {
                     resolveData = resolveData.concat({
-                        name: path,
-                        label: node.data.label + path,
+                        label: path,
+                        key: node.data.key + path,
                         isLeaf: !this.isDirectory(path),
                         icon: this.getIconClass(path)
                     });
@@ -410,15 +411,16 @@ export default {
             }
             if (!node) {
                 this.selectedNode = this.topLevelNode;
+                this.$refs.tree.setCurrentNode(this.topLevelNode);
                 return;
             }
             this.selectedNode = node;
-            if (node.data.label.charAt(node.data.label.length - 1) === '/') {
+            if (node.data.key.charAt(node.data.key.length - 1) === '/') {
                 node.data.icon = (node.expanded ? 'folder_open' : 'folder_closed');
                 return;
             }
 
-            const tabIndex = this.getTabIndexOfFile(node.data.label);
+            const tabIndex = this.getTabIndexOfFile(node.data.key);
             if (tabIndex > -1) {
                 this.currentFile = this.tabs[tabIndex].key;
                 this.code = this.tabs[tabIndex].content;
@@ -426,7 +428,7 @@ export default {
             }
 
             this.codeMirrorLoading = true;
-            this.currentFile = node.data.label;
+            this.currentFile = node.data.key;
 
             getFile(this.uuid, this.currentFile).then(response => {
                 this.code = response.payload;
