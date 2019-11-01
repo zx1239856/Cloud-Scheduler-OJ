@@ -17,6 +17,17 @@
         </div>
         <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
         <div style="overflow-y: scroll;">
+          <v-contextmenu ref="contextmenu">
+            <v-contextmenu-item @click="handleRename">
+              <svg-icon icon-class="rename" />
+              <span style="margin-left: 5px;">Rename</span>
+            </v-contextmenu-item>
+            <v-contextmenu-item @click="handleDelete">
+              <svg-icon icon-class="delete" />
+              <span style="margin-left: 5px;">Delete</span>
+            </v-contextmenu-item>
+          </v-contextmenu>
+
           <el-tree id="el-tree" ref="tree" node-key="key" :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick" @node-contextmenu="handleNodeContextMenu" @click.native.prevent="handleNodeClick">
             <span slot-scope="{ node }" class="custom-tree-node">
               <span>
@@ -27,21 +38,6 @@
               </span>
             </span>
           </el-tree>
-          <context-menu
-            class="context-menu"
-            :target="contextMenuTarget"
-            :show="contextMenuVisible"
-            @update:show="(show) => contextMenuVisible = show"
-          >
-            <a href="javascript:;" style="display: flex;" @click="handleRename">
-              <svg-icon icon-class="rename" />
-              <span style="float: right; margin-left: 5px;">Rename</span>
-            </a>
-            <a href="javascript:;" style="display: flex;" @click="handleDelete">
-              <svg-icon icon-class="delete" />
-              <span style="float: right; margin-left: 5px;">Delete</span>
-            </a>
-          </context-menu>
         </div>
         <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
         <div style="text-align: center; margin: 20px;">
@@ -85,7 +81,7 @@
     </el-dialog>
 
     <el-dialog title="Warning" :visible.sync="deleteDialogVisible" width="30%">
-      <span>Are you sure to delete?</span>
+      <span>Are you sure to delete {{ selectedNode ? selectedNode.data.key : '' }}?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible = false">Cancel</el-button>
         <el-button type="danger" @click="deleteNode">Delete</el-button>
@@ -177,20 +173,6 @@ export default {
             }
         };
     },
-    mounted() {
-        this.$nextTick(() => {
-            // vue-context-menu 需要传入一个触发右键事件的元素，等页面 dom 渲染完毕后才可获取
-            this.contextMenuTarget = document.querySelector('#el-tree');
-            // get all treeitem to listen to right click event
-            const tree = document.querySelectorAll('#el-tree [role="treeitem"]');
-            tree.forEach(item => {
-                item.addEventListener('contextmenu', event => {
-                    // if right click, then left click to get the current node.
-                    event.target.click();
-                });
-            });
-        });
-    },
     methods: {
         onCmReady(cm) {
             console.log('the editor is readied!', cm);
@@ -257,6 +239,7 @@ export default {
                         this.deleteDialogVisible = false;
                         // frontend delete
                         this.$refs.tree.remove(this.selectedNode);
+                        this.selectedNode = this.topLevelNode;
                     });
             } else {
                 // delete file
@@ -269,6 +252,7 @@ export default {
                         this.deleteDialogVisible = false;
                         // frontend delete
                         this.$refs.tree.remove(this.selectedNode);
+                        this.selectedNode = this.topLevelNode;
                     });
             }
         },
@@ -296,6 +280,9 @@ export default {
             this.$refs.dialogForm.validate(valid => {
                 if (!valid) {
                     return false;
+                }
+                if (!this.selectedNode) {
+                    this.selectedNode = this.topLevelNode;
                 }
                 if (this.dialogTitle === 'Rename') {
                     // rename file or directory
@@ -331,9 +318,6 @@ export default {
                     }
                 } else {
                     // create file or dir
-                    if (!this.selectedNode) {
-                        this.selectedNode = this.topLevelNode;
-                    }
                     if (!this.isDirectory(this.selectedNode.data.key)) {
                         this.selectedNode = this.selectedNode.parent;
                     }
@@ -357,6 +341,7 @@ export default {
                         // create directory
                         const newBasePath = this.dialogFormData.name + '/';
                         const newPath = this.selectedNode.data.key + newBasePath;
+                        console.log(this.selectedNode.data.key);
                         createDirectory(this.uuid, newPath).then(response => {
                             this.$message({
                                 message: 'Successfully Created',
@@ -403,6 +388,10 @@ export default {
             }).catch(() => {
 
             });
+        },
+        handleNodeContextMenu(event, nodeObj, node, nodeComponent) {
+            this.selectedNode = node;
+            this.$refs.contextmenu.show({ top: event.pageY, left: event.pageX });
         },
         handleNodeClick(nodeObj, node, nodeComponent) {
             if (this.codeMirrorLoading) {
@@ -518,29 +507,7 @@ export default {
     margin: 0px;
 }
 
-.context-menu {
-    position: fixed;
-    background: #ffffff;
-    border: solid 1px #ffffff;
-    border-radius: 5px;
-    z-index: 999;
-    display: none;
-    box-shadow: 0 0.5em 1em 0 rgba(0,0,0,.1);
-    a{
-        padding: 8px;
-        // line-height: 28px;
-        font-size: 14px;
-        text-align: center;
-        display: block;
-        color: #1a1a1a;
-        text-decoration: none;
-    }
-    a:hover{
-        color: #ffffff;
-        background: #42b983;
-        border: solid 1px #ffffff;
-        border-radius: 5px;
-    }
+.v-contextmenu-item{
+    padding: 10px 16px 10px 16px !important;
 }
-
 </style>

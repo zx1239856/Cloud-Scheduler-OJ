@@ -5,8 +5,12 @@ import 'element-ui/lib/theme-chalk/index.css';
 // import locale from 'element-ui/lib/locale/lang/en'; // lang i18n
 Vue.use(ElementUI);
 
-import VueContextMenu from '@xunlei/vue-context-menu';
-Vue.use(VueContextMenu);
+import contentmenu from 'v-contextmenu';
+import 'v-contextmenu/dist/index.css';
+Vue.use(contentmenu);
+
+// import VueContextMenu from '@xunlei/vue-context-menu';
+// Vue.use(VueContextMenu);
 
 import '@/styles/index.scss'; // global css
 
