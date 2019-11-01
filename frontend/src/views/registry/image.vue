@@ -15,17 +15,7 @@
           <span>{{ scope.row.Tag }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Layers" width="80" align="center">
-        <template slot-scope="scope">
-          <span>{{ scope.row.Layers }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Size" width="100" align="center">
-        <template slot-scope="scope">
-          <span>{{ scope.row.Size }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Docker Version" width="200" align="center">
+      <el-table-column label="Docker Version" min-width="200" align="center">
         <template slot-scope="scope">
           <span>{{ scope.row.DockerVersion }}</span>
         </template>
@@ -35,12 +25,12 @@
           <span>{{ scope.row.Entrypoint }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Exposed Ports" width="150" align="center">
+      <el-table-column label="Exposed Ports" min-width="150" align="center">
         <template slot-scope="scope">
           <span>{{ scope.row.ExposedPorts }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Volumes" width="100" align="center">
+      <el-table-column label="Volumes" min-width="100" align="center">
         <template slot-scope="scope">
           <span>{{ scope.row.Volumes }}</span>
         </template>

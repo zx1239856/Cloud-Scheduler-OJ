@@ -20,16 +20,6 @@
           <span>{{ scope.row.Repo }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Number of Tags" min-width="200" align="center">
-        <template slot-scope="scope">
-          <span>{{ scope.row.NumberOfTags }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Size" min-width="200" align="center">
-        <template slot-scope="scope">
-          <span>{{ scope.row.SizeOfRepository }}</span>
-        </template>
-      </el-table-column>
       <el-table-column label="Actions" align="center" width="150" class-name="small-padding fixed-width">
         <template slot-scope="{row}">
           <el-row>

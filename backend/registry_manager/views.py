@@ -39,40 +39,6 @@ class ConnectionUtils:
         except Exception as ex:
             LOGGER.error(ex)
 
-    # get the size of a layer
-    @CacheWithTimeout()
-    def get_size_of_layer(self, repo, layer_id):
-        try:
-            return int(
-                self.request_registry(
-                    self.GET_LAYER_TEMPLATE.format(
-                        url=REGISTRY_V2_API_ADDRESS,
-                        repo=repo,
-                        digest=layer_id
-                    ),
-                    method='HEAD'
-                ).info()['Content-Length']
-            )
-        except Exception as ex:
-            LOGGER.error(ex)
-
-    # get the amounts of layers in an image
-    def get_number_of_layers(self, repo, tag):
-        return len(self.get_layer_ids(repo, tag))
-
-    # get layer ids in list
-    def get_layer_ids(self, repo, tag):
-        return self.get_manifest(repo, tag).get_layer_ids()
-
-    # get size of all layers / image
-    def get_size_of_layers(self, repo, tag):
-        result = 0
-
-        for image_id in self.get_layer_ids(repo, tag):
-            result += self.get_size_of_layer(repo, image_id)
-
-        return result
-
     # get tag information
     def get_tag(self, repo, tag):
         try:
@@ -95,8 +61,6 @@ class ConnectionUtils:
                 tag_info['DockerVersion'] = manifest.get_docker_version()
                 tag_info['ExposedPorts'] = manifest.get_exposed_ports()
                 tag_info['Volumes'] = manifest.get_volumes()
-                tag_info['Size'] = self.get_size_of_layers(repo, tag)
-                tag_info['Layers'] = self.get_number_of_layers(repo, tag)
                 return tag_info
             else:
                 return None
@@ -120,19 +84,8 @@ class ConnectionUtils:
     # get information of a repository
     def get_repository(self, repo):
         try:
-            dxf = DXF(REGISTRY_ADDRESS, repo)
-            images = []
-            repo_size = 0
-
-            for tag_name in dxf.list_aliases():
-                image = self.get_tag(repo, tag_name)
-                if image is not None:
-                    images.append(image)
-                    repo_size += image['Size']
             response = {
                 'Repo': repo,
-                'NumberOfTags': len(images),
-                'SizeOfRepository': repo_size
             }
             return response
         except Exception as ex:
