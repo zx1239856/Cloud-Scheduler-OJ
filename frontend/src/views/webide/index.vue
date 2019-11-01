@@ -69,7 +69,7 @@
     <el-dialog :title="dialogTitle" :visible.sync="dialogFormVisible">
       <el-form ref="dialogForm" :rules="dialogRules" :model="dialogFormData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;" @submit.native.prevent>
         <el-form-item label="Name" prop="name">
-          <el-input v-model="dialogFormData.name" />
+          <el-input v-model="dialogFormData.name" @keyup.enter.native="handleDialogConfirm" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
