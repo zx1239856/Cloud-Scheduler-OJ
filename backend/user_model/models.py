@@ -7,6 +7,7 @@ from django.contrib.auth.models import AbstractBaseUser
 
 
 class UserType:
+    SUPER_ADMIN = 2
     ADMIN = 1
     USER = 0
 

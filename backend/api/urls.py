@@ -43,6 +43,8 @@ urlpatterns = [
     path('user/login/', user_views.UserLogin.as_view()),
     path('user/logout/', login_required(user_views.UserLogout.as_view())),
     path('user/', user_views.UserHandler.as_view()),
+    path('user/admin/', permission_required(user_views.SuperUserListHandler.as_view(), False, False, True)),
+    path('user/admin/<str:uuid>/', permission_required(user_views.SuperUserItemHandler.as_view(), False, False, True)),
     # oauth mgmt
     path('oauth/applications/', permission_required(user_views.ApplicationListHandler.as_view())),
     path('oauth/applications/<int:id>/', permission_required(user_views.ApplicationDetailHandler.as_view())),
