@@ -56,7 +56,7 @@
     <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
 
     <el-dialog :title="dialogType" :visible.sync="dialogUploadVisible">
-      <el-form ref="dialogForm" :model="dialogFileData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
+      <el-form ref="dialogForm" :model="dialogFileData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;" @submit.native.prevent>
         <el-form-item label="file" prop="file">
           <el-upload
             ref="upload"
@@ -69,7 +69,7 @@
           </el-upload>
         </el-form-item>
         <el-form-item label="path" prop="path">
-          <el-input v-model="dialogFileData.path" />
+          <el-input v-model="dialogFileData.path" @keyup.enter.native="handleUploadConfirm" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
@@ -137,7 +137,7 @@
           <el-input v-model="dialogData.name" />
         </el-form-item>
         <el-form-item label="capacity" prop="capacity">
-          <el-input v-model="dialogData.capacity" />
+          <el-input v-model="dialogData.capacity" @keyup.enter.native="handleDialogConfirm" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">

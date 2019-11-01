@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <el-form ref="dialogForm" :rules="dialogRules" :model="formData" label-position="left" label-width="200px" style="margin:50px; width:600px;">
+    <el-form ref="dialogForm" :rules="dialogRules" :model="formData" label-position="left" label-width="200px" style="margin:50px; ">
 
       <el-form-item label="Name" prop="name">
         <el-input v-model="formData.name" placeholder="Task Settings Name" />

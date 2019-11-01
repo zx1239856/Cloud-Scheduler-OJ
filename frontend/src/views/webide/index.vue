@@ -51,23 +51,25 @@
             <el-tab-pane v-for="item in tabs" :key="item.key" :label="item.label" :name="item.key" tab-position="bottom" />
           </el-tabs>
         </div>
-        <codemirror
-          v-if="tabs.length"
-          ref="codemirror"
-          v-model="code"
-          class="codemirror"
-          :options="cmOptions"
-          @ready="onCmReady"
-          @focus="onCmFocus"
-          @input="onCmCodeChange"
-        />
+        <div @keydown.ctrl.83.prevent="handleSave">
+          <codemirror
+            v-if="tabs.length"
+            ref="codemirror"
+            v-model="code"
+            class="codemirror"
+            :options="cmOptions"
+            @ready="onCmReady"
+            @focus="onCmFocus"
+            @input="onCmCodeChange"
+          />
+        </div>
       </el-main>
     </el-container>
 
     <el-dialog :title="dialogTitle" :visible.sync="dialogFormVisible">
       <el-form ref="dialogForm" :rules="dialogRules" :model="dialogFormData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;" @submit.native.prevent>
         <el-form-item label="Name" prop="name">
-          <el-input v-model="dialogFormData.name" />
+          <el-input v-model="dialogFormData.name" @keyup.enter.native="handleDialogConfirm" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
@@ -447,11 +449,14 @@ export default {
             this.dialogFormVisible = true;
         },
         handleSave() {
+            this.codeMirrorLoading = true;
             updateFile(this.uuid, this.currentFile, this.code).then(response => {
                 this.$message({
                     message: 'Code saved',
                     type: 'success'
                 });
+            }).finally(() => {
+                this.codeMirrorLoading = false;
             });
         }
     }
