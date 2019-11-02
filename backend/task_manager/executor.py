@@ -17,7 +17,7 @@ from kubernetes.client import CoreV1Api, BatchV1Api
 from kubernetes.client.rest import ApiException
 from api.common import get_kubernetes_api_client, USERSPACE_NAME
 from config import DAEMON_WORKERS, KUBERNETES_NAMESPACE, CEPH_STORAGE_CLASS_NAME, \
-    GLOBAL_TASK_TIME_LIMIT, USER_SPACE_POD_TIMEOUT, IPC_PORT
+    GLOBAL_TASK_TIME_LIMIT, USER_SPACE_POD_TIMEOUT, IPC_PORT, USER_WEBSHELL_DOCKER_IMAGE
 from user_model.models import UserModel
 from .models import TaskSettings, TaskStorage, Task, TASK
 
@@ -439,11 +439,13 @@ class TaskExecutor:
                             commands.append('timeout --signal KILL {timeout} {shell} -c \'{commands}\''.format(
                                 timeout=time_limit, shell=shell, commands=';'.join(conf['commands'])))
 
-                            shared_mount = client.V1VolumeMount(mount_path=shared_mount_path, name=shared_storage_name)
+                            shared_mount = client.V1VolumeMount(mount_path=shared_mount_path, name=shared_storage_name,
+                                                                read_only=True)
                             user_mount = client.V1VolumeMount(mount_path='/cloud_scheduler_userspace/',
                                                               name=user_storage_name,
                                                               sub_path="user_{}_task_{}".format(item.user_id,
-                                                                                                item.settings_id))
+                                                                                                item.settings_id),
+                                                              read_only=True)
                             env_username = client.V1EnvVar(name="CLOUD_SCHEDULER_USER", value=item.user.username)
                             env_user_uuid = client.V1EnvVar(name="CLOUD_SCHEDULER_USER_UUID", value=item.user.uuid)
                             container_settings = {
@@ -458,14 +460,8 @@ class TaskExecutor:
                                 container_settings['resources'] = client.V1ResourceRequirements(
                                     limits={'memory': mem_limit})
                             container = client.V1Container(**container_settings)
-                            persistent_volume_claim = client.V1PersistentVolumeClaimVolumeSource(
-                                claim_name=shared_pvc,
-                                read_only=True
-                            )
-                            user_volume_claim = client.V1PersistentVolumeClaimVolumeSource(
-                                claim_name=USERSPACE_NAME,
-                                read_only=True
-                            )
+                            persistent_volume_claim = client.V1PersistentVolumeClaimVolumeSource(claim_name=shared_pvc)
+                            user_volume_claim = client.V1PersistentVolumeClaimVolumeSource(claim_name=USERSPACE_NAME)
                             volume = client.V1Volume(name=shared_storage_name,
                                                      persistent_volume_claim=persistent_volume_claim)
                             user_volume = client.V1Volume(name=user_storage_name,
@@ -515,19 +511,17 @@ class TaskExecutor:
                 pod_name = "task-storage-{}-{}".format(item.uuid, get_short_uuid())
                 shared_pvc_name = "shared-{}".format(item.uuid)
                 shared_pvc = client.V1VolumeMount(mount_path=conf['persistent_volume']['mount_path'],
-                                                  name=shared_pvc_name)
+                                                  name=shared_pvc_name, read_only=True)
                 user_storage_name = "user-{}".format(item.uuid)
                 user_mount = client.V1VolumeMount(mount_path='/cloud_scheduler_userspace/', name=user_storage_name)
                 container_settings = {
                     'name': 'task-storage-container',
-                    'image': 'registry.dropthu.online:30443/ubuntu:19.10',
+                    'image': USER_WEBSHELL_DOCKER_IMAGE,
                     'volume_mounts': [shared_pvc, user_mount],
                 }
                 container = client.V1Container(**container_settings)
-                pvc = client.V1PersistentVolumeClaimVolumeSource(claim_name=conf['persistent_volume']['name'],
-                                                                 read_only=True)
-                user_volume_claim = client.V1PersistentVolumeClaimVolumeSource(claim_name=USERSPACE_NAME,
-                                                                               read_only=False)
+                pvc = client.V1PersistentVolumeClaimVolumeSource(claim_name=conf['persistent_volume']['name'])
+                user_volume_claim = client.V1PersistentVolumeClaimVolumeSource(claim_name=USERSPACE_NAME)
                 volume = client.V1Volume(name=shared_pvc_name, persistent_volume_claim=pvc)
                 user_volume = client.V1Volume(name=user_storage_name,
                                               persistent_volume_claim=user_volume_claim)
