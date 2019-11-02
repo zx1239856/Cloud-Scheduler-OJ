@@ -13,9 +13,13 @@ from django.http import JsonResponse
 from django.views import View
 from django.utils.decorators import method_decorator
 from django.utils import timezone
+from django.utils.html import strip_tags
 from django.db.utils import IntegrityError
 from django.db.models import Q
 from django.core import serializers
+from django.core.paginator import Paginator
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
 from django.shortcuts import redirect, render
 from oauth2_provider.models import get_application_model as _get_application_model
 from oauth2_provider.models import get_access_token_model as _get_access_token_model
@@ -23,10 +27,28 @@ from oauth2_provider.models import Application, AccessToken
 from oauth2_provider.views import ProtectedResourceView
 from user_model.models import UserModel, UserType
 from task_manager.views import get_uuid
-from api.common import RESPONSE, OAUTH_LOGIN_URL
-from config import USER_TOKEN_EXPIRE_TIME, CLOUD_SCHEDULER_API_SERVER_BASE_URL
+from api.common import RESPONSE, OAUTH_LOGIN_URL, random_password
+from config import USER_TOKEN_EXPIRE_TIME, CLOUD_SCHEDULER_API_SERVER_BASE_URL, DEFAULT_FROM_EMAIL
 
 LOGGER = logging.getLogger(__name__)
+
+
+def send_password_info_email(username, password, email, is_reset):
+    try:
+        msg = 'Your Cloud Scheduler admin user is created, please login and change your password.' if not is_reset \
+            else 'Your Cloud Scheduler password is reset by Super Admin'
+        html_content = render_to_string('email/password_info.html', {'username': username,
+                                                                     'password': password,
+                                                                     'msg': msg})
+        text_content = strip_tags(html_content)
+        send_mail('Cloud Scheduler {}'.format('Admin User Created' if not is_reset
+                                              else 'Password Changed'),
+                  text_content, DEFAULT_FROM_EMAIL, recipient_list=[email], fail_silently=False,
+                  html_message=html_content)
+        return True
+    except Exception as ex:
+        LOGGER.exception(ex)
+        return False
 
 
 def get_application_model(use_generic=True):
@@ -117,7 +139,7 @@ def login_required(function=None, redirect_enabled=False, allow_cookie=False):
     return actual_decorator
 
 
-def permission_required(function=None, redirect_enabled=False, allow_cookie=False):
+def permission_required(function=None, redirect_enabled=False, allow_cookie=False, need_super_admin=False):
     """
     Decorator for views that checks that the user is logged in
     """
@@ -127,7 +149,8 @@ def permission_required(function=None, redirect_enabled=False, allow_cookie=Fals
             user = UserModel.objects.get(username=username)
             token = TokenManager.get_token(user)
             if token == header_token:
-                if user.user_type == UserType.ADMIN:
+                if user.user_type == UserType.SUPER_ADMIN or (
+                        not need_super_admin and user.user_type == UserType.ADMIN):
                     TokenManager.update_token(user)
                     return user
                 else:
@@ -230,7 +253,8 @@ class UserLogin(View):
                     'uuid': user.uuid,
                     'token': token,
                     'avatar': 'https://fdn.geekzu.org/avatar/{}'.format(md5.hexdigest()),
-                    'permission': 'admin' if user.user_type else 'user'
+                    'permission': 'admin' if user.user_type else 'user',
+                    'super_user': user.user_type == UserType.SUPER_ADMIN,
                 }
             else:
                 raise UserModel.DoesNotExist()
@@ -281,7 +305,7 @@ class UserHandler(View):
 
     def post(self, request):
         """
-        @api {post} /user/ User Sign Up
+        @api {post} /user/ User Sign Up (for plain user)
         @apiName UserSignUp
         @apiGroup User
         @apiVersion 0.1.0
@@ -429,6 +453,125 @@ class UserLogout(View):
             return JsonResponse(RESPONSE.INVALID_REQUEST)
 
 
+# Super admin APIs
+class SuperUserItemHandler(View):
+    http_method_names = ['delete', 'put']
+
+    def delete(self, _, **kwargs):
+        user_id = kwargs.get('uuid', None)
+        if user_id is not None:
+            try:
+                UserModel.objects.filter(uuid=user_id, user_type=UserType.ADMIN).delete()
+                return JsonResponse(RESPONSE.SUCCESS)
+            except Exception as ex:
+                LOGGER.error(ex)
+                return JsonResponse(RESPONSE.OPERATION_FAILED)
+        else:
+            return JsonResponse(RESPONSE.INVALID_REQUEST)
+
+    def put(self, request, **kwargs):
+        response = None
+        try:
+            user_id = kwargs.get('uuid', None)
+            request = json.loads(request.body)
+            if user_id is not None:
+                user = UserModel.objects.get(uuid=user_id, user_type=UserType.ADMIN)
+                email = request.get('email', None)
+                password_reset = request.get('password_reset', False)
+                password = ''
+                if email is not None:
+                    user.email = email
+                if password_reset:
+                    password = random_password()
+                    md5 = hashlib.md5()
+                    md5.update(password.encode('utf-8'))
+                    user.password = bcrypt.hashpw(md5.hexdigest().encode('utf-8'),
+                                                  user.salt.encode('utf-8')).decode('utf-8')
+                    LOGGER.debug(user.password)
+                user.save(force_update=True)
+                response = RESPONSE.SUCCESS
+                if password_reset:
+                    if send_password_info_email(user.username, password, user.email, True):
+                        response['message'] = "Send email success"
+                    else:
+                        response['message'] = "Send email failed. Check your SMTP settings"
+            else:
+                raise ValueError()
+        except UserModel.DoesNotExist:
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " Object does not exist."
+        except ValueError:
+            response = RESPONSE.INVALID_REQUEST
+        except Exception as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.SERVER_ERROR
+        finally:
+            return JsonResponse(response)
+
+
+class SuperUserListHandler(View):
+    http_method_names = ['get', 'post']
+
+    def get(self, request, **_):
+        response = RESPONSE.SUCCESS
+        try:
+            params = request.GET
+            page = params.get('page', '1')
+            page = int(page)
+            if page < 1:
+                raise ValueError()
+            all_pages = Paginator(UserModel.objects.filter(user_type=UserType.ADMIN).order_by('id', 'username'), 25)
+            curr_page = all_pages.page(page)
+            response['payload']['count'] = all_pages.count
+            response['payload']['page_count'] = all_pages.num_pages if all_pages.count > 0 else 0
+            response['payload']['entry'] = []
+            for item in curr_page.object_list:
+                response['payload']['entry'].append({'uuid': item.uuid, 'username': item.username,
+                                                     'email': item.email, 'create_time': item.create_time})
+        except ValueError:
+            response = RESPONSE.INVALID_REQUEST
+        except Exception as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.SERVER_ERROR
+        finally:
+            return JsonResponse(response)
+
+    def post(self, request, **_):
+        response = None
+        try:
+            request = json.loads(request.body)
+            username = request.get('username', None)
+            email = request.get('email', None)
+            if username is None or email is None:
+                raise ValueError()
+            else:
+                salt = bcrypt.gensalt()
+                password = random_password()
+                md5 = hashlib.md5()
+                md5.update(password.encode('utf-8'))
+                password_enc = bcrypt.hashpw(md5.hexdigest().encode('utf-8'), salt).decode('utf-8')
+                user = UserModel(uuid=str(get_uuid()), username=username, password=password_enc,
+                                 salt=salt.decode('utf-8'),
+                                 email=email, user_type=UserType.ADMIN)
+                user.save()
+                # send password via email
+                response = RESPONSE.SUCCESS
+                if send_password_info_email(user.username, password, user.email, False):
+                    response['message'] = "Send email success"
+                else:
+                    response['message'] = "Send email failed. Check your SMTP settings"
+        except IntegrityError:
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " There is already an user with the same name."
+        except ValueError:
+            response = RESPONSE.INVALID_REQUEST
+        except Exception as ex:
+            LOGGER.error(ex)
+            response = RESPONSE.SERVER_ERROR
+        finally:
+            return JsonResponse(response)
+
+
 # OAuth Implementations
 class OAuthUserLogin(View):
     http_method_names = ['post', 'get']
@@ -488,12 +631,26 @@ class OAuthUserInfoView(ProtectedResourceView):
 class ApplicationListHandler(View):
     http_method_names = ['get', 'post']
 
-    def get(self, _, **kwargs):
+    def get(self, req, **kwargs):
         user = kwargs.get('__user', None)
-        apps = get_application_model().objects.filter(Q(user=user) | Q(user=None))
-        response = RESPONSE.SUCCESS
-        response['payload'] = json.loads(serializers.serialize('json', apps))
-        return JsonResponse(response)
+        response = None
+        try:
+            page = int(req.GET.get('page', '1'))
+            if page < 1:
+                raise ValueError()
+            all_pages = Paginator(get_application_model().objects.filter(Q(user=user) | Q(user=None)).order_by('id'), 25)
+            curr_page = all_pages.page(page)
+            response = RESPONSE.SUCCESS
+            response['payload']['count'] = all_pages.count
+            response['payload']['page_count'] = all_pages.num_pages if all_pages.count > 0 else 0
+            response['payload']['entry'] = json.loads(serializers.serialize('json', curr_page))
+        except ValueError:
+            response = RESPONSE.INVALID_REQUEST
+        except Exception as ex:
+            LOGGER.exception(ex)
+            response = RESPONSE.SERVER_ERROR
+        finally:
+            return JsonResponse(response)
 
     def post(self, request, **kwargs):
         user = kwargs.get('__user', None)
@@ -596,7 +753,8 @@ class ApplicationDetailHandler(View):
             user = kwargs['__user']
             model = get_application_model()
             try:
-                model.objects.filter(Q(user=user) | Q(user=None), id=id).delete()
+                model.objects.get(Q(user=user) | Q(user=None), id=id).delete()
+                response = RESPONSE.SUCCESS
             except model.DoesNotExist:
                 response = RESPONSE.OPERATION_FAILED
         except Exception as ex:

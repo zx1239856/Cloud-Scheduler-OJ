@@ -28,3 +28,11 @@ DATABASES = {
         'NAME': os.path.join(os.path.dirname(os.path.abspath(__file__)), 'db.sqlite3'),
     }
 }
+
+EMAIL_USE_TLS = True
+EMAIL_HOST = 'smtp.126.com'   # SMTP server
+EMAIL_HOST_USER = 'cloud_scheduler@126.com'    # username and domain
+EMAIL_HOST_PASSWORD = '1gZIrMq5onyli9HN'    # password
+EMAIL_PORT = 25
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+SERVER_EMAIL = EMAIL_HOST_USER

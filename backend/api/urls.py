@@ -43,6 +43,8 @@ urlpatterns = [
     path('user/login/', user_views.UserLogin.as_view()),
     path('user/logout/', login_required(user_views.UserLogout.as_view())),
     path('user/', user_views.UserHandler.as_view()),
+    path('user/admin/', permission_required(user_views.SuperUserListHandler.as_view(), False, False, True)),
+    path('user/admin/<str:uuid>/', permission_required(user_views.SuperUserItemHandler.as_view(), False, False, True)),
     # oauth mgmt
     path('oauth/applications/', permission_required(user_views.ApplicationListHandler.as_view())),
     path('oauth/applications/<int:id>/', permission_required(user_views.ApplicationDetailHandler.as_view())),
@@ -51,7 +53,8 @@ urlpatterns = [
     path(OAUTH_LOGIN_URL, user_views.OAuthUserLogin.as_view()),
     # oauth std interfaces
     # redirect to login page served by Django
-    path('oauth/authorize/', permission_required(oauth_views.AuthorizationView.as_view(), True, True), name='authorize'),
+    path('oauth/authorize/', permission_required(oauth_views.AuthorizationView.as_view(), True, True),
+         name='authorize'),
     path('oauth/access_token/', oauth_views.TokenView.as_view(), name='token'),
     path('oauth/revoke_token/', oauth_views.RevokeTokenView.as_view(), name='revoke-token'),
     path('oauth/user_info/', user_views.OAuthUserInfoView.as_view()),
