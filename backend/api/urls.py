@@ -53,7 +53,8 @@ urlpatterns = [
     path(OAUTH_LOGIN_URL, user_views.OAuthUserLogin.as_view()),
     # oauth std interfaces
     # redirect to login page served by Django
-    path('oauth/authorize/', permission_required(oauth_views.AuthorizationView.as_view(), True, True), name='authorize'),
+    path('oauth/authorize/', permission_required(oauth_views.AuthorizationView.as_view(), True, True),
+         name='authorize'),
     path('oauth/access_token/', oauth_views.TokenView.as_view(), name='token'),
     path('oauth/revoke_token/', oauth_views.RevokeTokenView.as_view(), name='revoke-token'),
     path('oauth/user_info/', user_views.OAuthUserInfoView.as_view()),

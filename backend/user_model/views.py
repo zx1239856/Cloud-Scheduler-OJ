@@ -631,12 +631,26 @@ class OAuthUserInfoView(ProtectedResourceView):
 class ApplicationListHandler(View):
     http_method_names = ['get', 'post']
 
-    def get(self, _, **kwargs):
+    def get(self, req, **kwargs):
         user = kwargs.get('__user', None)
-        apps = get_application_model().objects.filter(Q(user=user) | Q(user=None))
-        response = RESPONSE.SUCCESS
-        response['payload'] = json.loads(serializers.serialize('json', apps))
-        return JsonResponse(response)
+        response = None
+        try:
+            page = int(req.GET.get('page', '1'))
+            if page < 1:
+                raise ValueError()
+            all_pages = Paginator(get_application_model().objects.filter(Q(user=user) | Q(user=None)).order_by('id'), 25)
+            curr_page = all_pages.page(page)
+            response = RESPONSE.SUCCESS
+            response['payload']['count'] = all_pages.count
+            response['payload']['page_count'] = all_pages.num_pages if all_pages.count > 0 else 0
+            response['payload']['entry'] = json.loads(serializers.serialize('json', curr_page))
+        except ValueError:
+            response = RESPONSE.INVALID_REQUEST
+        except Exception as ex:
+            LOGGER.exception(ex)
+            response = RESPONSE.SERVER_ERROR
+        finally:
+            return JsonResponse(response)
 
     def post(self, request, **kwargs):
         user = kwargs.get('__user', None)
@@ -739,7 +753,8 @@ class ApplicationDetailHandler(View):
             user = kwargs['__user']
             model = get_application_model()
             try:
-                model.objects.filter(Q(user=user) | Q(user=None), id=id).delete()
+                model.objects.get(Q(user=user) | Q(user=None), id=id).delete()
+                response = RESPONSE.SUCCESS
             except model.DoesNotExist:
                 response = RESPONSE.OPERATION_FAILED
         except Exception as ex:

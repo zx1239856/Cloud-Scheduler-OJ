@@ -3,7 +3,7 @@ import json
 import time
 import mock
 import task_manager.executor as executor
-from task_manager.executor import Singleton, TaskExecutor, Task, TASK, TaskStorage
+from task_manager.executor import Singleton, TaskExecutor, Task, TASK, TaskStorage, RpcService
 from task_manager.models import TaskSettings
 from .common import TestCaseWithBasicUser, MockCoreV1Api, MockThread, ReturnItemsList, DotDict, MockBatchV1Api
 
@@ -23,6 +23,7 @@ class ConcreteMockCoreV1Api(MockCoreV1Api):
 
     def __init__(self, _client):
         super().__init__(self)
+        self.pod_occupy = {}
 
     def list_namespaced_pod(self, **kwargs):
         label_selector = kwargs['label_selector']
@@ -33,13 +34,15 @@ class ConcreteMockCoreV1Api(MockCoreV1Api):
             ConcreteMockCoreV1Api.pod_dict[label_selector] = 'Running'
         elif ConcreteMockCoreV1Api.pod_dict[label_selector] == 'Running':
             ConcreteMockCoreV1Api.pod_dict[label_selector] = 'Succeeded' if random.randint(0, 2) == 0 else 'Failed'
+        if label_selector not in self.pod_occupy.keys():
+            self.pod_occupy[label_selector] = 0
         item_list = [DotDict({
             'status': DotDict({'pod_ip': 'ip', 'phase': ConcreteMockCoreV1Api.pod_dict[label_selector]}),
             'metadata': DotDict({
                 'namespace': namespace,
                 'name': label_selector,
                 'labels': {
-                    'occupied': '1'
+                    'occupied': str(self.pod_occupy[label_selector])
                 },
                 'creation_timestamp': '000',
                 'uid': 'uid_test',
@@ -56,7 +59,7 @@ class ConcreteMockCoreV1Api(MockCoreV1Api):
                 'namespace': namespace,
                 'name': name,
                 'labels': {
-                    'occupied': '1'
+                    'occupied': '0'
                 },
                 'creation_timestamp': '000',
                 'uid': 'uid_test',
@@ -130,6 +133,15 @@ class TestTaskExecutor(TestCaseWithBasicUser):
             err = True
         self.assertTrue(err)
         instance_a.method()
+
+    def test_rpc_service_handler(self):
+        service = RpcService()
+        ret = service.exposed_get_user_space_pod('not_exist', 'not_exist')
+        self.assertFalse(ret)
+        TaskExecutor._instance = None
+        TaskExecutor.instance(new=True, test=True)
+        ret = service.exposed_get_user_space_pod('test', self.admin.uuid)
+        self.assertFalse(ret)
 
     def test_executor(self):
         settings_correct = TaskSettings.objects.create(name='task', uuid='my_uuid', description='',
