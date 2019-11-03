@@ -66,7 +66,8 @@ class SSH:
                     header_token = ls[1]
                     user = UserModel.objects.get(username=username)
                     token = TokenManager.get_token(user)
-                    if token == header_token and user.user_type == UserType.ADMIN:
+                    if token == header_token and user.user_type == UserType.ADMIN \
+                            or user.user_type == UserType.SUPER_ADMIN:
                         TokenManager.update_token(user)
                         self.auth_ok = True
                 if not self.auth_ok:

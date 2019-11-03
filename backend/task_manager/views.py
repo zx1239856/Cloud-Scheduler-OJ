@@ -74,7 +74,7 @@ class TaskSettingsListHandler(View):
                 entry = {'uuid': item.uuid, 'name': item.name,
                          'description': item.description, 'create_time': item.create_time,
                          'time_limit': item.time_limit}
-                if user.user_type == UserType.ADMIN:
+                if user.user_type == UserType.ADMIN or user.user_type == UserType.SUPER_ADMIN:
                     entry['container_config'] = json.loads(item.container_config)
                     entry['replica'] = item.replica
                     entry['ttl_interval'] = item.ttl_interval
@@ -406,7 +406,7 @@ class ConcreteTaskHandler(View):
         if uuid is None:
             return None
         else:
-            if user.user_type == UserType.ADMIN:
+            if user.user_type == UserType.ADMIN or user.user_type == UserType.SUPER_ADMIN:
                 item = Task.objects.get(uuid=uuid)
             else:
                 item = Task.objects.get(uuid=uuid, user=user)

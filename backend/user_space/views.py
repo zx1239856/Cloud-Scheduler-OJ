@@ -72,7 +72,11 @@ class UserSpaceHandler(View):
                             if op_code == 'get':
                                 cmdlist.append('cat {}'.format(file))
                             elif op_code == 'post':
-                                cmdlist.append("cat > {} <<EOF\n{}\nEOF\n".format(file, content))
+                                delimiter = random_string()
+                                cmdlist.append(
+                                    "head -c -1 > {file} <<'{closing}'\n{content}\n{closing}".format(file=file,
+                                                                                                     content=content,
+                                                                                                     closing=delimiter))
                             elif op_code == 'delete':
                                 cmdlist.append('rm -f {}'.format(file))
                         elif path is not None:

@@ -316,7 +316,9 @@ class TaskExecutor:
                 # try get this pod
                 try:
                     pod = api.read_namespaced_pod(name=user_storage.pod_name, namespace=KUBERNETES_NAMESPACE)
-                    if pod.status.phase == 'Running':
+                    deleting = pod.metadata.deletion_timestamp
+                    # do not get users to terminating pods
+                    if pod.status.phase == 'Running' and not deleting:
                         result = pod
                         user_storage.expire_time = round(time.time() + USER_SPACE_POD_TIMEOUT)
                         user_storage.save(force_update=True)
@@ -332,7 +334,8 @@ class TaskExecutor:
                 # crunch available pods
                 for pod in response.items:
                     num_in_use = int(pod.metadata.labels['occupied'])
-                    if pod.status.phase == 'Running' and num_in_use < setting.max_sharing_users:
+                    deleting = pod.metadata.deletion_timestamp
+                    if pod.status.phase == 'Running' and num_in_use < setting.max_sharing_users and not deleting:
                         available = pod
                         break
                 # allocate
@@ -563,7 +566,8 @@ class TaskExecutor:
             has_error = False
             for pod in response.items:
                 num_in_use = int(pod.metadata.labels['occupied'])
-                if pod.status.phase == 'Running':
+                deleting = pod.metadata.deletion_timestamp
+                if pod.status.phase == 'Running' and not deleting:
                     base_count += 1
                     if num_in_use < item.max_sharing_users:
                         usable_count += 1
