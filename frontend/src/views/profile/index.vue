@@ -23,7 +23,7 @@
     <el-dialog title="Update User Info" :visible.sync="dialogVisible">
       <el-form ref="dialogForm" :rules="dialogRules" :model="profile" enctype="multipart/form-data" label-position="left" label-width="200px" style="width: 500px; margin-left:50px;">
         <el-form-item label="Email" prop="email">
-          <el-input v-model="profile.email" />
+          <el-input ref="inputEmail" v-model="profile.email" />
         </el-form-item>
         <el-form-item label="Password" prop="password">
           <el-input ref="password" v-model="profile.password" type="password" />
@@ -102,9 +102,12 @@ export default {
     },
     methods: {
         handleEditProfile() {
-            this.dialogVisible = true;
             this.profile.password = '';
             this.profile.confirmPassword = '';
+            this.dialogVisible = true;
+            this.$nextTick(() => {
+                this.$refs.inputEmail.focus();
+            });
         },
         handleDialogConfirm() {
             this.$refs.dialogForm.validate(valid => {
