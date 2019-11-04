@@ -14,7 +14,7 @@
       <el-button v-waves class="filter-item" type="primary" icon="el-icon-search" @click="handleFilter">
         Search
       </el-button> -->
-      <el-button v-if="permission==='admin'" class="filter-item" style="margin: 20px;" type="success" icon="el-icon-plus" @click="handleCreate">
+      <el-button v-if="permission==='admin'" class="filter-item" style="margin: 20px;" type="primary" icon="el-icon-plus" @click="handleCreate">
         New Settings
       </el-button>
     </div>
@@ -73,7 +73,9 @@
       </el-table-column>
     </el-table>
 
-    <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
+    <div style="text-align: center;">
+      <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
+    </div>
 
     <el-dialog
       title="Warning"
@@ -164,6 +166,7 @@ export default {
             getTaskSettingsList(this.listQuery.page).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
+            }).finally(() => {
                 this.listLoading = false;
             });
         },
