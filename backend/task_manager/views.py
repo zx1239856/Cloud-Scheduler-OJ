@@ -1,7 +1,6 @@
 """View handlers for TaskManager"""
 import logging
 import json
-from uuid import uuid1
 from django.http import JsonResponse
 from django.views import View
 from django.db.utils import IntegrityError
@@ -9,17 +8,13 @@ from django.db.models import ProtectedError
 from django.core.paginator import Paginator
 from kubernetes.client import CoreV1Api
 from kubernetes.client.rest import ApiException
-from api.common import RESPONSE
+from api.common import RESPONSE, get_uuid
 from user_model.models import UserType
 from config import KUBERNETES_NAMESPACE
 from .models import TaskSettings, Task, TASK
 from .executor import TaskExecutor, get_kubernetes_api_client
 
 LOGGER = logging.getLogger(__name__)
-
-
-def get_uuid():
-    return uuid1()
 
 
 class TaskSettingsListHandler(View):

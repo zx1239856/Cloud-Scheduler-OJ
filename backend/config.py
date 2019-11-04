@@ -31,6 +31,10 @@ DATABASES = {
 
 USER_WEBSHELL_DOCKER_IMAGE = "registry.dropthu.online:30443/ubuntu:19.10"
 USER_VNC_DOCKER_IMAGE = "registry.dropthu.online:30443/ubuntu_no_vnc:19.10"
+USER_VNC_HOST = "vnc.app.dropthu.online"
+USER_VNC_WS_PORT = 30443
+USER_VNC_PORT = 9001
+USER_VNC_TLS_SECRET = "ingress-tls-cert"
 
 EMAIL_USE_TLS = True
 EMAIL_HOST = 'smtp.126.com'   # SMTP server

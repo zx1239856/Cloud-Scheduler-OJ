@@ -13,13 +13,14 @@ import rpyc
 from rpyc.utils.server import ThreadedServer
 from kubernetes import client
 from kubernetes.stream import stream
-from kubernetes.client import CoreV1Api, BatchV1Api
+from kubernetes.client import CoreV1Api, BatchV1Api, ExtensionsV1beta1Api, AppsV1Api
 from kubernetes.client.rest import ApiException
-from api.common import get_kubernetes_api_client, USERSPACE_NAME
+from api.common import get_kubernetes_api_client, USERSPACE_NAME, random_password, get_uuid
 from config import DAEMON_WORKERS, KUBERNETES_NAMESPACE, CEPH_STORAGE_CLASS_NAME, \
     GLOBAL_TASK_TIME_LIMIT, USER_SPACE_POD_TIMEOUT, IPC_PORT, USER_WEBSHELL_DOCKER_IMAGE
+import config
 from user_model.models import UserModel
-from .models import TaskSettings, TaskStorage, Task, TASK
+from .models import TaskSettings, TaskStorage, TaskVNCPod, Task, TASK
 
 LOGGER = logging.getLogger(__name__)
 
@@ -176,6 +177,7 @@ class TaskExecutor:
 
     def _storage_pod_monitor(self):
         api = CoreV1Api(get_kubernetes_api_client())
+        app_api = AppsV1Api(get_kubernetes_api_client())
 
         def _actual_work():
             idle = True
@@ -210,6 +212,24 @@ class TaskExecutor:
                             item.save(force_update=True)
                         else:
                             LOGGER.warning(ex)
+                for item in TaskVNCPod.objects.filter(expire_time__gt=0).order_by('expire_time'):
+                    try:
+                        if item.expire_time <= round(time.time()):
+                            idle = False
+                            if item.pod_name:
+                                app_api.delete_namespaced_deployment(name=item.pod_name, namespace=KUBERNETES_NAMESPACE)
+                                item.pod_name = ''
+                                item.expire_time = 0
+                                item.url_path = ''
+                                item.save(force_update=True)
+                    except ApiException as ex:
+                        if ex.status != 404:
+                            LOGGER.exception(ex)
+                        else:
+                            item.pod_name = ''
+                            item.expire_time = 0
+                            item.url_path = ''
+                            item.save(force_update=True)
             except Exception as ex:
                 LOGGER.warning(ex)
             if idle:
@@ -300,6 +320,177 @@ class TaskExecutor:
             _actual_work()
             if self.test:
                 break
+
+    @staticmethod
+    def get_user_vnc_pod(uuid, user):
+        extension_api = ExtensionsV1beta1Api(get_kubernetes_api_client())
+        app_api = AppsV1Api(get_kubernetes_api_client())
+        core_api = CoreV1Api(get_kubernetes_api_client())
+        result = {}
+        has_deployment = False
+        user_vnc = None
+        try:
+            setting = TaskSettings.objects.get(uuid=uuid)
+            user_vnc, _ = TaskVNCPod.objects.get_or_create(settings=setting, user=user, defaults={
+                'settings': setting,
+                'user': user,
+                'pod_name': '',
+                'url_path': '',
+                'vnc_password': '',
+                'expire_time': round(time.time() + USER_SPACE_POD_TIMEOUT)
+            })
+            _, created = TaskStorage.objects.get_or_create(settings=setting, user=user, defaults={
+                'settings': setting,
+                'user': user,
+                'pod_name': ''
+            })
+            if user_vnc.pod_name:
+                try:
+                    # check whether deployment is on
+                    has_deployment = True
+                    _ = app_api.read_namespaced_deployment(name=user_vnc.pod_name, namespace=KUBERNETES_NAMESPACE)
+                except ApiException as ex:
+                    if ex.status != 404:
+                        LOGGER.exception(ex)
+                    else:
+                        has_deployment = False
+            selector = "task-{}-user-{}-vnc".format(setting.uuid, user.id)
+            if not has_deployment:
+                # create a new deployment
+                conf = json.loads(setting.container_config)
+                user_dir = "user_{}_task_{}".format(user.id, setting.id)
+                dep_name = "task-vnc-{}-{}".format(setting.uuid, get_short_uuid())
+                shared_pvc_name = "shared-{}".format(setting.uuid)
+                shared_mount = client.V1VolumeMount(mount_path=conf['persistent_volume']['mount_path'],
+                                                    name=shared_pvc_name, read_only=True)
+                user_storage_name = "user-{}".format(setting.uuid)
+                user_mount = client.V1VolumeMount(mount_path='/cloud_scheduler_userspace', name=user_storage_name,
+                                                  sub_path=user_dir)
+                username = '{}_{}'.format(user.username, setting.id)
+
+                commands = ['set +e',
+                            'ln -s /cloud_scheduler_userspace /headless/Desktop/user_space',
+                            'useradd -u {uid} {username}'.format(uid=499 + user.id, username=username),
+                            'usermod -d /headless {}'.format(username),
+                            "su -s /bin/bash -c '/dockerstartup/vnc_startup.sh -w' {}".format(username)]
+                if created:
+                    cp_command = 'cp -r {}/* /headless/Desktop/user_space'.format(
+                        conf['persistent_volume']['mount_path'] + '/' + conf['task_initial_file_path'])
+                    chown = 'chown -R {user}:{user} /headless/Desktop/user_space/*'.format(user=username)
+                    commands.insert(4, cp_command)
+                    commands.insert(5, chown)
+                vnc_pw = random_password(8)
+                env_vnc_pw = client.V1EnvVar(name="VNC_PW", value=vnc_pw)
+                container = client.V1Container(
+                    name='headless-vnc',
+                    image=config.USER_VNC_DOCKER_IMAGE,
+                    env=[env_vnc_pw],
+                    command=['/bin/bash'],
+                    args=['-c', ';'.join(commands)],
+                    volume_mounts=[shared_mount, user_mount]
+                )
+                persistent_volume_claim = client.V1PersistentVolumeClaimVolumeSource(claim_name=
+                                                                                     conf['persistent_volume']['name'])
+                user_volume_claim = client.V1PersistentVolumeClaimVolumeSource(claim_name=USERSPACE_NAME)
+                shared_volume = client.V1Volume(name=shared_pvc_name,
+                                                persistent_volume_claim=persistent_volume_claim)
+                user_volume = client.V1Volume(name=user_storage_name,
+                                              persistent_volume_claim=user_volume_claim)
+                template = client.V1PodTemplateSpec(
+                    metadata=client.V1ObjectMeta(labels={'app': selector}),
+                    spec=client.V1PodSpec(containers=[container], volumes=[shared_volume, user_volume])
+                )
+                spec = client.V1DeploymentSpec(
+                    replicas=1,
+                    template=template,
+                    selector={'matchLabels': {'app': selector}}
+                )
+                deployment = client.V1Deployment(
+                    kind='Deployment',
+                    metadata=client.V1ObjectMeta(name=dep_name, namespace=KUBERNETES_NAMESPACE,
+                                                 labels={'app': selector}),
+                    spec=spec
+                )
+                app_api.create_namespaced_deployment(body=deployment, namespace=KUBERNETES_NAMESPACE)
+                user_vnc.pod_name = dep_name
+                user_vnc.vnc_password = vnc_pw
+            if not user_vnc.url_path:
+                # create service
+                spec = client.V1ServiceSpec(
+                    external_name=selector,
+                    ports=[client.V1ServicePort(name='websocket-port', port=config.USER_VNC_PORT,
+                                                target_port=config.USER_VNC_PORT)],
+                    selector={'app': selector},
+                    type='ClusterIP',
+                )
+                service = client.V1Service(
+                    spec=spec,
+                    metadata=client.V1ObjectMeta(
+                        labels={'app': selector},
+                        name=selector,
+                        namespace=KUBERNETES_NAMESPACE
+                    )
+                )
+                try:
+                    core_api.create_namespaced_service(namespace=KUBERNETES_NAMESPACE, body=service)
+                except ApiException as ex:
+                    if ex.status != 409:  # ignore conflict (duplicate)
+                        LOGGER.exception(ex)
+                        raise ApiException
+                # create ingress
+                url_path = str(get_uuid())
+                spec = client.ExtensionsV1beta1IngressSpec(
+                    rules=[client.ExtensionsV1beta1IngressRule(host=config.USER_VNC_HOST,
+                                                               http=client.ExtensionsV1beta1HTTPIngressRuleValue(
+                                                                   paths=[
+                                                                       client.ExtensionsV1beta1HTTPIngressPath(
+                                                                           client.ExtensionsV1beta1IngressBackend(
+                                                                               service_name=selector,
+                                                                               service_port=config.USER_VNC_PORT
+                                                                           ),
+                                                                           path='/' + url_path
+                                                                       )
+                                                                   ]
+                                                               ))],
+                    tls=[client.ExtensionsV1beta1IngressTLS(hosts=[config.USER_VNC_HOST],
+                                                            secret_name=config.USER_VNC_TLS_SECRET)],
+                )
+                ingress = client.ExtensionsV1beta1Ingress(metadata={'name': selector,
+                                                                    'annotations': {
+                                                                        'kubernetes.io/ingress.class': 'nginx',
+                                                                        'nginx.ingress.kubernetes.io/proxy-read-timeout':
+                                                                            '86400',
+                                                                        'nginx.ingress.kubernetes.io/proxy-send-timeout':
+                                                                            '86400',
+                                                                    }},
+                                                          spec=spec)
+                need_patch = False
+                try:
+                    extension_api.create_namespaced_ingress(KUBERNETES_NAMESPACE, ingress)
+                except ApiException as ex:
+                    if ex.status != 409:  # ignore conflict (duplicate)
+                        LOGGER.exception(ex)
+                        raise ApiException
+                    else:
+                        need_patch = True
+                if need_patch:
+                    extension_api.patch_namespaced_ingress(selector, KUBERNETES_NAMESPACE, ingress)
+                user_vnc.url_path = url_path
+            user_vnc.expire_time = round(time.time() + USER_SPACE_POD_TIMEOUT)
+            result['url_path'] = user_vnc.url_path
+            result['vnc_password'] = user_vnc.vnc_password
+            result['deployment_name'] = user_vnc.pod_name
+            result['vnc_host'] = config.USER_VNC_HOST
+            result['vnc_port'] = config.USER_VNC_WS_PORT
+            user_vnc.save(force_update=True)
+        except ApiException as ex:
+            LOGGER.exception(ex)
+        except Exception as ex:
+            LOGGER.exception(ex)
+        finally:
+            if user_vnc:
+                user_vnc.save(force_update=True)
+            return result
 
     @staticmethod
     def get_user_space_pod(uuid, user):

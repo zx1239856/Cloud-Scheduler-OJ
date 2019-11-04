@@ -6,7 +6,7 @@ from kubernetes.stream import ws_client
 from kubernetes.client.rest import ApiException
 from kubernetes.client.api_client import ApiClient
 from user_model.models import UserModel, UserType
-from task_manager.views import get_uuid
+from api.common import get_uuid
 
 
 def login_test_user(user):

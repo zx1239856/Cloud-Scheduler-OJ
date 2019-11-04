@@ -26,8 +26,7 @@ from oauth2_provider.models import get_access_token_model as _get_access_token_m
 from oauth2_provider.models import Application, AccessToken
 from oauth2_provider.views import ProtectedResourceView
 from user_model.models import UserModel, UserType
-from task_manager.views import get_uuid
-from api.common import RESPONSE, OAUTH_LOGIN_URL, random_password
+from api.common import RESPONSE, OAUTH_LOGIN_URL, random_password, get_uuid
 from config import USER_TOKEN_EXPIRE_TIME, CLOUD_SCHEDULER_API_SERVER_BASE_URL, DEFAULT_FROM_EMAIL
 
 LOGGER = logging.getLogger(__name__)
