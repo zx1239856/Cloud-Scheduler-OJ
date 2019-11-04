@@ -113,7 +113,7 @@ class RegistryHandler(View):
     util = ConnectionUtils()
 
     @method_decorator(permission_required)
-    def get(self, request, **_):
+    def get(self, _req, **_):
         """
         @api {get} /registry/ Get Repository list
         @apiName GetRepositories
@@ -184,7 +184,7 @@ class RepositoryHandler(View):
             return JsonResponse(RESPONSE.OPERATION_FAILED)
 
     @method_decorator(permission_required)
-    def post(self, request, **kwargs):
+    def post(self, request, **_):
         """
         @api {post} /registry/upload/ Upload image.tar
         @apiName UploadImageTar
@@ -226,7 +226,7 @@ class RepositoryHandler(View):
             return JsonResponse(RESPONSE.OPERATION_FAILED)
 
     @method_decorator(permission_required)
-    def delete(self, request, **kwargs):
+    def delete(self, _, **kwargs):
         """
         @api {delete} /registry/<str:repo>/<str:tag>/ Delete an image
         @apiName DeleteImage
