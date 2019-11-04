@@ -11,7 +11,6 @@ from dxf import DXF
 from dxf import DXFBase
 from api.common import RESPONSE
 from config import REGISTRY_V2_API_ADDRESS, DOCKER_ADDRESS, REGISTRY_ADDRESS
-from registry_manager.cache import CacheWithTimeout
 from registry_manager.manifest import makeManifest
 from user_model.views import permission_required
 
@@ -68,7 +67,6 @@ class ConnectionUtils:
             LOGGER.error(ex)
 
     # get tags of a repository in list
-    @CacheWithTimeout()
     def get_tags(self, repo):
         try:
             tags = self.json_request(
