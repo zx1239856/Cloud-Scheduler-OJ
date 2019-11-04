@@ -107,6 +107,11 @@ export default {
             immediate: true
         }
     },
+    mounted() {
+        this.$nextTick(() => {
+            this.$refs.username.focus();
+        });
+    },
     methods: {
         showPwd() {
             if (this.passwordType === 'password') {

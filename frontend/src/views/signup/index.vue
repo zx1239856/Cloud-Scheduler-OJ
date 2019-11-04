@@ -178,6 +178,11 @@ export default {
             immediate: true
         }
     },
+    mounted() {
+        this.$nextTick(() => {
+            this.$refs.email.focus();
+        });
+    },
     methods: {
         showPwd() {
             if (this.passwordType === 'password') {

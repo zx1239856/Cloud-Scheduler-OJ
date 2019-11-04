@@ -69,7 +69,7 @@
           </el-upload>
         </el-form-item>
         <el-form-item label="path" prop="path">
-          <el-input v-model="dialogFileData.path" @keyup.enter.native="handleUploadConfirm" />
+          <el-input ref="inputPath" v-model="dialogFileData.path" @keyup.enter.native="handleUploadConfirm" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
@@ -134,7 +134,7 @@
     <el-dialog :title="dialogType" :visible.sync="dialogFormVisible">
       <el-form ref="dialogForm" :rules="dialogRules" :model="dialogData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
         <el-form-item label="name" prop="name">
-          <el-input v-model="dialogData.name" />
+          <el-input ref="inputName" v-model="dialogData.name" />
         </el-form-item>
         <el-form-item label="capacity" prop="capacity">
           <el-input v-model="dialogData.capacity" @keyup.enter.native="handleDialogConfirm" />
@@ -270,6 +270,9 @@ export default {
         handleCreate() {
             this.dialogFormVisible = true;
             this.dialogType = 'Create';
+            this.$nextTick(() => {
+                this.$refs.inputName.focus();
+            });
         },
         handleDialogConfirm() {
             this.$refs.dialogForm.validate(valid => {
@@ -321,6 +324,9 @@ export default {
             this.dialogUploadVisible = true;
             this.dialogType = 'Upload';
             this.dialogFileData.pvc = row.name;
+            this.$nextTick(() => {
+                this.$refs.inputPath.focus();
+            });
         },
         handleUploadConfirm() {
             if (this.dialogFileData.file.length === 0) {

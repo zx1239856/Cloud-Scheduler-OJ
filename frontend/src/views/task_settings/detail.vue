@@ -3,7 +3,7 @@
     <el-form ref="dialogForm" :rules="dialogRules" :model="formData" label-position="left" label-width="200px" style="margin:50px; ">
 
       <el-form-item label="Name" prop="name">
-        <el-input v-model="formData.name" placeholder="Task Settings Name" />
+        <el-input ref="inputName" v-model="formData.name" placeholder="Task Settings Name" />
       </el-form-item>
 
       <el-form-item label="Description" prop="description">
@@ -142,6 +142,11 @@ export default {
                 }]
             }
         };
+    },
+    mounted() {
+        this.$nextTick(() => {
+            this.$refs.inputName.focus();
+        });
     },
     created() {
         if (this.$route.query.settings_uuid) {
