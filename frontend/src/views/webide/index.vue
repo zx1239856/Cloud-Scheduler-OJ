@@ -69,7 +69,7 @@
     <el-dialog :title="dialogTitle" :visible.sync="dialogFormVisible">
       <el-form ref="dialogForm" :rules="dialogRules" :model="dialogFormData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;" @submit.native.prevent>
         <el-form-item label="Name" prop="name">
-          <el-input v-model="dialogFormData.name" @keyup.enter.native="handleDialogConfirm" />
+          <el-input ref="inputName" v-model="dialogFormData.name" @keyup.enter.native="handleDialogConfirm" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
@@ -108,8 +108,8 @@ import 'codemirror/mode/shell/shell.js';
 import 'codemirror/mode/sql/sql.js';
 import 'codemirror/mode/swift/swift.js';
 import 'codemirror/mode/vue/vue.js';
-
-// import 'codemirror/theme/cobalt.css';
+import 'codemirror/mode/gas/gas.js';
+import 'codemirror/mode/htmlembedded/htmlembedded.js';
 
 // import 'codemirror/addon/fold/foldcode.js';
 // import 'codemirror/addon/fold/foldgutter.js';
@@ -168,26 +168,58 @@ export default {
             code: '',
             cmOptions: {
                 // codemirror options
-                tabSize: 4,
-                mode: 'text/x-c++src',
+                tabSize: 2,
+                mode: 'javascript',
                 lineNumbers: true
                 // line: true
+            },
+            modeMap: {
+                js: 'javascript',
+                css: 'css',
+                xml: 'xml',
+                cpp: 'text/x-c++src',
+                c: 'text/x-csrc',
+                java: 'text/x-java',
+                cs: 'text/x-csharp',
+                m: 'text/x-objectivec',
+                scala: 'text/x-scala',
+                md: 'markdown',
+                py: 'python',
+                r: 'r',
+                sh: 'shell',
+                sql: 'sql',
+                swift: 'swift',
+                vue: 'vue',
+                txt: '',
+                s: { name: 'gas', architecture: 'x86' },
+                html: 'application/x-ejs'
             }
         };
     },
     methods: {
         onCmReady(cm) {
-            console.log('the editor is readied!', cm);
+
         },
         onCmFocus(cm) {
-            console.log('the editor is focus!', cm);
+
         },
         onCmCodeChange(newCode) {
-            console.log('editor update');
             const tabIndex = this.getTabIndexOfFile(this.currentFile);
             if (tabIndex > -1) {
                 this.tabs[tabIndex].content = this.code;
             }
+        },
+        getHighlightMode(filename) {
+            if (!filename) {
+                return '';
+            }
+
+            for (const extension in this.modeMap) {
+                if (this.currentFile.endsWith('.' + extension)) {
+                    return this.modeMap[extension];
+                }
+            }
+            return '';
         },
         handleTabsEdit(targetKey, action) {
             if (action === 'remove') {
@@ -198,6 +230,7 @@ export default {
                             if (nextTab) {
                                 this.currentFile = nextTab.key;
                                 this.code = nextTab.content;
+                                this.cmOptions.mode = this.getHighlightMode(this.currentFile);
                             }
                         }
                     });
@@ -209,10 +242,12 @@ export default {
             if (filename.endsWith('/')) {
                 return 'folder_closed';
             }
-            const supportedSuffixes = ['c', 'cpp', 'cs', 'java', 'js', 'json', 'md', 'py', 's', 'txt'];
-            const suffix = filename.substr(filename.lastIndexOf('.') + 1);
-            const icon = (supportedSuffixes.includes(suffix) ? suffix : 'file');
-            return icon;
+            for (const extension in this.modeMap) {
+                if (filename.endsWith('.' + extension)) {
+                    return extension;
+                }
+            }
+            return 'file';
         },
         handleRename() {
             // close context menu
@@ -224,6 +259,9 @@ export default {
                 this.dialogFormData.name = this.dialogFormData.name.substr(0, this.dialogFormData.name.length - 1);
             }
             this.dialogFormVisible = true;
+            this.$nextTick(() => {
+                this.$refs.inputName.focus();
+            });
         },
         handleDelete() {
             this.contextMenuVisible = false;
@@ -265,6 +303,7 @@ export default {
             }
             this.currentFile = this.tabs[tab.index].key;
             this.code = this.tabs[tab.index].content;
+            this.cmOptions.mode = this.getHighlightMode(this.currentFile);
         },
         getTabIndexOfFile(path) {
             let tabIndex = -1;
@@ -343,7 +382,6 @@ export default {
                         // create directory
                         const newBasePath = this.dialogFormData.name + '/';
                         const newPath = this.selectedNode.data.key + newBasePath;
-                        console.log(this.selectedNode.data.key);
                         createDirectory(this.uuid, newPath).then(response => {
                             this.$message({
                                 message: 'Successfully Created',
@@ -415,6 +453,7 @@ export default {
             if (tabIndex > -1) {
                 this.currentFile = this.tabs[tabIndex].key;
                 this.code = this.tabs[tabIndex].content;
+                this.cmOptions.mode = this.getHighlightMode(this.currentFile);
                 return;
             }
 
@@ -423,13 +462,7 @@ export default {
 
             getFile(this.uuid, this.currentFile).then(response => {
                 this.code = response.payload;
-
-                if (this.currentFile.endsWith('.cpp') || this.currentFile.endsWith('.c') || this.currentFile.endsWith('.s')) {
-                    this.cmOptions.mode = 'text/x-c++src';
-                } else if (this.currentFile.endsWith('.js')) {
-                    this.cmOptions.mode = 'text/javascript';
-                }
-
+                this.cmOptions.mode = this.getHighlightMode(this.currentFile);
                 this.tabs.push({
                     key: this.currentFile,
                     label: this.currentFile.substr(this.currentFile.lastIndexOf('/') + 1),
@@ -442,11 +475,17 @@ export default {
             this.dialogTitle = 'Create File';
             this.dialogFormData.name = '';
             this.dialogFormVisible = true;
+            this.$nextTick(() => {
+                this.$refs.inputName.focus();
+            });
         },
         handleCreateDirectory() {
             this.dialogTitle = 'Create Directory';
             this.dialogFormData.name = '';
             this.dialogFormVisible = true;
+            this.$nextTick(() => {
+                this.$refs.inputName.focus();
+            });
         },
         handleSave() {
             this.codeMirrorLoading = true;
