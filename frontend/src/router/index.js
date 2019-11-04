@@ -126,7 +126,6 @@ export const constantRoutes = [
         name: 'webssh',
         component: () => import('@/views/webssh/index')
     },
-
     {
         path: '/user-terminal/',
         name: 'user-terminal',

@@ -18,3 +18,4 @@ class FileModel(models.Model):
     targetpath = models.CharField(max_length=255, default="null")
     status = models.PositiveSmallIntegerField(default=FileStatusCode.PENDING)
     uploadtime = models.CharField(max_length=255, default="null")
+    error = models.CharField(max_length=255, default="No infomation.")
