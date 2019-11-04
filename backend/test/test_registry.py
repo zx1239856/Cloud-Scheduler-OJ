@@ -19,7 +19,7 @@ class TestRegistryHandler(TestCaseWithBasicUser):
         response = self.client.get('/registry/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         resp = json.loads(response.content)
         self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])
-        self.assertEqual(resp['payload']['entity'], [{'NumberOfTags': 1, 'Repo': 'test_repo', 'SizeOfRepository': 0}])
+        self.assertEqual(resp['payload']['entity'], [{'Repo': 'test_repo'}])
 
 class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views, 'Request', MockRequest)
@@ -40,8 +40,6 @@ class TestRepositoryHander(TestCaseWithBasicUser):
                     'DockerVersion': '18.06.1-ce',
                     'Entrypoint': 'null',
                     'ExposedPorts': 'null',
-                    'Layers': 1,
-                    'Size': 0,
                     'Tag': 'test_alias',
                     'Volumes': 'null'
                 }
