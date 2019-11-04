@@ -120,7 +120,7 @@
           </el-table-column>
           <el-table-column label="Status" class-name="status-col" width="110" align="center">
             <template slot-scope="scope">
-              <el-tag :type="scope.row.status | statusFilter">
+              <el-tag :type="scope.row.status | statusFilter" @click="handleError(scope.row)">
                 {{ statusMap[scope.row.status] }}
               </el-tag>
             </template>
@@ -396,6 +396,13 @@ export default {
                 showClose: true,
                 message: 'Log Clear',
                 type: 'success'
+            });
+        },
+        handleError(row) {
+            this.$message({
+                showClose: true,
+                message: row.error,
+                type: 'info'
             });
         }
     }
