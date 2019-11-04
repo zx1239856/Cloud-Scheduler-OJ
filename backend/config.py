@@ -30,7 +30,7 @@ DATABASES = {
 }
 
 USER_WEBSHELL_DOCKER_IMAGE = "registry.dropthu.online:30443/ubuntu:19.10"
-USER_VNC_DOCKER_IMAGE = "registry.dropthu.online:30443/ubuntu:19.10"
+USER_VNC_DOCKER_IMAGE = "registry.dropthu.online:30443/ubuntu_no_vnc:19.10"
 
 EMAIL_USE_TLS = True
 EMAIL_HOST = 'smtp.126.com'   # SMTP server

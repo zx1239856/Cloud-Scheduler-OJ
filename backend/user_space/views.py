@@ -26,24 +26,31 @@ def random_string():
 class UserSpaceHandler(View):
     http_method_names = ['get', 'post', 'put', 'delete']
 
-    @staticmethod
-    def _safe_wrapper(request, op_code, **kwargs):
+    def _get_pod(self, **kwargs):
+        """
+        :param kwargs: parameters needed
+        :return: pod: the pod allocated; username: the username to execute file ops
+        """
+        user = kwargs.get('__user', None)
+        if user is None:
+            raise Exception("Internal exception raised when trying to get `User` object.")
+        settings_uuid = kwargs.get('uuid', None)
+        if settings_uuid is None:
+            raise ValueError
+        settings = TaskSettings.objects.get(uuid=settings_uuid)
+        username = '{}_{}'.format(user.username, settings.id)
+        executor = TaskExecutor.instance(new=False)
+        if executor is None:
+            return None, username
+        else:
+            pod = executor.get_user_space_pod(settings_uuid, user)
+            return pod, username
+
+    def _safe_wrapper(self, request, op_code, **kwargs):
         response = None
         api = CoreV1Api(get_kubernetes_api_client())
         try:
-            user = kwargs.get('__user', None)
-            if user is None:
-                raise Exception("Internal exception raised when trying to get `User` object.")
-            settings_uuid = kwargs.get('uuid', None)
-            if settings_uuid is None:
-                raise ValueError
-            settings = TaskSettings.objects.get(uuid=settings_uuid)
-            username = '{}_{}'.format(user.username, settings.id)
-            executor = TaskExecutor.instance(new=False)
-            if executor is None:
-                response = RESPONSE.OPERATION_FAILED
-                response['message'] += " Executor is initializing, please wait."
-            pod = executor.get_user_space_pod(settings_uuid, user)
+            pod, username = self._get_pod(**kwargs)
             if pod is None:
                 response = RESPONSE.OPERATION_FAILED
                 response['message'] += " Failed to allocate pod."
