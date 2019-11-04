@@ -1,6 +1,7 @@
 """Common variable used in modules"""
 import random
 import string
+from uuid import uuid1
 from kubernetes.client import Configuration, ApiClient
 from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL
 
@@ -24,6 +25,10 @@ Only super admin can access this API
 
 USERSPACE_NAME = 'cloud-scheduler-userspace'
 OAUTH_LOGIN_URL = 'oauth/login/'
+
+
+def get_uuid():
+    return uuid1()
 
 
 def random_password(length=32):
