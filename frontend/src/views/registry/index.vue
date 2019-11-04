@@ -176,7 +176,6 @@ export default {
             this.subListLoading = true;
             getRepository(this.currentRepo).then(response => {
                 this.subList = response.payload.entity;
-                this.total = response.payload.count;
                 this.subListLoading = false;
             });
         },
