@@ -41,7 +41,9 @@
       </el-table-column>
     </el-table>
 
-    <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getRepositories()" />
+    <div style="text-align: center;">
+      <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getRepositories()" />
+    </div>
 
     <el-dialog :title="dialogType" :visible.sync="dialogFormVisible">
       <el-form ref="dialogForm" :model="dialogData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">

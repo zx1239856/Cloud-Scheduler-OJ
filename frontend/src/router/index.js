@@ -103,19 +103,6 @@ export const constantRoutes = [
         ]
     },
     {
-        path: '/grafana',
-        name: 'grafana',
-        component: Layout,
-        meta: { title: 'Grafana', icon: 'task' },
-        children: [
-            {
-                path: '/',
-                name: 'grafana',
-                component: () => import('@/views/grafana/index')
-            }
-        ]
-    },
-    {
         path: '/log/',
         name: 'log',
         component: () => import('@/views/log/index')
@@ -175,6 +162,19 @@ export const asyncRoutes = [
                 hidden: true,
                 component: () => import('@/views/registry/image'),
                 meta: { title: 'Image', roles: ['admin'] }
+            }
+        ]
+    },
+    {
+        path: '/oauth/',
+        meta: { title: 'OAuth', icon: 'oauth' },
+        component: Layout,
+        children: [
+            {
+                path: '',
+                name: 'oauth',
+                component: () => import('@/views/oauth/index'),
+                meta: { title: 'OAuth', roles: ['admin'] }
             }
         ]
     }
