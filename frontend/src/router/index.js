@@ -172,14 +172,14 @@ export const asyncRoutes = [
                 name: 'repositories',
                 component: () => import('@/views/registry/index'),
                 meta: { title: 'Repositories', icon: 'repository', roles: ['admin'] }
-            },
-            {
-                path: 'image/',
-                name: 'image',
-                hidden: true,
-                component: () => import('@/views/registry/image'),
-                meta: { title: 'Image', roles: ['admin'] }
             }
+            // {
+            //     path: 'image/',
+            //     name: 'image',
+            //     hidden: true,
+            //     component: () => import('@/views/registry/image'),
+            //     meta: { title: 'Image', roles: ['admin'] }
+            // }
         ]
     }
 ];
