@@ -146,3 +146,31 @@ class UserSpaceHandler(View):
 
     def delete(self, request, **kwargs):
         return self._safe_wrapper(request, 'delete', **kwargs)
+
+
+class UserVNCHandler(View):
+    http_method_names = ['get']
+
+    def get(self, _, **kwargs):
+        try:
+            user = kwargs.get('__user', None)
+            if user is None:
+                raise Exception("Internal exception raised when trying to get `User` object.")
+            settings_uuid = kwargs.get('uuid', None)
+            if settings_uuid is None:
+                raise ValueError
+            executor = TaskExecutor.instance(new=False)
+            res = {}
+            if executor is not None:
+                res = executor.get_user_vnc_pod(settings_uuid, user)
+            if res:
+                response = RESPONSE.SUCCESS
+                response['payload'] = res
+            else:
+                response = RESPONSE.OPERATION_FAILED
+            return JsonResponse(response)
+        except ValueError:
+            return JsonResponse(RESPONSE.INVALID_REQUEST)
+        except Exception as ex:
+            LOGGER.exception(ex)
+            return JsonResponse(RESPONSE.SERVER_ERROR)

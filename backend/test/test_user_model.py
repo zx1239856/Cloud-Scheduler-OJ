@@ -523,7 +523,7 @@ class TestOAuthLogin(TestCaseWithBasicUser):
         self.assertEqual(response.status_code, 302)
         code = response.url.lstrip('https://test.com/?code=')
         print(code)
-        time.sleep(0.5)
+        time.sleep(2)
         response = self.client.post('/oauth/access_token/', {
             'client_id': client_id,
             'redirect_uri': 'https://test.com/',

@@ -112,7 +112,7 @@ class RegistryHandler(View):
     util = ConnectionUtils()
 
     @method_decorator(permission_required)
-    def get(self, request, **_):
+    def get(self, _req, **_):
         """
         @api {get} /registry/ Get Repository list
         @apiName GetRepositories
@@ -244,7 +244,7 @@ class RepositoryHandler(View):
             os.remove(self.basePath + filename)
 
     @method_decorator(permission_required)
-    def delete(self, request, **kwargs):
+    def delete(self, _, **kwargs):
         """
         @api {delete} /registry/<str:repo>/<str:tag>/ Delete an image
         @apiName DeleteImage

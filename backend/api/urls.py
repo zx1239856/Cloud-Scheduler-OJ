@@ -65,6 +65,7 @@ urlpatterns = [
     path('storage/upload_file/', storage_views.StorageFileHandler.as_view()),
     # user space for webIDE
     path('user_space/<str:uuid>/', login_required(user_space_views.UserSpaceHandler.as_view())),
+    path('vnc/<str:uuid>/', login_required(user_space_views.UserVNCHandler.as_view())),
     # registry management
     path('registry/', registry_mgmt_views.RegistryHandler.as_view()),
     path('registry/<str:repo>/', registry_mgmt_views.RepositoryHandler.as_view()),

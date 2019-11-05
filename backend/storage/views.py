@@ -85,7 +85,7 @@ class StorageHandler(View):
             else:
                 pvc_list_slice = pvc_list
             for pvc in pvc_list_slice:
-                payload['entry'].append({'name': pvc.metadata.name, 'capacity': pvc.spec.resources.requests['storage'],
+                payload['entry'].append({'name': pvc.metadata.name, 'capacity': pvc.status.capacity['storage'],
                                          'time': pvc.metadata.creation_timestamp, 'mode': pvc.spec.access_modes[0],
                                          'status': pvc.status.phase})
             response = RESPONSE.SUCCESS
@@ -155,7 +155,8 @@ class StorageHandler(View):
         except Exception as ex:
             LOGGER.error(ex)
             response = RESPONSE.OPERATION_FAILED
-            response['message'] += " PVC named {} already exists.".format(pvc_name)
+            if ex.body is not None:
+                response['message'] += " {}".format(json.loads(ex.body)['message'])
 
         return JsonResponse(response)
 
@@ -244,13 +245,13 @@ class StorageFileHandler(View):
         for f in file_list:
             pod_name = "file-upload-pod-" + f.hashid
             if f.status == 0:
-                FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED)
+                FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED, error="File uncached.")
                 try:
                     self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
                 except ApiException as ex:
                     LOGGER.warning(ex)
             elif f.status == 1:
-                FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED)
+                FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED, error="File uncached.")
                 try:
                     self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
                 except ApiException as ex:
@@ -310,7 +311,8 @@ class StorageFileHandler(View):
                                          'pvc': f.targetpvc,
                                          'path': f.targetpath,
                                          'status': f.status,
-                                         'time': f.uploadtime
+                                         'time': f.uploadtime,
+                                         'error': f.error
                                          })
             response['payload'] = payload
             return JsonResponse(response)
@@ -372,25 +374,34 @@ class StorageFileHandler(View):
                                                                   metadata=client.V1ObjectMeta(
                                                                       name=KUBERNETES_NAMESPACE,
                                                                       labels={"name": KUBERNETES_NAMESPACE})))
-        except ApiException as ex:
-            LOGGER.warning(ex)
+        except ApiException:
+            pass
 
+        errorFiles = []
+        errors = ""
         for file_upload in files:
             # record file
             upload_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-            LOGGER.info(upload_time)
             identity = file_upload.name + pvc_name + path + upload_time
             md = hashlib.md5()
             md.update(identity.encode('utf-8'))
             md = md.hexdigest()
-            file_model = FileModel(hashid=md, filename=file_upload.name, targetpath=path, targetpvc=pvc_name,
-                                   status=FileStatusCode.PENDING, uploadtime=upload_time)
-            file_model.save()
-
+            try:
+                file_model = FileModel(hashid=md, filename=file_upload.name, targetpath=path, targetpvc=pvc_name,
+                                       status=FileStatusCode.PENDING, uploadtime=upload_time)
+                file_model.save()
+            except Exception as e:
+                errors += "{}; ".format(str(e))
+                errorFiles.append(file_upload.name)
+                continue
             FileModel.objects.filter(hashid=md).update(status=FileStatusCode.CACHING)
             self.caching(file_upload, pvc_name, path, md)
 
-        response = RESPONSE.SUCCESS
+        if errorFiles:
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " Errors {}in {}.".format(errors, str(errorFiles))
+        else:
+            response = RESPONSE.SUCCESS
         return JsonResponse(response)
 
     def caching(self, file_upload, pvc_name, path, md):
@@ -424,11 +435,12 @@ class StorageFileHandler(View):
                                spec=client.V1PodSpec(containers=[container], volumes=[volume]))
             self.api_instance.create_namespaced_pod(namespace=KUBERNETES_NAMESPACE, body=pod)
         except ApiException as e:
-            LOGGER.warning("Kubernetes ApiException %d: %s", e.status, e.reason)
             if e.status != 409:
+                LOGGER.error("Kubernetes ApiException %d: %s", e.status, e.reason)
                 return
         except Exception as e:
             LOGGER.error(e)
+            return
 
         try:
             while self.api_instance.read_namespaced_pod_status(pod_name,
@@ -441,7 +453,7 @@ class StorageFileHandler(View):
             LOGGER.error(e)
             return
 
-        error = False
+        error = None
 
         try:
             if path[-1] != '/':
@@ -458,13 +470,13 @@ class StorageFileHandler(View):
 
                 tar_buffer.seek(0)
                 commands = [tar_buffer.read()]
-
                 while resp.is_open():
-                    resp.update(timeout=1)
+                    resp.update(timeout=5)
                     if resp.peek_stdout():
                         LOGGER.debug("STDOUT: %s", resp.read_stdout())
                     if resp.peek_stderr():
                         LOGGER.debug("STDERR: %s", resp.read_stderr())
+                        raise Exception(resp.read_stderr())
                     if commands:
                         c = commands.pop(0)
                         resp.write_channel(STDIN_CHANNEL, c)
@@ -473,7 +485,7 @@ class StorageFileHandler(View):
                 resp.close()
         except Exception as e:
             LOGGER.error(e)
-            error = True
+            error = str(e)
 
         # delete pod when finished
         try:
@@ -485,9 +497,9 @@ class StorageFileHandler(View):
         if os.path.exists(self.save_dir + file_name):
             os.remove(self.save_dir + file_name)
 
-        if error:
-            FileModel.objects.filter(hashid=md).update(status=FileStatusCode.FAILED)
-            LOGGER.info("File uploading failed.")
+        if error is not None:
+            FileModel.objects.filter(hashid=md).update(status=FileStatusCode.FAILED, error=error)
+            LOGGER.info("File uploading failed. {}".format(error))
         else:
             FileModel.objects.filter(hashid=md).update(status=FileStatusCode.SUCCEEDED)
             LOGGER.info("File uploaded successfully.")

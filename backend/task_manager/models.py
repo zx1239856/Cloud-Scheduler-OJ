@@ -47,3 +47,12 @@ class TaskStorage(models.Model):
     settings = models.ForeignKey(TaskSettings, on_delete=models.PROTECT, db_index=True)
     pod_name = models.CharField(max_length=255)
     expire_time = models.PositiveIntegerField(default=0, db_index=True)
+
+
+class TaskVNCPod(models.Model):
+    user = models.ForeignKey(user_models.UserModel, on_delete=models.PROTECT, db_index=True)
+    settings = models.ForeignKey(TaskSettings, on_delete=models.PROTECT, db_index=True)
+    pod_name = models.CharField(max_length=255)
+    url_path = models.CharField(max_length=255)
+    vnc_password = models.CharField(max_length=10)
+    expire_time = models.PositiveIntegerField(default=0, db_index=True)

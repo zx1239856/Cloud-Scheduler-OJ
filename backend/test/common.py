@@ -6,7 +6,7 @@ from kubernetes.stream import ws_client
 from kubernetes.client.rest import ApiException
 from kubernetes.client.api_client import ApiClient
 from user_model.models import UserModel, UserType
-from task_manager.views import get_uuid
+from api.common import get_uuid
 
 
 def login_test_user(user):
@@ -140,7 +140,8 @@ class MockCoreV1Api:
                     }),
                 'status':
                     DotDict({
-                        'phase': "Bound"
+                        'phase': "Bound",
+                        'capacity': {'storage': "100Mi"}
                     })
             }))
         return ReturnItemsList(item_list)
@@ -148,7 +149,7 @@ class MockCoreV1Api:
     @staticmethod
     def delete_namespaced_persistent_volume_claim(name, **_):
         if name == 'nonexistent-pvc':
-            raise ApiException
+            raise ApiException(status=404, reason="nonexistent-pvc")
 
     @staticmethod
     def create_namespace(name, **_):
@@ -158,18 +159,18 @@ class MockCoreV1Api:
     def create_namespaced_persistent_volume_claim(namespace, body, **_):
         print(namespace)
         if body.metadata.name == 'existing-pvc':
-            raise ApiException
+            raise ApiException(status=409, reason="existing-pvc")
 
     @staticmethod
     def read_namespaced_persistent_volume_claim(namespace, name, **_):
         print(namespace)
         if name == 'nonexistent-pvc':
-            raise ApiException
+            raise ApiException(status=404, reason="nonexistent-pvc")
 
     @staticmethod
     def read_namespaced_persistent_volume_claim_status(name, **_):
         if name == 'nonexistent-pvc':
-            raise ApiException
+            raise ApiException(status=404, reason="nonexistent-pvc")
 
     @staticmethod
     def create_namespaced_pod(**_):

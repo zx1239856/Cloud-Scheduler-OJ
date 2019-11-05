@@ -14,7 +14,7 @@
       <el-button v-waves class="filter-item" type="primary" icon="el-icon-search" @click="handleFilter">
         Search
       </el-button> -->
-      <el-button v-if="permission==='admin'" class="filter-item" style="margin: 20px;" type="success" icon="el-icon-plus" @click="handleCreate">
+      <el-button v-if="permission==='admin'" class="filter-item" style="margin: 20px;" type="primary" icon="el-icon-plus" @click="handleCreate">
         New Settings
       </el-button>
     </div>
@@ -40,7 +40,7 @@
           <span v-if="permission!=='admin'">{{ row.name }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Description" min-width="150" align="center">
+      <el-table-column label="Description" min-width="120" align="center">
         <template slot-scope="scope">
           <span>{{ scope.row.description }}</span>
         </template>
@@ -55,13 +55,16 @@
           <span>{{ new Date(scope.row.create_time).toLocaleString() }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" align="center" :width="permission==='admin'?400:280" class-name="small-padding fixed-width">
+      <el-table-column label="Actions" align="center" :width="permission==='admin'?500:380" class-name="small-padding fixed-width">
         <template slot-scope="{row}">
           <el-button type="primary" plain size="small" @click="handleIde(row)">
             IDE
           </el-button>
           <el-button type="primary" plain size="small" @click="handleSsh(row)">
             SSH
+          </el-button>
+          <el-button type="warning" plain size="small" @click="handleVnc(row)">
+            VNC
           </el-button>
           <el-button type="success" plain size="small" icon="el-icon-plus" @click="handleAddTask(row)">
             Add Task
@@ -73,7 +76,9 @@
       </el-table-column>
     </el-table>
 
-    <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
+    <div style="text-align: center;">
+      <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
+    </div>
 
     <el-dialog
       title="Warning"
@@ -95,6 +100,7 @@ import { createTask } from '@/api/task';
 import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 import { mapGetters } from 'vuex';
+import { Base64 } from 'js-base64';
 
 export default {
     name: 'TaskSettings',
@@ -164,6 +170,7 @@ export default {
             getTaskSettingsList(this.listQuery.page).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
+            }).finally(() => {
                 this.listLoading = false;
             });
         },
@@ -180,12 +187,17 @@ export default {
         handleSsh(row) {
             const routeData = this.$router.resolve({
                 name: 'user-terminal',
-                query: { username: this.name, token: this.token, uuid: row.uuid }
+                query: { identity: Base64.encode(
+                    JSON.stringify({ username: this.name, token: this.token, uuid: row.uuid })
+                ) }
             });
             window.open(routeData.href, '_blank');
         },
         handleIde(row) {
             this.$router.push({ name: 'webide', query: { uuid: row.uuid }});
+        },
+        handleVnc(row) {
+            this.$router.push({ name: 'vnc', query: { uuid: row.uuid }});
         },
         deleteTaskSettings() {
             this.deleteDialogVisible = false;

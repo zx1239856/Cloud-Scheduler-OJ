@@ -26,8 +26,7 @@ from oauth2_provider.models import get_access_token_model as _get_access_token_m
 from oauth2_provider.models import Application, AccessToken
 from oauth2_provider.views import ProtectedResourceView
 from user_model.models import UserModel, UserType
-from task_manager.views import get_uuid
-from api.common import RESPONSE, OAUTH_LOGIN_URL, random_password
+from api.common import RESPONSE, OAUTH_LOGIN_URL, random_password, get_uuid
 from config import USER_TOKEN_EXPIRE_TIME, CLOUD_SCHEDULER_API_SERVER_BASE_URL, DEFAULT_FROM_EMAIL
 
 LOGGER = logging.getLogger(__name__)
@@ -107,9 +106,11 @@ def user_login_common_wrapper(request, wrapper, allow_cookie):
         ret = wrapper(request.META['HTTP_X_ACCESS_USERNAME'], request.META['HTTP_X_ACCESS_TOKEN'])
     else:
         ret = 1
-    if not isinstance(ret, UserModel) and allow_cookie and 'username' in request.COOKIES.keys() \
-            and 'token' in request.COOKIES.keys():
-        ret = wrapper(request.COOKIES['username'], request.COOKIES['token'])
+    if not isinstance(ret, UserModel) and allow_cookie:
+        # try cookie auth
+        username = request.COOKIES.get('username', None)
+        token = request.COOKIES.get('token', None)
+        ret = wrapper(username, token)
     return ret
 
 
@@ -576,6 +577,20 @@ class SuperUserListHandler(View):
 class OAuthUserLogin(View):
     http_method_names = ['post', 'get']
 
+    @staticmethod
+    def _redirect(request, user, token):
+        redirect_link = request.GET.get('next', None)
+        if redirect_link is not None:
+            LOGGER.debug(redirect_link)
+            response = redirect(unquote(redirect_link))
+            response.set_cookie('username', user.username, max_age=None)
+            response.set_cookie('token', token, max_age=None)
+            return response
+        else:
+            return render(request, 'oauth2_provider/login.html', {
+                'error': 'Redirect link is not set.'
+            })
+
     def get(self, request, *_, **__):
         return render(request, 'oauth2_provider/login.html')
 
@@ -592,17 +607,7 @@ class OAuthUserLogin(View):
             if user.password != password:
                 raise UserModel.DoesNotExist()
             token = TokenManager.create_token(user, new=False)
-            redirect_link = request.GET.get('next', None)
-            if redirect_link is not None:
-                LOGGER.debug(redirect_link)
-                response = redirect(unquote(redirect_link))
-                response.set_cookie('username', user.username, max_age=None)
-                response.set_cookie('token', token, max_age=None)
-                return response
-            else:
-                return render(request, 'oauth2_provider/login.html', {
-                    'error': 'Redirect link is not set.'
-                })
+            return self._redirect(request, user, token)
         except UserModel.DoesNotExist:
             return render(request, 'oauth2_provider/login.html', {
                 'error': 'Username or password is invalid.'
@@ -638,7 +643,8 @@ class ApplicationListHandler(View):
             page = int(req.GET.get('page', '1'))
             if page < 1:
                 raise ValueError()
-            all_pages = Paginator(get_application_model().objects.filter(Q(user=user) | Q(user=None)).order_by('id'), 25)
+            all_pages = Paginator(get_application_model().objects.filter(Q(user=user) | Q(user=None)).order_by('id'),
+                                  25)
             curr_page = all_pages.page(page)
             response = RESPONSE.SUCCESS
             response['payload']['count'] = all_pages.count

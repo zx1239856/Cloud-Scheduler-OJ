@@ -53,7 +53,9 @@
       </el-table-column>
     </el-table>
 
-    <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
+    <div style="text-align: center;">
+      <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
+    </div>
 
     <el-dialog :title="dialogType" :visible.sync="dialogUploadVisible">
       <el-form ref="dialogForm" :model="dialogFileData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;" @submit.native.prevent>
@@ -120,14 +122,16 @@
           </el-table-column>
           <el-table-column label="Status" class-name="status-col" width="110" align="center">
             <template slot-scope="scope">
-              <el-tag :type="scope.row.status | statusFilter">
+              <el-tag :type="scope.row.status | statusFilter" @click="handleError(scope.row)">
                 {{ statusMap[scope.row.status] }}
               </el-tag>
             </template>
           </el-table-column>
         </el-table>
-        <pagination v-show="historyList.total>0" :total="historyList.total" :page.sync="historyList.listQuery.page" :limit.sync="historyList.listQuery.limit" :page-sizes="historyList.pageSizes" @pagination="getHistoryList" />
 
+        <div style="text-align: center;">
+          <pagination v-show="historyList.total>0" :total="historyList.total" :page.sync="historyList.listQuery.page" :limit.sync="historyList.listQuery.limit" :page-sizes="historyList.pageSizes" @pagination="getHistoryList" />
+        </div>
       </div>
     </el-dialog>
 
@@ -402,6 +406,13 @@ export default {
                 showClose: true,
                 message: 'Log Clear',
                 type: 'success'
+            });
+        },
+        handleError(row) {
+            this.$message({
+                showClose: true,
+                message: row.error,
+                type: 'info'
             });
         }
     }

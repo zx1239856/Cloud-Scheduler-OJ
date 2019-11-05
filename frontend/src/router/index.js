@@ -99,19 +99,13 @@ export const constantRoutes = [
                 hidden: true,
                 component: () => import('@/views/webide/index'),
                 meta: { title: 'Web IDE' }
-            }
-        ]
-    },
-    {
-        path: '/grafana',
-        name: 'grafana',
-        component: Layout,
-        meta: { title: 'Grafana', icon: 'task' },
-        children: [
+            },
             {
-                path: '/',
-                name: 'grafana',
-                component: () => import('@/views/grafana/index')
+                path: 'vnc-view/',
+                name: 'vnc',
+                hidden: true,
+                component: () => import('@/views/vnc/index'),
+                meta: { title: 'VNC Viewer' }
             }
         ]
     },
@@ -126,7 +120,6 @@ export const constantRoutes = [
         name: 'webssh',
         component: () => import('@/views/webssh/index')
     },
-
     {
         path: '/user-terminal/',
         name: 'user-terminal',
@@ -176,6 +169,31 @@ export const asyncRoutes = [
             //     component: () => import('@/views/registry/image'),
             //     meta: { title: 'Image', roles: ['admin'] }
             // }
+        ]
+    },
+    {
+        path: '/oauth/',
+        meta: { title: 'OAuth', icon: 'oauth' },
+        component: Layout,
+        children: [
+            {
+                path: '',
+                name: 'oauth',
+                component: () => import('@/views/oauth/index'),
+                meta: { title: 'OAuth', roles: ['admin'] }
+            }
+        ]
+    },
+    {
+        path: '/grafana/',
+        component: Layout,
+        children: [
+            {
+                path: '',
+                name: 'Grafana',
+                component: () => import('@/views/grafana/index'),
+                meta: { title: 'Grafana', icon: 'grafana', roles: ['admin'] }
+            }
         ]
     }
 ];
