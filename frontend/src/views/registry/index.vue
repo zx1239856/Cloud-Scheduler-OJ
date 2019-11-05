@@ -6,82 +6,71 @@
       </el-button>
     </div>
 
-    <el-table
-      :key="tableKey"
-      v-loading="listLoading"
-      :data="list"
-      border
-      fit
-      highlight-current-row
-      style="width: 100%;"
-    >
-      <el-table-column label="Repository" min-width="200" align="center">
-        <template slot-scope="scope">
-          <span>{{ scope.row.Repo }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Actions" align="center" width="150" class-name="small-padding fixed-width">
-        <template slot-scope="{row}">
-          <el-row>
-            <el-button type="primary" size="mini" @click="handleImageInfo(row)">
-              Images
-            </el-button>
-          </el-row>
-        </template>
-      </el-table-column>
-    </el-table>
-    <el-drawer
-      :title="currentRepo"
-      :visible.sync="tableShow"
-      direction="rtl"
-      size="75%"
-    >
-      <el-table
-        :key="subTableKey"
-        v-loading="subListLoading"
-        :data="subList"
-        border
-        fit
-        highlight-current-row
-        style="width: 100%;"
-      >
-        <el-table-column label="Tag" width="100" align="center">
-          <template slot-scope="scope2">
-            <span>{{ scope2.row.Tag }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Docker Version" min-width="200" align="center">
-          <template slot-scope="scope2">
-            <span>{{ scope2.row.DockerVersion }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Entrypoint" min-width="120" align="center">
-          <template slot-scope="scope2">
-            <span>{{ scope2.row.Entrypoint }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Exposed Ports" min-width="150" align="center">
-          <template slot-scope="scope2">
-            <span>{{ scope2.row.ExposedPorts }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Volumes" min-width="100" align="center">
-          <template slot-scope="scope2">
-            <span>{{ scope2.row.Volumes }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Created" width="200" align="center">
-          <template slot-scope="scope2">
-            <span>{{ new Date(scope2.row.Created).toLocaleString() }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="Action" width="100" align="center">
-          <template slot-scope="{row}">
-            <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name == 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-drawer>
+    <el-row :gutter="20">
+      <el-col :span="4">
+        <el-table
+          :key="tableKey"
+          v-loading="listLoading"
+          :data="list"
+          border
+          fit
+          highlight-current-row
+          style="width: 100%;"
+        >
+          <el-table-column label="Repository" min-width="100" align="center">
+            <template slot-scope="scope">
+              <span class="link-type" @click="handleImageInfo(scope.row)">{{ scope.row.Repo }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-col>
+      <el-col :span="20">
+        <el-table
+          :key="subTableKey"
+          v-loading="subListLoading"
+          :data="subList"
+          fit
+          highlight-current-row
+          style="width: 100%;"
+        >
+          <el-table-column label="Tag" width="100" align="center">
+            <template slot-scope="scope2">
+              <span>{{ scope2.row.Tag }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Docker Version" min-width="200" align="center">
+            <template slot-scope="scope2">
+              <span>{{ scope2.row.DockerVersion }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Entrypoint" min-width="120" align="center">
+            <template slot-scope="scope2">
+              <span>{{ scope2.row.Entrypoint }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Exposed Ports" min-width="150" align="center">
+            <template slot-scope="scope2">
+              <span>{{ scope2.row.ExposedPorts }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Volumes" min-width="100" align="center">
+            <template slot-scope="scope2">
+              <span>{{ scope2.row.Volumes }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Created" width="200" align="center">
+            <template slot-scope="scope2">
+              <span>{{ new Date(scope2.row.Created).toLocaleString() }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Action" width="100" align="center">
+            <template slot-scope="{row}">
+              <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name == 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-col>
+    </el-row>
 
     <div style="text-align: center;">
       <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getRepositories()" />
@@ -135,7 +124,6 @@ export default {
     data() {
         return {
             currentRepo: '',
-            tableShow: false,
             dialogType: 'Upload',
             dialogFormVisible: false,
             tableKey: 0,
@@ -174,6 +162,7 @@ export default {
     },
     created() {
         this.getRepositoryList();
+        this.subListLoading = false;
     },
     methods: {
         getTagList() {
@@ -192,7 +181,6 @@ export default {
             });
         },
         handleImageInfo(row) {
-            this.tableShow = true;
             this.currentRepo = row.Repo;
             this.getTagList();
         },
@@ -260,3 +248,15 @@ export default {
     }
 };
 </script>
+
+<style lang="scss" scoped>
+.link-type,
+.link-type:focus {
+  color: #337ab7;
+  cursor: pointer;
+
+  &:hover {
+    color: rgb(32, 160, 255);
+  }
+}
+</style>
