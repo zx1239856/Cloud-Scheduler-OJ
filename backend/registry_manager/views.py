@@ -226,7 +226,6 @@ class RepositoryHandler(View):
         for chunk in file.chunks():
             writeFile.write(chunk)
         writeFile.close()
-        print(file.name)
         upload = Thread(target=self.upload, args=(file.name,))
         upload.start()
 
