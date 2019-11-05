@@ -37,7 +37,7 @@
       size="75%"
     >
       <el-table
-        :key="tableKey"
+        :key="subTableKey"
         v-loading="subListLoading"
         :data="subList"
         border
@@ -103,7 +103,7 @@
         <el-button @click="dialogFormVisible=false">
           Cancel
         </el-button>
-        <el-button type="primary" @click="handleDialogConfirm">
+        <el-button type="primary" @click="handleDialogConfirm()">
           Upload
         </el-button>
       </div>
@@ -117,7 +117,7 @@
       <span>Are you sure to delete Image {{ currentRepo + ':' + selectedData.Tag }}?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible=false">Cancel</el-button>
-        <el-button type="danger" @click="deleteImage">Delete</el-button>
+        <el-button type="danger" @click="deleteImage()">Delete</el-button>
       </span>
     </el-dialog>
   </div>
@@ -139,11 +139,12 @@ export default {
             dialogType: 'Upload',
             dialogFormVisible: false,
             tableKey: 0,
+            subTableKey: 0,
             list: null,
             subList: null,
             total: 0,
             listLoading: true,
-            subListLoading: false,
+            subListLoading: true,
             pageSizes: [25],
             listQuery: {
                 page: 1,
@@ -179,7 +180,6 @@ export default {
             this.subListLoading = true;
             getRepository(this.currentRepo).then(response => {
                 this.subList = response.payload.entity;
-                this.total = response.payload.count;
                 this.subListLoading = false;
             });
         },
@@ -254,7 +254,7 @@ export default {
                     message: 'Deleted!',
                     type: 'success'
                 });
-                this.getRepositoryList();
+                this.getTagList();
             });
         }
     }

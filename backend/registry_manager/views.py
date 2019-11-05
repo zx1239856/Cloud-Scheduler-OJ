@@ -1,6 +1,8 @@
 import logging
 import json
 import re
+import os
+from threading import Thread
 from urllib.request import Request
 from urllib.request import urlopen
 from docker import DockerClient, APIClient
@@ -11,12 +13,10 @@ from dxf import DXF
 from dxf import DXFBase
 from api.common import RESPONSE
 from config import REGISTRY_V2_API_ADDRESS, DOCKER_ADDRESS, REGISTRY_ADDRESS
-from registry_manager.cache import CacheWithTimeout
 from registry_manager.manifest import makeManifest
 from user_model.views import permission_required
 
 LOGGER = logging.getLogger(__name__)
-
 
 class ConnectionUtils:
     GET_MANIFEST_TEMPLATE = '{url}/{repo}/manifests/{tag}'
@@ -68,7 +68,6 @@ class ConnectionUtils:
             LOGGER.error(ex)
 
     # get tags of a repository in list
-    @CacheWithTimeout()
     def get_tags(self, repo):
         try:
             tags = self.json_request(
@@ -146,6 +145,7 @@ class RegistryHandler(View):
 class RepositoryHandler(View):
     http_method_names = ['get', 'post', 'put', 'delete']
     util = ConnectionUtils()
+    basePath = 'registry_manager/data/'
 
     @method_decorator(permission_required)
     def get(self, _, **kwargs):
@@ -205,8 +205,6 @@ class RepositoryHandler(View):
         @apiUse Unauthorized
         """
         try:
-            client = DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-            docker_api = APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
             files = request.FILES.getlist('file[]', None)
             if not files:
                 response = RESPONSE.INVALID_REQUEST
@@ -216,14 +214,34 @@ class RepositoryHandler(View):
                 tar_pattern = "[.](tar)$"
                 searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
                 if searched_tar:
-                    image = client.images.load(f)[0]
-                    name = image.tags[0]
-                    newName = REGISTRY_ADDRESS + '/' + name
-                    docker_api.tag(name, newName)
-                    docker_api.push(newName)
+                    self.cacheFile(f)
             return JsonResponse(RESPONSE.SUCCESS)
         except Exception:
             return JsonResponse(RESPONSE.OPERATION_FAILED)
+
+    def cacheFile(self, file):
+        if not os.path.exists(self.basePath):
+            os.makedirs(self.basePath)
+        writeFile = open(self.basePath + file.name, 'wb+')
+        for chunk in file.chunks():
+            writeFile.write(chunk)
+        writeFile.close()
+        upload = Thread(target=self.upload, args=(file.name,))
+        upload.start()
+
+    def upload(self, filename):
+        client = DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
+        docker_api = APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
+        readFile = open(self.basePath+filename, 'rb+')
+        file = readFile.read()
+        image = client.images.load(file)[0]
+        name = image.tags[0]
+        newName = REGISTRY_ADDRESS + '/' + name
+        docker_api.tag(name, newName)
+        docker_api.push(newName)
+        readFile.close()
+        if os.path.exists(self.basePath + filename):
+            os.remove(self.basePath + filename)
 
     @method_decorator(permission_required)
     def delete(self, _, **kwargs):
