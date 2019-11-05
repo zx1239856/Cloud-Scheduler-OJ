@@ -182,9 +182,9 @@ export const asyncRoutes = [
         component: Layout,
         children: [
             {
-                path: 'https://grafana.app.dropthu.online:30443/',
-                redirect: '/',
-                name: 'grafana',
+                path: '',
+                name: 'Grafana',
+                component: () => import('@/views/grafana/index'),
                 meta: { title: 'Grafana', icon: 'grafana', roles: ['admin'] }
             }
         ]

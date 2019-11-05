@@ -220,7 +220,7 @@ class UserWebSSH(WebSSH):
             pod_name = conn.root.get_user_space_pod(uuid, user.uuid)
             username = '{}_{}'.format(user.username, settings.id)
             self.ssh = SSH(websocket=self, cols=cols, rows=rows, need_auth=False)
-            self.ssh.connect(pod_name, '/bin/sh', KUBERNETES_NAMESPACE,
+            self.ssh.connect(pod_name, '/bin/bash', KUBERNETES_NAMESPACE,
                              args=['-c', 'su - {}'.format(username)])
         except Exception as ex:
             LOGGER.error(ex)
