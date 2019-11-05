@@ -4,6 +4,7 @@ View handler for WebSocket
 # pylint: disable=C0411
 import socket
 import logging
+import base64
 import time
 import json
 from threading import Thread
@@ -184,22 +185,30 @@ class UserWebSSH(WebSSH):
         self.accept()
         query_string = self.scope.get('query_string')
         ssh_args = QueryDict(query_string=query_string, encoding='utf-8')
-        uuid = ssh_args.get('uuid', None)
-        token = ssh_args.get('token', None)
-        username = ssh_args.get('username', None)
-        cols = ssh_args.get('cols', 80)
-        rows = ssh_args.get('rows', 24)
-        if not uuid or not token or not username:
-            self.send("\nInvalid request.")
-            LOGGER.warning("Invalid request")
-            self.close(code=4000)
-            return
+        encoded = ssh_args.get('identity', None)
         try:
+            if not encoded:
+                raise TypeError
+            decoded = base64.b64decode(encoded)
+            LOGGER.error(decoded)
+            decoded = json.loads(decoded)
+            username = decoded.get('username', None)
+            uuid = decoded.get('uuid', None)
+            token = decoded.get('token', None)
+            if username is None or uuid is None or token is None:
+                raise TypeError
+            cols = ssh_args.get('cols', 80)
+            rows = ssh_args.get('rows', 24)
             user = UserModel.objects.get(username=username)
             self.user = user
             settings = TaskSettings.objects.get(uuid=uuid)
         except (UserModel.DoesNotExist, TaskSettings.DoesNotExist):
             self.send("\nFailed to process.")
+            self.close(code=4000)
+            return
+        except (TypeError, ValueError):
+            self.send("\nInvalid request.")
+            LOGGER.warning("Invalid request")
             self.close(code=4000)
             return
         real_token = TokenManager.get_token(user)

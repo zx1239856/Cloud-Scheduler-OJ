@@ -133,6 +133,7 @@ export default {
         .el-icon-caret-bottom {
           cursor: pointer;
           position: absolute;
+          top: 15px;
           right: -20px;
           font-size: 12px;
         }

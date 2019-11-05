@@ -97,6 +97,7 @@ import { createTask } from '@/api/task';
 import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 import { mapGetters } from 'vuex';
+import { Base64 } from 'js-base64';
 
 export default {
     name: 'TaskSettings',
@@ -183,7 +184,9 @@ export default {
         handleSsh(row) {
             const routeData = this.$router.resolve({
                 name: 'user-terminal',
-                query: { username: this.name, token: this.token, uuid: row.uuid }
+                query: { identity: Base64.encode(
+                    JSON.stringify({ username: this.name, token: this.token, uuid: row.uuid })
+                ) }
             });
             window.open(routeData.href, '_blank');
         },

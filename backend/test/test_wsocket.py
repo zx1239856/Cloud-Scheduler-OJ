@@ -2,6 +2,8 @@
 Unit test for websocket
 """
 import time
+import base64
+import json
 import pytest
 from channels.testing import WebsocketCommunicator
 import mock
@@ -72,11 +74,26 @@ async def test_user_ssh_connect_invalid_req():
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
 async def test_user_ssh_user_or_task_not_exist():
-    communicator = WebsocketCommunicator(UserWebSSH, "/user_terminals/?uuid=2000&token=2000&username=200")
+    identity = json.dumps({'uuid': '2000', 'token': '2000', 'username': '200'})
+    identity = base64.b64encode(identity.encode('utf-8')).decode('utf-8')
+    communicator = WebsocketCommunicator(UserWebSSH, "/user_terminals/?identity={}".format(identity))
     connected, _ = await communicator.connect()
     assert connected
     response = await communicator.receive_from()
     assert response == "\nFailed to process."
+    await communicator.disconnect()
+
+
+@pytest.mark.asyncio
+@pytest.mark.django_db(transaction=True)
+async def test_user_ssh_invalid_b64_req():
+    identity = json.dumps({'uuid': '2000', 'username': '200'})
+    identity = base64.b64encode(identity.encode('utf-8')).decode('utf-8')
+    communicator = WebsocketCommunicator(UserWebSSH, "/user_terminals/?identity={}".format(identity))
+    connected, _ = await communicator.connect()
+    assert connected
+    response = await communicator.receive_from()
+    assert response == "\nInvalid request."
     await communicator.disconnect()
 
 
@@ -102,8 +119,10 @@ async def test_user_ssh_executor_normal(*_):
                                     time_limit=1, replica=1, ttl_interval=1, max_sharing_users=1)
     with mock.patch.object(wsocket.views, 'stream', mock_stream):
         wsocket.views.connect = mock_connect
+        identity = json.dumps({'uuid': 'my_uuid', 'token': 'my_only_token', 'username': 'admin'})
+        identity = base64.standard_b64encode(identity.encode('utf-8')).decode('utf-8')
         communicator = WebsocketCommunicator(UserWebSSH,
-                                             "/user_terminals/?uuid=my_uuid&token=my_only_token&username=admin")
+                                             "/user_terminals/?identity={}".format(identity))
         connected, _ = await communicator.connect()
         assert connected
         response = await communicator.receive_from()

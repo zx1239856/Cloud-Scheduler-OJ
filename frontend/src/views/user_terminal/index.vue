@@ -14,7 +14,7 @@ export default {
         return {
             terminal: {
                 pid: 1,
-                url: 'user_terminals/?username=' + this.$route.query.username + '&token=' + this.$route.query.token + '&uuid=' + this.$route.query.uuid,
+                url: 'user_terminals/?identity=' + this.$route.query.identity,
                 name: 'terminal',
                 isPodSsh: false,
                 cols: 400,

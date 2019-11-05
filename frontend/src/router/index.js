@@ -176,6 +176,18 @@ export const asyncRoutes = [
                 meta: { title: 'OAuth', roles: ['admin'] }
             }
         ]
+    },
+    {
+        path: '/grafana/',
+        component: Layout,
+        children: [
+            {
+                path: 'https://grafana.app.dropthu.online:30443/',
+                redirect: '/',
+                name: 'grafana',
+                meta: { title: 'Grafana', icon: 'grafana', roles: ['admin'] }
+            }
+        ]
     }
 ];
 

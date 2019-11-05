@@ -143,6 +143,7 @@ export default {
             subList: null,
             total: 0,
             listLoading: true,
+            subListLoading: false,
             pageSizes: [25],
             listQuery: {
                 page: 1,
