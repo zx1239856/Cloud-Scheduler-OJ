@@ -40,7 +40,7 @@
           <span v-if="permission!=='admin'">{{ row.name }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Description" min-width="150" align="center">
+      <el-table-column label="Description" min-width="120" align="center">
         <template slot-scope="scope">
           <span>{{ scope.row.description }}</span>
         </template>
@@ -55,13 +55,16 @@
           <span>{{ new Date(scope.row.create_time).toLocaleString() }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" align="center" :width="permission==='admin'?400:280" class-name="small-padding fixed-width">
+      <el-table-column label="Actions" align="center" :width="permission==='admin'?500:380" class-name="small-padding fixed-width">
         <template slot-scope="{row}">
           <el-button type="primary" plain size="small" @click="handleIde(row)">
             IDE
           </el-button>
           <el-button type="primary" plain size="small" @click="handleSsh(row)">
             SSH
+          </el-button>
+          <el-button type="warning" plain size="small" @click="handleVnc(row)">
+            VNC
           </el-button>
           <el-button type="success" plain size="small" icon="el-icon-plus" @click="handleAddTask(row)">
             Add Task
@@ -192,6 +195,9 @@ export default {
         },
         handleIde(row) {
             this.$router.push({ name: 'webide', query: { uuid: row.uuid }});
+        },
+        handleVnc(row) {
+            this.$router.push({ name: 'vnc', query: { uuid: row.uuid }});
         },
         deleteTaskSettings() {
             this.deleteDialogVisible = false;
