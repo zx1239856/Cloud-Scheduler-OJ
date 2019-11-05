@@ -1,8 +1,11 @@
 <template>
   <div class="app-container">
     <div class="filter-container" align="right">
-      <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleUpload">
+      <el-button class="filter-item" style="margin: 10px;" type="primary" icon="el-icon-plus" @click="handleUpload()">
         New Image
+      </el-button>
+      <el-button icon="el-icon-time" type="info" @click="handleUploadHistory()">
+        Upload Log
       </el-button>
     </div>
 
@@ -109,11 +112,42 @@
         <el-button type="danger" @click="deleteImage()">Delete</el-button>
       </span>
     </el-dialog>
+
+    <el-dialog title="Upload History" :visible.sync="dialogHistoryVisible">
+      <div>
+        <el-table
+          :key="historyList.tableKey"
+          v-loading="historyList.listLoading"
+          :data="historyList.list"
+          border
+          fit
+          highlight-current-row
+          style="width: 100%;"
+        >
+          <el-table-column label="File Name" width="100" align="center" height="10">
+            <template slot-scope="scope">
+              <span>{{ scope.row.name }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="Status" class-name="status-col" width="110" align="center">
+            <template slot-scope="scope">
+              <el-tag :type="scope.row.status | statusFilter" @click="handleError(scope.row)">
+                {{ statusMap[scope.row.status] }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div style="text-align: center;">
+          <pagination v-show="historyList.total>0" :total="historyList.total" :page.sync="historyList.listQuery.page" :limit.sync="historyList.listQuery.limit" :page-sizes="historyList.pageSizes" @pagination="getHistoryList()" />
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-import { getRepositories, uploadImage, getRepository, deleteImage } from '@/api/registry';
+import { getRepositories, uploadImage, getRepository, deleteImage, getFileList } from '@/api/registry';
 import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 
@@ -126,6 +160,8 @@ export default {
             currentRepo: '',
             dialogType: 'Upload',
             dialogFormVisible: false,
+            deleteDialogVisible: false,
+            dialogHistoryVisible: false,
             tableKey: 0,
             subTableKey: 0,
             list: null,
@@ -138,7 +174,6 @@ export default {
                 page: 1,
                 limit: 25
             },
-            deleteDialogVisible: false,
             selectedData: {
                 Repo: '',
                 Tag: ''
@@ -146,22 +181,30 @@ export default {
             dialogData: {
                 file: []
             },
-            dialogRules: {
-                repo: [{
-                    required: true,
-                    message: 'Target Repository is required',
-                    trigger: 'change'
-                }],
-                tag: [{
-                    required: true,
-                    message: 'Tag Version is required',
-                    trigger: 'change'
-                }]
+            historyList: {
+                tableKey: 0,
+                list: null,
+                total: 0,
+                listLoading: true,
+                pageSizes: [25],
+                listQuery: {
+                    page: 1,
+                    limit: 25
+                }
+            },
+            statusMap: {
+                0: 'Pending',
+                1: 'Caching',
+                2: 'Cached',
+                3: 'Uploading',
+                4: 'Succeeded',
+                5: 'Failed'
             }
         };
     },
     created() {
         this.getRepositoryList();
+        this.getHistoryList();
         this.subListLoading = false;
     },
     methods: {
@@ -178,6 +221,14 @@ export default {
                 this.list = response.payload.entity;
                 this.total = response.payload.count;
                 this.listLoading = false;
+            });
+        },
+        getHistoryList() {
+            this.historyList.listLoading = true;
+            getFileList(this.historyList.listQuery).then(response => {
+                this.historyList.list = response.payload.entry;
+                this.historyList.total = response.payload.count;
+                this.historyList.listLoading = false;
             });
         },
         handleImageInfo(row) {
@@ -244,6 +295,10 @@ export default {
                 });
                 this.getTagList();
             });
+        },
+        handleUploadHistory() {
+            this.getHistoryList();
+            this.dialogHistoryVisible = true;
         }
     }
 };

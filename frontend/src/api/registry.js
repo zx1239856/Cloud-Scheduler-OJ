@@ -33,3 +33,11 @@ export function deleteImage(repo, tag) {
         method: 'delete'
     });
 }
+
+export function getFileList(query) {
+    return request({
+        url: '/registry/history/',
+        method: 'get',
+        params: query
+    });
+}
