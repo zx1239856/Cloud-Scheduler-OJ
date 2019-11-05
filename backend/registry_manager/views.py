@@ -182,7 +182,7 @@ class RepositoryHandler(View):
             return JsonResponse(RESPONSE.OPERATION_FAILED)
 
     @method_decorator(permission_required)
-    def post(self, request, **kwargs):
+    def post(self, request, **_):
         """
         @api {post} /registry/upload/ Upload image.tar
         @apiName UploadImageTar

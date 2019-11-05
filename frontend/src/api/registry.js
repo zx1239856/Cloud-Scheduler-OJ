@@ -1,4 +1,5 @@
 import request from '@/utils/request';
+import filerequest from '@/utils/file-request';
 
 export function getRepositories(query) {
     return request({
@@ -15,7 +16,7 @@ export function getRepository(repo) {
 }
 
 export function uploadImage(query) {
-    return request({
+    return filerequest({
         url: '/registry/upload/',
         method: 'post',
         headers: {
