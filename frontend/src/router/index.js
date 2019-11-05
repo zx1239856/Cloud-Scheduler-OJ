@@ -99,6 +99,13 @@ export const constantRoutes = [
                 hidden: true,
                 component: () => import('@/views/webide/index'),
                 meta: { title: 'Web IDE' }
+            },
+            {
+                path: 'vnc-view/',
+                name: 'vnc',
+                hidden: true,
+                component: () => import('@/views/vnc/index'),
+                meta: { title: 'VNC Viewer' }
             }
         ]
     },
