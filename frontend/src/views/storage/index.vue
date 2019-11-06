@@ -66,6 +66,7 @@
             :http-request="getFile"
           >
             <i class="el-icon-plus" />
+            <div slot="tip" class="el-upload__tip" style="margin-top:-10px; margin-buttom:-10px; color:#777;">file name should not contain whitespace</div>
           </el-upload>
         </el-form-item>
         <el-form-item label="path" prop="path">
@@ -137,9 +138,11 @@
       <el-form ref="dialogForm" :rules="dialogRules" :model="dialogData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
         <el-form-item label="name" prop="name">
           <el-input ref="inputName" v-model="dialogData.name" />
+          <div style="margin-top:-5px; margin-buttom:-10px; color:#777;">please use '-' as seperator</div>
         </el-form-item>
         <el-form-item label="capacity" prop="capacity">
           <el-input v-model="dialogData.capacity" @keyup.enter.native="handleDialogConfirm" />
+          <div style="margin-top:-5px; margin-buttom:-10px; color:#777;">1Ti/1Gi/100Mi/...</div>
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">

@@ -177,5 +177,24 @@ class _Response(object):
             "payload": {},
         }
 
+    @property
+    def RESOURCE_LOCKED(self):
+        """
+        @apiDefine PermissionDenied
+        @apiError PermissionDenied User does not have permission to access
+        @apiErrorExample {json} Error-Response:
+        HTTP/1.1 200 OK
+        {
+            "status": 423,
+            "message": "Resouce is unavailable.",
+            "payload": {}
+        }
+        """
+        return {
+            "status": 423,
+            "message": "Resouce is unavailable.",
+            "payload": {},
+        }
+
 
 RESPONSE = _Response()

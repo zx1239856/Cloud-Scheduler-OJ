@@ -86,7 +86,11 @@ class StorageHandler(View):
             else:
                 pvc_list_slice = pvc_list
             for pvc in pvc_list_slice:
-                payload['entry'].append({'name': pvc.metadata.name, 'capacity': pvc.status.capacity['storage'],
+                if pvc.status.capacity is None:
+                    capacity = ""
+                else:
+                    capacity = pvc.status.capacity['storage']
+                payload['entry'].append({'name': pvc.metadata.name, 'capacity': capacity,
                                          'time': pvc.metadata.creation_timestamp, 'mode': pvc.spec.access_modes[0],
                                          'status': pvc.status.phase})
             response = RESPONSE.SUCCESS
@@ -634,7 +638,7 @@ class FileDisplayHandler(UserSpaceHandler):
             return JsonResponse(RESPONSE.INVALID_REQUEST)
         response = super()._safe_wrapper(request, op_code, pvcname=pvc_name)
         if json.loads(response.content)['message'] == "Operation is unsuccessful. Failed to allocate pod.":
-            response = RESPONSE.OPERATION_FAILED
-            response['message'] = "It will take some time to get information. Please retry later."
+            response = RESPONSE.RESOURCE_LOCKED
+            response['message'] = "It will take some time to get information. Please wait."
             response = JsonResponse(response)
         return response

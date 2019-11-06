@@ -28,7 +28,7 @@
             </v-contextmenu-item>
           </v-contextmenu>
 
-          <el-tree id="el-tree" ref="tree" node-key="key" :props="defaultProps" :load="loadNode" lazy highlight-current @node-click="handleNodeClick" @node-contextmenu="handleNodeContextMenu" @click.native.prevent="handleNodeClick">
+          <el-tree id="el-tree" ref="tree" node-key="key" :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick" @node-contextmenu="handleNodeContextMenu" @click.native.prevent="handleNodeClick">
             <span slot-scope="{ node }" class="custom-tree-node">
               <span>
                 <span>
@@ -138,6 +138,7 @@ export default {
             callback();
         };
         return {
+            loading: null,
             tabs: [],
             deleteDialogVisible: false,
             dialogRules: {
@@ -433,7 +434,6 @@ export default {
                 this.topLevelNode = node.childNodes[0];
                 return;
             }
-
             getTreePath(this.pvcname, node.data.key).then(response => {
                 const paths = response.payload;
                 let resolveData = [];
@@ -448,7 +448,24 @@ export default {
                 node.data.icon = 'folder_open';
                 return resolve(resolveData);
             }).catch(() => {
-
+                this.loading = setInterval(() => {
+                    getTreePath(this.pvcname, node.data.key).then(response => {
+                        const paths = response.payload;
+                        let resolveData = [];
+                        for (const path of paths) {
+                            resolveData = resolveData.concat({
+                                label: path,
+                                key: node.data.key + path,
+                                isLeaf: !this.isDirectory(path),
+                                icon: this.getIconClass(path)
+                            });
+                        }
+                        node.data.icon = 'folder_open';
+                        clearInterval(this.loading);
+                        return resolve(resolveData);
+                    }).catch(() => {
+                    });
+                }, 10 * 1000);
             });
         },
         handleNodeContextMenu(event, nodeObj, node, nodeComponent) {
@@ -478,6 +495,20 @@ export default {
                 this.cmOptions.mode = this.getHighlightMode(this.currentFile);
                 return;
             }
+            var isCode = false;
+            for (const extension in this.modeMap) {
+                if (node.data.key.endsWith('.' + extension)) {
+                    isCode = true;
+                    break;
+                }
+            }
+            if (isCode === false) {
+                this.$message({
+                    message: 'Unsupported file format.',
+                    type: 'warning'
+                });
+                return;
+            }
 
             this.codeMirrorLoading = true;
             this.currentFile = node.data.key;
@@ -490,6 +521,8 @@ export default {
                     label: this.currentFile.substr(this.currentFile.lastIndexOf('/') + 1),
                     content: response.payload
                 });
+                this.codeMirrorLoading = false;
+            }).catch(() => {
                 this.codeMirrorLoading = false;
             });
         },
