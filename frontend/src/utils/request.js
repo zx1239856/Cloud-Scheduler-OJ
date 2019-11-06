@@ -59,7 +59,7 @@ service.interceptors.response.use(
                     });
                 });
             } else {
-                if (res.status === 423) {
+                if (res.status === 423 || res.status === 404) {
                     Message({
                         message: res.message,
                         type: 'warning',

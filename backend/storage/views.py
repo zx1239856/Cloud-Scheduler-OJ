@@ -599,6 +599,11 @@ class PVCPodHandler(View):
         pod_name = "pod-" + pvc_name
         try:
             self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
+        except ApiException as e:
+            if e.status != 404:
+                response = RESPONSE.OPERATION_FAILED
+                response['message'] += " {}".format(e.reason)
+                return JsonResponse(response)
         except Exception as e:
             response = RESPONSE.OPERATION_FAILED
             response['message'] += " {}".format(str(e))
@@ -621,6 +626,7 @@ class FileDisplayHandler(UserSpaceHandler):
         pvc_name = kwargs.get('pvcname')
 
         pod_name = "pod-" + pvc_name
+
         pod = self.api_instance.read_namespaced_pod_status(pod_name, KUBERNETES_NAMESPACE)
 
         if pod.status.phase != "Running":
@@ -637,6 +643,14 @@ class FileDisplayHandler(UserSpaceHandler):
         except ApiException:
             response = RESPONSE.OPERATION_FAILED
             response['message'] += " PVC {} does not exist in namespaced {}.".format(pvc_name, KUBERNETES_NAMESPACE)
+            return JsonResponse(response)
+
+        pod_name = "pod-" + pvc_name
+        try:
+            self.api_instance.read_namespaced_pod_status(pod_name, KUBERNETES_NAMESPACE)
+        except ApiException:
+            response = RESPONSE.NOT_FOUND
+            response['message'] = "Resource is being prepared. Please retry later."
             return JsonResponse(response)
 
         response = super()._safe_wrapper(request, op_code, pvcname=pvc_name)

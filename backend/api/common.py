@@ -186,13 +186,32 @@ class _Response(object):
         HTTP/1.1 200 OK
         {
             "status": 423,
-            "message": "Resouce is unavailable.",
+            "message": "The requested resource is unavailable.",
             "payload": {}
         }
         """
         return {
             "status": 423,
-            "message": "Resouce is unavailable.",
+            "message": "The requested resource is unavailable.",
+            "payload": {},
+        }
+
+    @property
+    def NOT_FOUND(self):
+        """
+        @apiDefine PermissionDenied
+        @apiError PermissionDenied User does not have permission to access
+        @apiErrorExample {json} Error-Response:
+        HTTP/1.1 200 OK
+        {
+            "status": 404,
+            "message": "The requested resource is not found.",
+            "payload": {}
+        }
+        """
+        return {
+            "status": 404,
+            "message": "The requested resource is not found.",
             "payload": {},
         }
 
