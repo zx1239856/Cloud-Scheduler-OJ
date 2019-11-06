@@ -15,7 +15,7 @@ from dxf import DXF
 from dxf import DXFBase
 from api.common import RESPONSE
 from config import REGISTRY_V2_API_ADDRESS, DOCKER_ADDRESS, REGISTRY_ADDRESS
-from registry_manager.manifest import makeManifest
+from registry_manager.manifest import make_manifest
 from registry_manager.models import ImageModel, ImageStatusCode
 from user_model.views import permission_required
 
@@ -29,7 +29,7 @@ class ConnectionUtils:
     # get the manifest of a specific tagged image
     def get_manifest(self, repo, tag):
         try:
-            manifest = makeManifest(
+            manifest = make_manifest(
                 self.json_request(
                     self.GET_MANIFEST_TEMPLATE.format(
                         url=REGISTRY_V2_API_ADDRESS,
@@ -132,8 +132,8 @@ class RegistryHandler(View):
         response = RESPONSE.SUCCESS
         try:
             response['payload']['entity'] = []
-            dxfBase = DXFBase(REGISTRY_ADDRESS)
-            for repository in dxfBase.list_repos():
+            dxfbase = DXFBase(REGISTRY_ADDRESS)
+            for repository in dxfbase.list_repos():
                 response['payload']['entity'].append(self.util.get_repository(repository))
             response['payload']['count'] = len(response['payload']['entity'])
             return JsonResponse(response)
@@ -227,10 +227,10 @@ class RepositoryHandler(View):
     def cacheFile(self, file, md):
         if not os.path.exists(self.basePath):
             os.makedirs(self.basePath)
-        writeFile = open(self.basePath + file.name, 'wb+')
+        writefile = open(self.basePath + file.name, 'wb+')
         for chunk in file.chunks():
-            writeFile.write(chunk)
-        writeFile.close()
+            writefile.write(chunk)
+        writefile.close()
         ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.CACHED)
         upload = Thread(target=self.upload, args=(file.name, md,))
         upload.start()
@@ -240,14 +240,14 @@ class RepositoryHandler(View):
             ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.UPLOADING)
             client = DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
             docker_api = APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-            readFile = open(self.basePath+filename, 'rb+')
-            file = readFile.read()
+            readfile = open(self.basePath+filename, 'rb+')
+            file = readfile.read()
             image = client.images.load(file)[0]
             name = image.tags[0]
-            newName = REGISTRY_ADDRESS + '/' + name
-            docker_api.tag(name, newName)
-            docker_api.push(newName)
-            readFile.close()
+            newname = REGISTRY_ADDRESS + '/' + name
+            docker_api.tag(name, newname)
+            docker_api.push(newname)
+            readfile.close()
             if os.path.exists(self.basePath + filename):
                 os.remove(self.basePath + filename)
             LOGGER.info("done upload")
@@ -313,9 +313,7 @@ class UploadHandler(View):
                 'entry': []
             }
             if page < 1 or page > payload['page_count']:
-                if page == 1 and payload['page_count'] == 0:
-                    pass
-                else:
+                if page != 1 or payload['page_count'] != 0:
                     raise ValueError()
             for f in image_list[25 * (page - 1): 25 * page]:
                 payload['entry'].append({'id': f.hashid,

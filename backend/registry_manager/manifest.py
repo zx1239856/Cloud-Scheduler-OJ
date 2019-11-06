@@ -6,7 +6,7 @@ class DockerRegistrySchema1Manifest:
     def __init__(self, content):
         self._content = content
 
-    def returnCheck(self, stmt):
+    def return_check(self, stmt):
         if stmt is None:
             return 'null'
         else:
@@ -30,16 +30,16 @@ class DockerRegistrySchema1Manifest:
         return None
 
     def get_created_date(self):
-        return self.returnCheck(self.__get_first_value('created'))
+        return self.return_check(self.__get_first_value('created'))
 
     def get_docker_version(self):
-        return self.returnCheck(self.__get_first_value('docker_version'))
+        return self.return_check(self.__get_first_value('docker_version'))
 
     def get_entrypoint(self):
-        return self.returnCheck(self.__get_first_value('config', 'Entrypoint'))
+        return self.return_check(self.__get_first_value('config', 'Entrypoint'))
 
     def get_exposed_ports(self):
-        return self.returnCheck(self.__get_first_value('config', 'ExposedPorts'))
+        return self.return_check(self.__get_first_value('config', 'ExposedPorts'))
 
     def get_layer_ids(self):
         layer_ids = []
@@ -50,10 +50,10 @@ class DockerRegistrySchema1Manifest:
         return set(layer_ids)
 
     def get_volumes(self):
-        return self.returnCheck(self.__get_first_value('config', 'Volumes'))
+        return self.return_check(self.__get_first_value('config', 'Volumes'))
 
 
-def makeManifest(content):
+def make_manifest(content):
     if content['schemaVersion'] == 1:
         return DockerRegistrySchema1Manifest(content)
     else:
