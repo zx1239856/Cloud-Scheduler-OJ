@@ -727,19 +727,21 @@ class TaskExecutor:
                 except ApiException as ex:
                     LOGGER.warning(ex)
 
-        def delete_single_container(pod):
+        def delete_single_container(_pod):
             try:
-                api.delete_namespaced_pod(pod.metadata.name, KUBERNETES_NAMESPACE)
-                pod.metadata = client.V1ObjectMeta(name=pod.metadata.name, labels={'task': uuid + '_deleted',
-                                                                                   'occupied': '0'})
-                api.patch_namespaced_pod(pod.metadata.name, KUBERNETES_NAMESPACE, pod)
-            except ApiException as ex:
-                if ex.status != 404:
-                    LOGGER.warning(ex)
+                LOGGER.debug("Deleting pod %s", _pod.metadata.name)
+                api.delete_namespaced_pod(_pod.metadata.name, KUBERNETES_NAMESPACE)
+                _pod.metadata = client.V1ObjectMeta(name=_pod.metadata.name, labels={'task': uuid + '_deleted',
+                                                                                     'occupied': '0'})
+                api.patch_namespaced_pod(_pod.metadata.name, KUBERNETES_NAMESPACE, _pod)
+            except ApiException as _ex:
+                if _ex.status != 404:
+                    LOGGER.warning(_ex)
 
-        def delete_all_containers(resp):
-            for item in resp.items:
-                delete_single_container(item)
+        def delete_all_containers(_resp):
+            for _item in _resp.items:
+                LOGGER.debug("Attempting to delete pod %s", _item.metadata.name)
+                delete_single_container(_item)
 
         response = None
         create_namespace()
@@ -776,6 +778,7 @@ class TaskExecutor:
                 delete_all_containers(response)
                 LOGGER.error("Task %s is not runnable, please check settings", uuid)
                 schedule.clear(uuid)
+                return
             # initial bootstrap
             if base_count <= item.replica:
                 expand_container(item.replica - base_count)
