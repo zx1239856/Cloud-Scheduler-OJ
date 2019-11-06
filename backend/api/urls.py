@@ -70,9 +70,10 @@ urlpatterns = [
     path('vnc/<str:uuid>/', login_required(user_space_views.UserVNCHandler.as_view())),
     # registry management
     path('registry/', registry_mgmt_views.RegistryHandler.as_view()),
-    path('registry/<str:repo>/', registry_mgmt_views.RepositoryHandler.as_view()),
-    path('registry/upload/', registry_mgmt_views.RepositoryHandler.as_view()),
-    path('registry/<str:repo>/<str:tag>/', registry_mgmt_views.RepositoryHandler.as_view())
+    path('registry/repository/<str:repo>/', registry_mgmt_views.RepositoryHandler.as_view()),
+    path('registry/repository/upload/', registry_mgmt_views.RepositoryHandler.as_view()),
+    path('registry/repository/<str:repo>/<str:tag>/', registry_mgmt_views.RepositoryHandler.as_view()),
+    path('registry/history/', registry_mgmt_views.UploadHandler.as_view())
 ]
 
 

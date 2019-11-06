@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'monitor',
     'task_manager',
     'storage',
+    'registry_manager'
 ]
 
 MIDDLEWARE = [
@@ -122,6 +123,7 @@ LOGGING = {
         'user_space': LOGGING_CONSOLE_HANDLER,
         'monitor': LOGGING_CONSOLE_HANDLER,
         'storage': LOGGING_CONSOLE_HANDLER,
+        'registry_manaer': LOGGING_CONSOLE_HANDLER
     },
 }
 

@@ -29,7 +29,7 @@ class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views.ConnectionUtils, 'get_tags', MockGetTags)
     def test_RepositoryHandler_get(self):
         token = login_test_user('admin')
-        response = self.client.get('/registry/test_repo/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
+        response = self.client.get('/registry/repository/test_repo/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         resp = json.loads(response.content)
         self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])
         self.assertEqual(
@@ -52,7 +52,7 @@ class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views.ConnectionUtils, 'get_tags', MockGetTags)
     def test_RepositoryHandler_get_2(self):
         token = login_test_user('admin')
-        response = self.client.get('/registry/test_repo/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
+        response = self.client.get('/registry/repository/test_repo/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         resp = json.loads(response.content)
         self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])
 
@@ -68,7 +68,7 @@ class TestRepositoryHander(TestCaseWithBasicUser):
         f = open('test.tar', 'w')
         f.close()
         f = open('test.tar', 'r')
-        response = self.client.post('/registry/upload/', data={'file[]': [f]}, HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
+        response = self.client.post('/registry/repository/upload/', data={'file[]': [f]}, HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
@@ -83,7 +83,7 @@ class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views, 'APIClient', MockAPIClient)
     def test_RepositoryHandler_post_error1(self):
         token = login_test_user('admin')
-        response = self.client.post('/registry/upload/', data={}, HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
+        response = self.client.post('/registry/repository/upload/', data={}, HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
@@ -95,6 +95,6 @@ class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views.ConnectionUtils, 'get_tags', MockGetTags)
     def test_RepositoryHandler_delete(self):
         token = login_test_user('admin')
-        response = self.client.delete('/registry/test/test/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
+        response = self.client.delete('/registry/repository/test/test/', HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         resp = json.loads(response.content)
         self.assertEqual(resp['status'], RESPONSE.SUCCESS['status'])

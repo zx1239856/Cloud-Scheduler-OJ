@@ -99,6 +99,13 @@ export const constantRoutes = [
                 hidden: true,
                 component: () => import('@/views/webide/index'),
                 meta: { title: 'Web IDE' }
+            },
+            {
+                path: 'vnc-view/',
+                name: 'vnc',
+                hidden: true,
+                component: () => import('@/views/vnc/index'),
+                meta: { title: 'VNC Viewer' }
             }
         ]
     },
@@ -180,6 +187,18 @@ export const asyncRoutes = [
                 name: 'oauth',
                 component: () => import('@/views/oauth/index'),
                 meta: { title: 'OAuth', roles: ['admin'] }
+            }
+        ]
+    },
+    {
+        path: '/grafana/',
+        component: Layout,
+        children: [
+            {
+                path: '',
+                name: 'Grafana',
+                component: () => import('@/views/grafana/index'),
+                meta: { title: 'Grafana', icon: 'grafana', roles: ['admin'] }
             }
         ]
     }
