@@ -59,11 +59,19 @@ service.interceptors.response.use(
                     });
                 });
             } else {
-                Message({
-                    message: res.message || 'Error',
-                    type: 'error',
-                    duration: 5 * 1000
-                });
+                if (res.status === 423) {
+                    Message({
+                        message: res.message,
+                        type: 'warning',
+                        duration: 5 * 1000
+                    });
+                } else {
+                    Message({
+                        message: res.message || 'Error',
+                        type: 'error',
+                        duration: 5 * 1000
+                    });
+                }
             }
             return Promise.reject(new Error(res.message || 'Error'));
         } else {
