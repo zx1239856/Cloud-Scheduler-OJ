@@ -1,4 +1,5 @@
 import request from '@/utils/request';
+import filerequest from '@/utils/file-request';
 
 export function getFileList(query) {
     return request({
@@ -9,7 +10,7 @@ export function getFileList(query) {
 }
 
 export function uploadFile(query) {
-    return request({
+    return filerequest({
         url: '/storage/upload_file/',
         method: 'post',
         headers: {
