@@ -263,6 +263,11 @@ export default {
         },
         uploading() {
             this.dialogFormVisible = false;
+            this.$message({
+                showClose: true,
+                message: 'Image Uploading',
+                type: 'success'
+            });
             var formData = new FormData();
 
             for (var f of this.dialogData.file) {
@@ -272,7 +277,7 @@ export default {
             uploadImage(formData).then(response => {
                 this.$message({
                     showClose: true,
-                    message: 'File Uploading',
+                    message: 'Image Uploaded',
                     type: 'success'
                 });
                 this.getRepositoryList();
