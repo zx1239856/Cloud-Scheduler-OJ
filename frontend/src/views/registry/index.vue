@@ -5,7 +5,7 @@
         New Image
       </el-button>
       <el-button icon="el-icon-time" type="info" @click="handleUploadHistory()">
-        Upload Log
+        Upload Status
       </el-button>
     </div>
 
@@ -113,41 +113,51 @@
       </span>
     </el-dialog>
 
-    <el-dialog title="Upload History" :visible.sync="dialogHistoryVisible">
-      <div>
-        <el-table
-          :key="historyList.tableKey"
-          v-loading="historyList.listLoading"
-          :data="historyList.list"
-          border
-          fit
-          highlight-current-row
-          style="width: 100%;"
-        >
-          <el-table-column label="File Name" width="100" align="center" height="10">
-            <template slot-scope="scope">
-              <span>{{ scope.row.name }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="Status" class-name="status-col" width="110" align="center">
-            <template slot-scope="scope">
-              <el-tag :type="scope.row.status | statusFilter" @click="handleError(scope.row)">
-                {{ statusMap[scope.row.status] }}
-              </el-tag>
-            </template>
-          </el-table-column>
-        </el-table>
-
+    <el-dialog title="Upload Status" :visible.sync="dialogHistoryVisible">
+      <el-container>
+        <el-header>
+          <div class="filter-container" align="right">
+            <el-button icon="el-icon-time" type="info" @click="handleUploadHistory()">
+              Refresh
+            </el-button>
+          </div>
+        </el-header>
+        <el-main>
+          <div>
+            <el-table
+              :key="historyList.tableKey"
+              v-loading="historyList.listLoading"
+              :data="historyList.list"
+              border
+              fit
+              highlight-current-row
+              style="width: 100%;"
+            >
+              <el-table-column label="File Name" min-width="100" align="center" height="10">
+                <template slot-scope="scope">
+                  <span>{{ scope.row.name }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="Status" class-name="status-col" min-width="100" align="center">
+                <template slot-scope="scope">
+                  <el-tag :type="scope.row.status | statusFilter" @click="handleError(scope.row)">
+                    {{ statusMap[scope.row.status] }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-main>
         <div style="text-align: center;">
           <pagination v-show="historyList.total>0" :total="historyList.total" :page.sync="historyList.listQuery.page" :limit.sync="historyList.listQuery.limit" :page-sizes="historyList.pageSizes" @pagination="getHistoryList()" />
         </div>
-      </div>
+      </el-container>
     </el-dialog>
   </div>
 </template>
 
 <script>
-import { getRepositories, uploadImage, getRepository, deleteImage, getFileList } from '@/api/registry';
+import { getRepositories, uploadImage, getRepository, deleteImage, getImageList } from '@/api/registry';
 import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 
@@ -155,6 +165,19 @@ export default {
     name: 'RepositoryList',
     components: { Pagination },
     directives: { waves },
+    filters: {
+        statusFilter(status) {
+            const map = {
+                0: 'warning',
+                1: 'info',
+                2: 'info',
+                3: 'info',
+                4: 'success',
+                5: 'danger'
+            };
+            return map[status];
+        }
+    },
     data() {
         return {
             currentRepo: '',
@@ -204,7 +227,6 @@ export default {
     },
     created() {
         this.getRepositoryList();
-        this.getHistoryList();
         this.subListLoading = false;
     },
     methods: {
@@ -225,7 +247,7 @@ export default {
         },
         getHistoryList() {
             this.historyList.listLoading = true;
-            getFileList(this.historyList.listQuery).then(response => {
+            getImageList(this.historyList.listQuery).then(response => {
                 this.historyList.list = response.payload.entry;
                 this.historyList.total = response.payload.count;
                 this.historyList.listLoading = false;
