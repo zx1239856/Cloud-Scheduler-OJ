@@ -113,7 +113,7 @@
       </span>
     </el-dialog>
 
-    <el-dialog title="Upload Status" :visible.sync="dialogHistoryVisible">
+    <el-dialog title="Upload Status" :visible.sync="dialogHistoryVisible" :before-close="handleHistoryClose">
       <el-container>
         <el-header>
           <div class="filter-container" align="right">
@@ -209,7 +209,7 @@ export default {
                 list: null,
                 total: 0,
                 listLoading: true,
-                pageSizes: [25],
+                pageSizes: [10, 25],
                 listQuery: {
                     page: 1,
                     limit: 25
@@ -280,7 +280,6 @@ export default {
                     message: 'Image Uploaded',
                     type: 'success'
                 });
-                this.getRepositoryList();
             });
         },
         handleDialogConfirm() {
@@ -326,6 +325,12 @@ export default {
         handleUploadHistory() {
             this.getHistoryList();
             this.dialogHistoryVisible = true;
+        },
+        handleHistoryClose(done) {
+            if (this.currentRepo !== '') {
+                this.getTagList();
+            }
+            done();
         }
     }
 };
