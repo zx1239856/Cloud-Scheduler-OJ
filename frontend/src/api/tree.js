@@ -8,11 +8,15 @@ export function getTreePath(settings_uuid, path) {
     });
 }
 
-export function getFile(settings_uuid, file) {
+export function getFile(settings_uuid, file, isBase64 = false) {
+    const params = { file: file };
+    if (isBase64 === true) {
+        params.base64 = true;
+    }
     return request({
         url: '/user_space/' + settings_uuid + '/',
         method: 'get',
-        params: { file: file }
+        params: params
     });
 }
 

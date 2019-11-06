@@ -78,11 +78,15 @@ export function getTreePath(pvcname, path) {
     });
 }
 
-export function getFile(pvcname, file) {
+export function getFile(pvcname, file, isBase64 = false) {
+    const params = { file: file };
+    if (isBase64 === true) {
+        params.base64 = true;
+    }
     return request({
         url: '/storage/ide/' + pvcname + '/',
         method: 'get',
-        params: { file: file }
+        params: params
     });
 }
 

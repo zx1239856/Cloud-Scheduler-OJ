@@ -60,6 +60,7 @@ class UserSpaceHandler(View):
                 cmdlist = []
                 file = params.get('file', None)
                 path = params.get('path', None)
+                base64 = params.get('base64', None)
                 if op_code != 'get':
                     query = json.loads(request.body)
                     file = query.get('file', None)
@@ -77,7 +78,7 @@ class UserSpaceHandler(View):
                     else:
                         if file is not None:
                             if op_code == 'get':
-                                cmdlist.append('cat {}'.format(file))
+                                cmdlist.append(('cat {}' if not base64 else 'base64 {}').format(file))
                             elif op_code == 'post':
                                 delimiter = random_string()
                                 cmdlist.append(

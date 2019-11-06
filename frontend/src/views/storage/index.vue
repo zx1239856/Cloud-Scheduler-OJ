@@ -41,10 +41,10 @@
       <el-table-column label="Actions" min-width="200" align="center">
         <template slot-scope="{row}">
           <el-button icon="el-icon-upload" type="primary" size="small" @click="handleUpload(row)">
-            upload
+            Upload
           </el-button>
           <el-button type="primary" plain size="small" @click="handleIde(row)">
-            IDE
+            Editor
           </el-button>
           <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name === 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
         </template>
@@ -57,7 +57,7 @@
 
     <el-dialog :title="dialogType" :visible.sync="dialogUploadVisible">
       <el-form ref="dialogForm" :model="dialogFileData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;" @submit.native.prevent>
-        <el-form-item label="file" prop="file">
+        <el-form-item label="File" prop="file">
           <el-upload
             ref="upload"
             action="no"
@@ -66,10 +66,10 @@
             :http-request="getFile"
           >
             <i class="el-icon-plus" />
-            <div slot="tip" class="el-upload__tip" style="margin-top:-10px; margin-buttom:-10px; color:#777;">file name should not contain whitespace</div>
+            <div slot="tip" class="el-upload__tip" style="margin-top:-10px; margin-buttom:-10px; color:#777;">File name should not contain whitespace</div>
           </el-upload>
         </el-form-item>
-        <el-form-item label="path" prop="path">
+        <el-form-item label="Path" prop="path">
           <el-input ref="inputPath" v-model="dialogFileData.path" @keyup.enter.native="handleUploadConfirm" />
         </el-form-item>
       </el-form>
@@ -138,7 +138,7 @@
       <el-form ref="dialogForm" :rules="dialogRules" :model="dialogData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
         <el-form-item label="name" prop="name">
           <el-input ref="inputName" v-model="dialogData.name" />
-          <div style="margin-top:-5px; margin-buttom:-10px; color:#777;">please use '-' as seperator</div>
+          <div style="margin-top:-5px; margin-buttom:-10px; color:#777;">Please use '-' as seperator</div>
         </el-form-item>
         <el-form-item label="capacity" prop="capacity">
           <el-input v-model="dialogData.capacity" @keyup.enter.native="handleDialogConfirm" />
