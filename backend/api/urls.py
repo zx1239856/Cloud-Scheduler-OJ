@@ -63,6 +63,8 @@ urlpatterns = [
     # storage
     path('storage/', storage_views.StorageHandler.as_view()),
     path('storage/upload_file/', storage_views.StorageFileHandler.as_view()),
+    path('storage/pod/', storage_views.PVCPodHandler.as_view()),
+    path('storage/ide/<str:pvcname>/', storage_views.FileDisplayHandler.as_view()),
     # user space for webIDE
     path('user_space/<str:uuid>/', login_required(user_space_views.UserSpaceHandler.as_view())),
     path('vnc/<str:uuid>/', login_required(user_space_views.UserVNCHandler.as_view())),
