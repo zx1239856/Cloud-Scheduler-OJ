@@ -105,8 +105,7 @@ export default {
             getPodList(this.listQuery).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
-                this.listLoading = false;
-            }).catch(() => {
+            }).finally(() => {
                 this.listLoading = false;
             });
         },

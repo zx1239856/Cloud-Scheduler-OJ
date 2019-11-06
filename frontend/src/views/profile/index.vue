@@ -121,6 +121,7 @@ export default {
                             message: 'Successfully Updated',
                             type: 'success'
                         });
+                    }).finally(() => {
                         this.dialogVisible = false;
                     });
             });

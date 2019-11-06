@@ -137,8 +137,7 @@ export default {
             getTaskList(this.listQuery.page).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
-                this.listLoading = false;
-            }).catch(() => {
+            }).finally(() => {
                 this.listLoading = false;
             });
         },
@@ -147,12 +146,13 @@ export default {
             this.deleteDialogVisible = true;
         },
         deleteTask() {
-            this.deleteDialogVisible = false;
             deleteTask(this.selectedData.uuid).then(response => {
                 this.$message({
                     message: 'Task Deleted',
                     type: 'success'
                 });
+            }).finally(() => {
+                this.deleteDialogVisible = false;
             });
         },
         handleLog(row) {

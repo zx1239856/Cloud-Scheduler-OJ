@@ -276,10 +276,11 @@ export default {
                             message: 'Successfully Deleted',
                             type: 'success'
                         });
-                        this.deleteDialogVisible = false;
                         // frontend delete
                         this.$refs.tree.remove(this.selectedNode);
                         this.selectedNode = this.topLevelNode;
+                    }).finally(() => {
+                        this.deleteDialogVisible = false;
                     });
             } else {
                 // delete file
@@ -289,10 +290,11 @@ export default {
                             message: 'Successfully Deleted',
                             type: 'success'
                         });
-                        this.deleteDialogVisible = false;
                         // frontend delete
                         this.$refs.tree.remove(this.selectedNode);
                         this.selectedNode = this.topLevelNode;
+                    }).finally(() => {
+                        this.deleteDialogVisible = false;
                     });
             }
         },
@@ -337,10 +339,11 @@ export default {
                                     message: 'Successfully Renamed',
                                     type: 'success'
                                 });
-                                this.dialogFormVisible = false;
                                 // frontend rename
                                 this.selectedNode.data.label = this.dialogFormData.name + '/';
                                 this.selectedNode.data.key = dir + this.dialogFormData.name + '/';
+                            }).finally(() => {
+                                this.dialogFormVisible = false;
                             });
                     } else {
                         const dir = this.selectedNode.data.key.substr(0, this.selectedNode.data.key.lastIndexOf('/') + 1);
@@ -350,11 +353,12 @@ export default {
                                     message: 'Successfully Renamed',
                                     type: 'success'
                                 });
-                                this.dialogFormVisible = false;
                                 // frontend rename
                                 this.selectedNode.data.label = this.dialogFormData.name;
                                 this.selectedNode.data.key = dir + this.dialogFormData.name;
                                 this.selectedNode.data.icon = this.getIconClass(this.selectedNode.data.key);
+                            }).finally(() => {
+                                this.dialogFormVisible = false;
                             });
                     }
                 } else {
@@ -369,7 +373,6 @@ export default {
                                 message: 'Successfully Created',
                                 type: 'success'
                             });
-                            this.dialogFormVisible = false;
                             // frontend create
                             this.$refs.tree.append({
                                 label: this.dialogFormData.name,
@@ -377,6 +380,8 @@ export default {
                                 isLeaf: true,
                                 icon: this.getIconClass(this.selectedNode.data.key + this.dialogFormData.name)
                             }, this.selectedNode);
+                        }).finally(() => {
+                            this.dialogFormVisible = false;
                         });
                     } else {
                         // create directory
@@ -387,7 +392,6 @@ export default {
                                 message: 'Successfully Created',
                                 type: 'success'
                             });
-                            this.dialogFormVisible = false;
                             // frontend create
                             this.$refs.tree.append({
                                 label: newBasePath,
@@ -395,6 +399,8 @@ export default {
                                 isLeaf: false,
                                 icon: this.getIconClass(newPath)
                             }, this.selectedNode);
+                        }).finally(() => {
+                            this.dialogFormVisible = false;
                         });
                     }
                 }
@@ -468,6 +474,7 @@ export default {
                     label: this.currentFile.substr(this.currentFile.lastIndexOf('/') + 1),
                     content: response.payload
                 });
+            }).finally(() => {
                 this.codeMirrorLoading = false;
             });
         },

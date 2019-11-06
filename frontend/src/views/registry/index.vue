@@ -234,6 +234,7 @@ export default {
             this.subListLoading = true;
             getRepository(this.currentRepo).then(response => {
                 this.subList = response.payload.entity;
+            }).finally(() => {
                 this.subListLoading = false;
             });
         },
@@ -242,6 +243,7 @@ export default {
             getRepositories(this.listQuery).then(response => {
                 this.list = response.payload.entity;
                 this.total = response.payload.count;
+            }).finally(() => {
                 this.listLoading = false;
             });
         },
@@ -250,6 +252,7 @@ export default {
             getImageList(this.historyList.listQuery).then(response => {
                 this.historyList.list = response.payload.entry;
                 this.historyList.total = response.payload.count;
+            }).finally(() => {
                 this.historyList.listLoading = false;
             });
         },

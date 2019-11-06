@@ -266,6 +266,7 @@ export default {
             getPVCList(this.listQuery).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
+            }).finally(() => {
                 this.listLoading = false;
             });
         },
@@ -317,6 +318,7 @@ export default {
                     type: 'success'
                 });
                 this.getList();
+            }).finally(() => {
                 this.deleteDialogVisible = false;
             });
         },
@@ -382,6 +384,7 @@ export default {
             getFileList(this.historyList.listQuery).then(response => {
                 this.historyList.list = response.payload.entry;
                 this.historyList.total = response.payload.count;
+            }).finally(() => {
                 this.historyList.listLoading = false;
             });
         },
