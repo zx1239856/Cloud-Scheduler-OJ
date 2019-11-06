@@ -76,9 +76,7 @@ class StorageHandler(View):
             }
 
             if page < -1 or page > payload['page_count']:
-                if page == 1 and payload['page_count'] == 0:
-                    pass
-                else:
+                if not (page == 1 and payload['page_count'] == 0):
                     raise ValueError()
 
             if page >= 0:
@@ -249,28 +247,19 @@ class StorageFileHandler(View):
         file_list = FileModel.objects.all()
         for f in file_list:
             pod_name = "file-upload-pod-" + f.hashid
-            if f.status == 0:
-                FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED, error="File uncached.")
-                try:
+            try:
+                if f.status == 0 or f.status == 1:
+                    FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED, error="File uncached.")
                     self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
-                except ApiException as ex:
-                    LOGGER.warning(ex)
-            elif f.status == 1:
-                FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED, error="File uncached.")
-                try:
+                elif f.status == 2 or f.status == 3:
+                    # cached or uploading
+                    FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.CACHED)
+                    uploading = Thread(target=self.uploading, args=(f.filename, f.targetpvc, f.targetpath, f.hashid))
+                    uploading.start()
+                elif f.status == 4:
                     self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
-                except ApiException as ex:
-                    LOGGER.warning(ex)
-            elif f.status == 2 or f.status == 3:
-                # cached or uploading
-                FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.CACHED)
-                uploading = Thread(target=self.uploading, args=(f.filename, f.targetpvc, f.targetpath, f.hashid))
-                uploading.start()
-            elif f.status == 4:
-                try:
-                    self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
-                except ApiException as ex:
-                    LOGGER.warning(ex)
+            except ApiException as ex:
+                LOGGER.warning(ex)
 
     @method_decorator(permission_required)
     def get(self, request, **_):
@@ -306,9 +295,7 @@ class StorageFileHandler(View):
                 'entry': []
             }
             if page < 1 or page > payload['page_count']:
-                if page == 1 and payload['page_count'] == 0:
-                    pass
-                else:
+                if not (page == 1 and payload['page_count'] == 0):
                     raise ValueError()
             for f in file_list[25 * (page - 1): 25 * page]:
                 payload['entry'].append({'id': f.hashid,
@@ -382,7 +369,7 @@ class StorageFileHandler(View):
         except ApiException:
             pass
 
-        errorFiles = []
+        error_files = []
         errors = ""
         for file_upload in files:
             # record file
@@ -397,14 +384,14 @@ class StorageFileHandler(View):
                 file_model.save()
             except Exception as e:
                 errors += "{}; ".format(str(e))
-                errorFiles.append(file_upload.name)
+                error_files.append(file_upload.name)
                 continue
             FileModel.objects.filter(hashid=md).update(status=FileStatusCode.CACHING)
             self.caching(file_upload, pvc_name, path, md)
 
-        if errorFiles:
+        if error_files:
             response = RESPONSE.OPERATION_FAILED
-            response['message'] += " Errors {}in {}.".format(errors, str(errorFiles))
+            response['message'] += " Errors {}in {}.".format(errors, str(error_files))
         else:
             response = RESPONSE.SUCCESS
         return JsonResponse(response)
@@ -428,16 +415,17 @@ class StorageFileHandler(View):
         volume_name = "file-upload-volume-" + md
         container_name = "file-upload-container-" + md
         pod_name = "file-upload-pod-" + md
+
+        volume = client.V1Volume(name=volume_name,
+                                 persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
+                                     claim_name=pvc_name, read_only=False))
+        volume_mount = client.V1VolumeMount(name=volume_name, mount_path='/cephfs-data/')
+        container = client.V1Container(name=container_name, image="nginx:1.7.9", image_pull_policy="IfNotPresent",
+                                       volume_mounts=[volume_mount])
+        pod = client.V1Pod(api_version="v1", kind="Pod",
+                           metadata=client.V1ObjectMeta(name=pod_name, namespace=KUBERNETES_NAMESPACE),
+                           spec=client.V1PodSpec(containers=[container], volumes=[volume]))
         try:
-            volume = client.V1Volume(name=volume_name,
-                                     persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
-                                         claim_name=pvc_name, read_only=False))
-            volume_mount = client.V1VolumeMount(name=volume_name, mount_path='/cephfs-data/')
-            container = client.V1Container(name=container_name, image="nginx:1.7.9", image_pull_policy="IfNotPresent",
-                                           volume_mounts=[volume_mount])
-            pod = client.V1Pod(api_version="v1", kind="Pod",
-                               metadata=client.V1ObjectMeta(name=pod_name, namespace=KUBERNETES_NAMESPACE),
-                               spec=client.V1PodSpec(containers=[container], volumes=[volume]))
             self.api_instance.create_namespaced_pod(namespace=KUBERNETES_NAMESPACE, body=pod)
         except ApiException as e:
             if e.status != 409:
