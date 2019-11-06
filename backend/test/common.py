@@ -63,7 +63,62 @@ class MockThread:
         return self._running
 
 
+class MockExtensionsV1beta1Api:
+    ingress_map = {}
+
+    def __init__(self, _):
+        pass
+
+    @staticmethod
+    def create_namespaced_ingress(namespace, body):
+        name = '{}-{}'.format(namespace, body.metadata['name'])
+        if name in MockExtensionsV1beta1Api.ingress_map.keys():
+            raise ApiException(status=409)
+        else:
+            MockExtensionsV1beta1Api.ingress_map[name] = body
+            return body
+
+    @staticmethod
+    def patch_namespaced_ingress(name, namespace, body):
+        name = '{}-{}'.format(namespace, name)
+        MockExtensionsV1beta1Api.ingress_map[name] = body
+        return body
+
+
+class MockAppsV1Api:
+    pod_map = {}
+
+    def __init__(self, _):
+        pass
+
+    @staticmethod
+    def read_namespaced_deployment(name, namespace):
+        pod = MockAppsV1Api.pod_map.get('{}-{}'.format(name, namespace), None)
+        if not pod:
+            raise ApiException(status=404)
+        else:
+            return pod
+
+    @staticmethod
+    def create_namespaced_deployment(body, namespace):
+        name = '{}-{}'.format(body.metadata.name, namespace)
+        if name in MockAppsV1Api.pod_map.keys():
+            raise ApiException(status=409)
+        MockAppsV1Api.pod_map[name] = body
+        return body
+
+    @staticmethod
+    def delete_namespaced_deployment(name, namespace):
+        if name == 'dep_not_exist':
+            raise ApiException(status=404)
+        elif name == 'dep_error':
+            raise ApiException(status=409)
+        print(name, namespace)
+
+
 class MockCoreV1Api:
+    service_map = {}
+
     def __init__(self, _):
         self.pod_dict = {}
         self.pvc_list = []
@@ -123,7 +178,7 @@ class MockCoreV1Api:
     @staticmethod
     def list_namespaced_persistent_volume_claim(**_):
         item_list = []
-        for i in range(0, 51):
+        for i in range(0, 50):
             item_list.append(DotDict({
                 'metadata':
                     DotDict({
@@ -144,6 +199,26 @@ class MockCoreV1Api:
                         'capacity': {'storage': "100Mi"}
                     })
             }))
+        item_list.append(DotDict({
+            'metadata':
+                DotDict({
+                    'namespace': 'test-ns',
+                    'name': 'pvc_50',
+                }),
+            'spec':
+                DotDict({
+                    'resources':
+                        DotDict({
+                            'requests': {'storage': '100Mi'}
+                        }),
+                    'access_modes': ['ReadWriteMany']
+                }),
+            'status':
+                DotDict({
+                    'phase': "Pending",
+                    'capacity': None
+                })
+        }))
         return ReturnItemsList(item_list)
 
     @staticmethod
@@ -156,14 +231,13 @@ class MockCoreV1Api:
         pass
 
     @staticmethod
-    def create_namespaced_persistent_volume_claim(namespace, body, **_):
+    def create_namespaced_persistent_volume_claim(namespace, body, **__):
         print(namespace)
         if body.metadata.name == 'existing-pvc':
             raise ApiException(status=409, reason="existing-pvc")
 
     @staticmethod
-    def read_namespaced_persistent_volume_claim(namespace, name, **_):
-        print(namespace)
+    def read_namespaced_persistent_volume_claim(name, *_, **__):
         if name == 'nonexistent-pvc':
             raise ApiException(status=404, reason="nonexistent-pvc")
 
@@ -177,11 +251,22 @@ class MockCoreV1Api:
         pass
 
     @staticmethod
-    def read_namespaced_pod_status(*_, **__):
+    def read_namespaced_pod_status(_name, *_, **__):
+        if _name == "pod-unreadypvc":
+            return DotDict({'status': DotDict({'phase': 'Pending'})})
         return DotDict({'status': DotDict({'phase': 'Running'})})
 
     def connect_get_namespaced_pod_exec(self, _name, _namespace, _command, **_):
         pass
+
+    @staticmethod
+    def create_namespaced_service(body, namespace):
+        name = '{}-{}'.format(body.metadata.name, namespace)
+        if name in MockCoreV1Api.service_map.keys():
+            raise ApiException(status=409)  # mock conflict
+        else:
+            MockCoreV1Api.service_map[name] = body
+            return body
 
 
 class MockBatchV1Api:
@@ -195,6 +280,23 @@ class MockBatchV1Api:
     @staticmethod
     def create_namespaced_job(**_):
         pass
+
+
+class MockTaskExecutorNotReady:
+    @classmethod
+    def instance(cls, **_):
+        return None
+
+
+class MockTaskExecutorWithInternalError:
+    @classmethod
+    def instance(cls, **_):
+        return MockTaskExecutorWithInternalError()
+
+    @staticmethod
+    def get_user_vnc_pod(uuid, user):
+        # user object is not JSON serializable
+        return {'uuid': uuid, 'user': user}
 
 
 class MockTaskExecutor:
@@ -220,6 +322,10 @@ class MockTaskExecutor:
             }),
             'spec': DotDict({'node_name': 'test_node'})
         })
+
+    @staticmethod
+    def get_user_vnc_pod(uuid, user):
+        return {'magic': 19260817, 'uuid': uuid, 'user': user.username}
 
 
 class MockWSClient:
@@ -330,6 +436,7 @@ def MockUrlOpen(request, **_):
     else:
         return None
 
+
 def MockUrlOpenErrorResponse(*_, **__):
     class MockResponse:
         def __init__(self, response_code, contentLength):
@@ -342,6 +449,7 @@ def MockUrlOpenErrorResponse(*_, **__):
             }
 
     return MockResponse(400, '0')
+
 
 def MockJsonRequest(*_):
     return {

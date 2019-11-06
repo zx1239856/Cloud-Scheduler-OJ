@@ -24,11 +24,11 @@ class Mock_WSClient:
     def peek_stdout(self):
         return True
     def peek_stderr(self):
-        return True
+        return False
     def read_stdout(self):
-        return True
+        return "stdout"
     def read_stderr(self):
-        return True
+        return "stderr"
     def close(self):
         pass
 
@@ -133,6 +133,16 @@ class TestStorage(TestCaseWithBasicUser):
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+
+    def testCreatePVC(self):
+        token = login_test_user('admin')
+        response = self.client.post('/storage/', data=json.dumps({'name': 'nonexistent-pvc', 'capacity': '10Mi'}),
+                                    content_type='application/json',
+                                    HTTP_X_ACCESS_TOKEN=token,
+                                    HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
 
     # test deleting PVC
 
@@ -257,3 +267,80 @@ class TestStorage(TestCaseWithBasicUser):
     @mock.patch.object(storage.views, 'stream', mock_stream)
     def testFileUploading(self):
         StorageFileHandler().uploading("test3.txt", 'test-pvc', 'test', 'testid')
+
+    # test PVC Pod
+    def testCreatePodInvalidRequset(self):
+        token = login_test_user('admin')
+        response = self.client.post('/storage/pod/', data=json.dumps('{invalid_json}'), content_type='application/json', HTTP_X_ACCESS_TOKEN=token,
+                                    HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
+
+    def testCreatePodInvalidRequset2(self):
+        token = login_test_user('admin')
+        response = self.client.post('/storage/pod/', data=json.dumps({}), content_type='application/json', HTTP_X_ACCESS_TOKEN=token,
+                                    HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
+
+    def testCreatePodForNonexistentPVC(self):
+        token = login_test_user('admin')
+        response = self.client.post('/storage/pod/', data=json.dumps({'pvcname': 'nonexistent-pvc'}),
+                                    content_type='application/json',
+                                    HTTP_X_ACCESS_TOKEN=token,
+                                    HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+
+    def testCreatePod(self):
+        token = login_test_user('admin')
+        response = self.client.post('/storage/pod/', data=json.dumps({'pvcname': 'existing-pvc'}),
+                                    content_type='application/json',
+                                    HTTP_X_ACCESS_TOKEN=token,
+                                    HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
+
+    def testDeletePodInvalidRequset(self):
+        token = login_test_user('admin')
+        response = self.client.delete('/storage/pod/', data=json.dumps('{invalid_json}'), content_type='application/json', HTTP_X_ACCESS_TOKEN=token,
+                                      HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
+
+    def testDeletePodInvalidRequset2(self):
+        token = login_test_user('admin')
+        response = self.client.delete('/storage/pod/', data=json.dumps({}), content_type='application/json', HTTP_X_ACCESS_TOKEN=token,
+                                      HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
+
+    def testDeletePod(self):
+        token = login_test_user('admin')
+        response = self.client.delete('/storage/pod/', data=json.dumps({'pvcname': 'existing-pvc'}), content_type='application/json', HTTP_X_ACCESS_TOKEN=token,
+                                      HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
+
+    def testGetPVCFileListFromUnreadyPod(self):
+        token = login_test_user('admin')
+        response = self.client.get('/storage/ide/unreadypvc/', HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.RESOURCE_LOCKED['status'])
+
+    def testGetNonexistentPVCFileList(self):
+        token = login_test_user('admin')
+        response = self.client.get('/storage/ide/nonexistent-pvc/', HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])

@@ -545,6 +545,15 @@ class PVCPodHandler(View):
         except (AssertionError, ValueError, AttributeError):
             return JsonResponse(RESPONSE.INVALID_REQUEST)
 
+        try:
+            self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name,
+                                                                             namespace=KUBERNETES_NAMESPACE)
+        except ApiException as ex:
+            LOGGER.warning(ex)
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " PVC {} does not exist in namespaced {}.".format(pvc_name, KUBERNETES_NAMESPACE)
+            return JsonResponse(response)
+
         volume_name = "volume-" + pvc_name
         container_name = "container-" + pvc_name
         pod_name = "pod-" + pvc_name
@@ -561,7 +570,6 @@ class PVCPodHandler(View):
             self.api_instance.create_namespaced_pod(namespace=KUBERNETES_NAMESPACE, body=pod)
         except ApiException as e:
             if e.status != 409:
-                LOGGER.error("Kubernetes ApiException %d: %s", e.status, e.reason)
                 response = RESPONSE.OPERATION_FAILED
                 response['message'] += " {}".format(str(e.reason))
                 return JsonResponse(response)
@@ -636,6 +644,13 @@ class FileDisplayHandler(UserSpaceHandler):
         pvc_name = kwargs.get('pvcname', None)
         if pvc_name is None:
             return JsonResponse(RESPONSE.INVALID_REQUEST)
+        try:
+            self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name, namespace=KUBERNETES_NAMESPACE)
+        except ApiException:
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " PVC {} does not exist in namespaced {}.".format(pvc_name, KUBERNETES_NAMESPACE)
+            return JsonResponse(response)
+
         response = super()._safe_wrapper(request, op_code, pvcname=pvc_name)
         if json.loads(response.content)['message'] == "Operation is unsuccessful. Failed to allocate pod.":
             response = RESPONSE.RESOURCE_LOCKED
