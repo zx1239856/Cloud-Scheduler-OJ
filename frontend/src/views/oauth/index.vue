@@ -67,7 +67,7 @@
           <el-input ref="inputName" v-model="dialogData.name" />
         </el-form-item>
         <el-form-item label="Redirect URI" prop="redirect_uri">
-          <el-input v-model="dialogData.redirect_uri" />
+          <el-input v-model="dialogData.redirect_uri" @keyup.enter.native="handleDialogConfirm" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">

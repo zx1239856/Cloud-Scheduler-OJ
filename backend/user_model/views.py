@@ -254,8 +254,7 @@ class UserLogin(View):
                     'uuid': user.uuid,
                     'token': token,
                     'avatar': 'https://fdn.geekzu.org/avatar/{}'.format(md5.hexdigest()),
-                    'permission': 'admin' if user.user_type else 'user',
-                    'super_user': user.user_type == UserType.SUPER_ADMIN,
+                    'permission': {0: 'user', 1: 'admin', 2: 'super'}[user.user_type]
                 }
             else:
                 raise UserModel.DoesNotExist()
