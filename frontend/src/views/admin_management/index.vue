@@ -68,7 +68,7 @@
         <el-button @click="dialogVisible = false">
           Cancel
         </el-button>
-        <el-button type="primary" @click="handleDialogConfirm">
+        <el-button :loading="dialogLoading" type="primary" @click="handleDialogConfirm">
           {{ dialogTitle }}
         </el-button>
       </div>
@@ -82,7 +82,7 @@
       <span>Are you sure to delete this admin account?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible = false">Cancel</el-button>
-        <el-button type="danger" @click="handleDeleteDialogConfirm">Delete</el-button>
+        <el-button :loading="deleteDialogLoading" type="danger" @click="handleDeleteDialogConfirm">Delete</el-button>
       </span>
     </el-dialog>
   </div>
@@ -121,6 +121,8 @@ export default {
             },
             dialogTitle: 'Create',
             dialogVisible: false,
+            dialogLoading: false,
+            deleteDialogLoading: false,
             deleteDialogVisible: false,
             tableKey: 0,
             list: null,
@@ -161,6 +163,7 @@ export default {
             });
         },
         handleDeleteDialogConfirm() {
+            this.deleteDialogLoading = true;
             deleteAdmin(this.dialogData.uuid)
                 .then(response => {
                     this.$message({
@@ -171,6 +174,7 @@ export default {
                 })
                 .finally(() => {
                     this.deleteDialogVisible = false;
+                    this.deleteDialogLoading = false;
                 });
         },
         handleCreate() {
@@ -204,7 +208,7 @@ export default {
                 if (!valid) {
                     return false;
                 }
-
+                this.dialogLoading = true;
                 if (this.dialogTitle === 'Create') {
                     // create
                     createAdmin(this.dialogData.username, this.dialogData.email)
@@ -217,6 +221,7 @@ export default {
                         })
                         .finally(() => {
                             this.dialogVisible = false;
+                            this.dialogLoading = false;
                         });
                 } else {
                     // update
@@ -234,6 +239,7 @@ export default {
                         })
                         .finally(() => {
                             this.dialogVisible = false;
+                            this.dialogLoading = false;
                         });
                 }
             });

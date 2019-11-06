@@ -46,7 +46,7 @@
           <el-button type="primary" plain size="small" @click="handleIde(row)">
             IDE
           </el-button>
-          <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name == 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
+          <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name === 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
         </template>
       </el-table-column>
     </el-table>

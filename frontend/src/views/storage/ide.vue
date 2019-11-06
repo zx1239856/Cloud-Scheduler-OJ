@@ -41,7 +41,7 @@
         </div>
         <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
         <div style="text-align: center; margin: 20px;">
-          <el-button type="primary" style="width: 80%;" @click="handleSave">Save</el-button>
+          <el-button :loading="codeMirrorLoading" type="primary" style="width: 80%;" @click="handleSave">Save</el-button>
         </div>
       </el-aside>
       <el-divider direction="vertical" />
@@ -150,6 +150,7 @@ export default {
             dialogFormData: {
                 name: ''
             },
+            saveButtonLoading: false,
             dialogTitle: '',
             selectedNode: undefined,
             topLevelNode: undefined,

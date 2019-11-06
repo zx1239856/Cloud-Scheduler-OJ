@@ -76,7 +76,7 @@
         <el-button @click="dialogFormVisible = false">
           Cancel
         </el-button>
-        <el-button type="primary" @click="handleDialogConfirm">
+        <el-button :loading="dialogLoading" type="primary" @click="handleDialogConfirm">
           Confirm
         </el-button>
       </div>
@@ -86,7 +86,7 @@
       <span>Are you sure to delete {{ selectedNode ? selectedNode.data.key : '' }}?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible = false">Cancel</el-button>
-        <el-button type="danger" @click="deleteNode">Delete</el-button>
+        <el-button :loading="deleteDialogLoading" type="danger" @click="deleteNode">Delete</el-button>
       </span>
     </el-dialog>
   </div>
@@ -154,6 +154,8 @@ export default {
             selectedNode: undefined,
             topLevelNode: undefined,
             dialogFormVisible: false,
+            deleteDialogLoading: false,
+            dialogLoading: false,
             contextMenuVisible: false,
             contextMenuTarget: undefined,
             currentFile: '',
@@ -268,6 +270,7 @@ export default {
             this.deleteDialogVisible = true;
         },
         deleteNode() {
+            this.deleteDialogLoading = true;
             if (this.isDirectory(this.selectedNode.data.key)) {
                 // delete dir
                 deleteDirectory(this.uuid, this.selectedNode.data.key)
@@ -280,6 +283,7 @@ export default {
                         this.$refs.tree.remove(this.selectedNode);
                         this.selectedNode = this.topLevelNode;
                     }).finally(() => {
+                        this.deleteDialogLoading = false;
                         this.deleteDialogVisible = false;
                     });
             } else {
@@ -294,6 +298,7 @@ export default {
                         this.$refs.tree.remove(this.selectedNode);
                         this.selectedNode = this.topLevelNode;
                     }).finally(() => {
+                        this.deleteDialogLoading = false;
                         this.deleteDialogVisible = false;
                     });
             }
@@ -324,6 +329,7 @@ export default {
                 if (!valid) {
                     return false;
                 }
+                this.dialogLoading = true;
                 if (!this.selectedNode) {
                     this.selectedNode = this.topLevelNode;
                 }
@@ -343,6 +349,7 @@ export default {
                                 this.selectedNode.data.label = this.dialogFormData.name + '/';
                                 this.selectedNode.data.key = dir + this.dialogFormData.name + '/';
                             }).finally(() => {
+                                this.dialogLoading = false;
                                 this.dialogFormVisible = false;
                             });
                     } else {
@@ -358,6 +365,7 @@ export default {
                                 this.selectedNode.data.key = dir + this.dialogFormData.name;
                                 this.selectedNode.data.icon = this.getIconClass(this.selectedNode.data.key);
                             }).finally(() => {
+                                this.dialogLoading = false;
                                 this.dialogFormVisible = false;
                             });
                     }
@@ -381,6 +389,7 @@ export default {
                                 icon: this.getIconClass(this.selectedNode.data.key + this.dialogFormData.name)
                             }, this.selectedNode);
                         }).finally(() => {
+                            this.dialogLoading = false;
                             this.dialogFormVisible = false;
                         });
                     } else {
@@ -400,6 +409,7 @@ export default {
                                 icon: this.getIconClass(newPath)
                             }, this.selectedNode);
                         }).finally(() => {
+                            this.dialogLoading = false;
                             this.dialogFormVisible = false;
                         });
                     }

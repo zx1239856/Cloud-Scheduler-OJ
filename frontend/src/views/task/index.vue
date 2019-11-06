@@ -60,7 +60,7 @@
       <span>Are you sure to delete this task?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible = false">Cancel</el-button>
-        <el-button type="danger" @click="deleteTask">Delete</el-button>
+        <el-button :loading="deleteDialogLoading" type="danger" @click="deleteTask">Delete</el-button>
       </span>
     </el-dialog>
   </div>
@@ -68,13 +68,11 @@
 
 <script>
 import { getTaskList, deleteTask } from '@/api/task';
-import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 
 export default {
     name: 'Task',
     components: { Pagination },
-    directives: { waves },
     filters: {
         statusTypeFilter(status) {
             const statusTypeMap = {
@@ -109,6 +107,7 @@ export default {
             list: null,
             total: 0,
             listLoading: true,
+            deleteDialogLoading: false,
             pageSizes: [25],
             listQuery: {
                 page: 1,
@@ -146,12 +145,14 @@ export default {
             this.deleteDialogVisible = true;
         },
         deleteTask() {
+            this.deleteDialogLoading = true;
             deleteTask(this.selectedData.uuid).then(response => {
                 this.$message({
                     message: 'Task Deleted',
                     type: 'success'
                 });
             }).finally(() => {
+                this.deleteDialogLoading = false;
                 this.deleteDialogVisible = false;
             });
         },

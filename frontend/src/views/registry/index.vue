@@ -68,7 +68,7 @@
           </el-table-column>
           <el-table-column label="Action" width="100" align="center">
             <template slot-scope="{row}">
-              <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name == 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
+              <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name === 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
             </template>
           </el-table-column>
         </el-table>
@@ -95,7 +95,7 @@
         <el-button @click="dialogFormVisible=false">
           Cancel
         </el-button>
-        <el-button type="primary" @click="handleDialogConfirm()">
+        <el-button :loading="dialogLoading" type="primary" @click="handleDialogConfirm()">
           Upload
         </el-button>
       </div>
@@ -109,7 +109,7 @@
       <span>Are you sure to delete Image {{ currentRepo + ':' + selectedData.Tag }}?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible=false">Cancel</el-button>
-        <el-button type="danger" @click="deleteImage()">Delete</el-button>
+        <el-button :loading="deleteDialogLoading" type="danger" @click="deleteImage()">Delete</el-button>
       </span>
     </el-dialog>
 
@@ -183,6 +183,8 @@ export default {
             currentRepo: '',
             dialogType: 'Upload',
             dialogFormVisible: false,
+            dialogLoading: false,
+            deleteDialogLoading: false,
             deleteDialogVisible: false,
             dialogHistoryVisible: false,
             tableKey: 0,
@@ -265,7 +267,8 @@ export default {
             this.dialogType = 'Upload';
         },
         uploading() {
-            this.dialogFormVisible = false;
+            this.dialogLoading = true;
+
             var formData = new FormData();
 
             for (var f of this.dialogData.file) {
@@ -279,6 +282,9 @@ export default {
                     type: 'success'
                 });
                 this.getRepositoryList();
+            }).finally(() => {
+                this.dialogLoading = false;
+                this.dialogFormVisible = false;
             });
         },
         handleDialogConfirm() {
@@ -308,7 +314,7 @@ export default {
             this.deleteDialogVisible = true;
         },
         deleteImage() {
-            this.deleteDialogVisible = false;
+            this.deleteDialogLoading = true;
             deleteImage(
                 this.currentRepo,
                 this.selectedData.Tag
@@ -319,6 +325,9 @@ export default {
                     type: 'success'
                 });
                 this.getTagList();
+            }).finally(() => {
+                this.deleteDialogLoading = false;
+                this.deleteDialogVisible = false;
             });
         },
         handleUploadHistory() {

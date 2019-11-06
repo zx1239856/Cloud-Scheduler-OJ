@@ -63,7 +63,7 @@
         <el-button @click="handleCancel()">
           Cancel
         </el-button>
-        <el-button type="primary" @click="handleConfirm()">
+        <el-button :loading="dialogLoading" type="primary" @click="handleConfirm()">
           {{ confirmMessage }}
         </el-button>
       </div>
@@ -78,6 +78,7 @@ export default {
     data() {
         return {
             confirmMessage: 'Create',
+            dialogLoading: false,
             formData: {
                 name: '',
                 description: '',
@@ -212,27 +213,31 @@ export default {
         },
         handleConfirm() {
             this.$refs.dialogForm.validate(valid => {
-                if (valid) {
-                    const backendForm = this.toBackendForm(this.formData);
-                    if (this.$route.query.settings_uuid) {
-                        updateTaskSettings(this.$route.query.settings_uuid, backendForm).then(response => {
-                            this.$message({
-                                message: 'Update Success',
-                                type: 'success'
-                            });
-                            this.$router.back();
-                        });
-                    } else {
-                        createTaskSettings(backendForm).then(response => {
-                            this.$message({
-                                message: 'Create Success',
-                                type: 'success'
-                            });
-                            this.$router.back();
-                        });
-                    }
-                } else {
+                if (!valid) {
                     return false;
+                }
+                this.dialogLoading = true;
+                const backendForm = this.toBackendForm(this.formData);
+                if (this.$route.query.settings_uuid) {
+                    updateTaskSettings(this.$route.query.settings_uuid, backendForm).then(response => {
+                        this.$message({
+                            message: 'Update Success',
+                            type: 'success'
+                        });
+                        this.$router.back();
+                    }).finally(() => {
+                        this.dialogLoading = false;
+                    });
+                } else {
+                    createTaskSettings(backendForm).then(response => {
+                        this.$message({
+                            message: 'Create Success',
+                            type: 'success'
+                        });
+                        this.$router.back();
+                    }).finally(() => {
+                        this.dialogLoading = false;
+                    });
                 }
             });
         }
