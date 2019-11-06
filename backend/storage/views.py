@@ -23,6 +23,7 @@ from api.common import get_kubernetes_api_client
 from config import KUBERNETES_NAMESPACE
 from storage.models import FileModel, FileStatusCode
 from user_model.views import permission_required
+from user_space.views import UserSpaceHandler
 
 LOGGER = logging.getLogger(__name__)
 
@@ -503,3 +504,137 @@ class StorageFileHandler(View):
         else:
             FileModel.objects.filter(hashid=md).update(status=FileStatusCode.SUCCEEDED)
             LOGGER.info("File uploaded successfully.")
+
+
+class PVCPodHandler(View):
+    http_method_names = ['post', 'delete']
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.api_instance = CoreV1Api(get_kubernetes_api_client())
+
+    @method_decorator(permission_required)
+    def post(self, request, **_):
+        """
+        @api {post} /storage/pod/ Create a pod to display files in pvc mounted
+        @apiName CreatePod
+        @apiGroup StorageManager
+        @apiVersion 0.1.0
+        @apiParamExample {json} Request-Example:
+        {
+            "pvcname": "mypvc"
+        }
+        @apiParam {String} pvcname name of the target PVC
+        @apiSuccess {Object} payload Success payload is empty
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
+        """
+        try:
+            query = json.loads(request.body)
+            pvc_name = query.get('pvcname', None)
+            assert pvc_name is not None
+        except (AssertionError, ValueError, AttributeError):
+            return JsonResponse(RESPONSE.INVALID_REQUEST)
+
+        volume_name = "volume-" + pvc_name
+        container_name = "container-" + pvc_name
+        pod_name = "pod-" + pvc_name
+        volume = client.V1Volume(name=volume_name,
+                                 persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
+                                     claim_name=pvc_name, read_only=False))
+        volume_mount = client.V1VolumeMount(name=volume_name, mount_path='/cephfs-data/')
+        container = client.V1Container(name=container_name, image="registry.dropthu.online:30443/ubuntu:19.10", image_pull_policy="IfNotPresent",
+                                       volume_mounts=[volume_mount])
+        pod = client.V1Pod(api_version="v1", kind="Pod",
+                           metadata=client.V1ObjectMeta(name=pod_name, namespace=KUBERNETES_NAMESPACE),
+                           spec=client.V1PodSpec(containers=[container], volumes=[volume]))
+        try:
+            self.api_instance.create_namespaced_pod(namespace=KUBERNETES_NAMESPACE, body=pod)
+        except ApiException as e:
+            if e.status != 409:
+                LOGGER.error("Kubernetes ApiException %d: %s", e.status, e.reason)
+                response = RESPONSE.OPERATION_FAILED
+                response['message'] += " {}".format(str(e.reason))
+                return JsonResponse(response)
+        except Exception as e:
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " {}".format(str(e))
+            return JsonResponse(response)
+
+        return JsonResponse(RESPONSE.SUCCESS)
+
+    @method_decorator(permission_required)
+    def delete(self, request, **_):
+        """
+        @api {delete} /storage/ Delete a pod mounted by a pvc
+        @apiName DeletePod
+        @apiGroup StorageManager
+        @apiVersion 0.1.0
+        @apiParamExample {json} Request-Example:
+        {
+            "pvcname": "mypvc"
+        }
+        @apiParam {String} pvcname Name of the mounted pvc of the pod
+        @apiSuccess {Object} payload Success payload is empty
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
+        """
+        try:
+            query = json.loads(request.body)
+            pvc_name = query.get('pvcname', None)
+            assert pvc_name is not None
+        except (AssertionError, ValueError, AttributeError):
+            return JsonResponse(RESPONSE.INVALID_REQUEST)
+
+        pod_name = "pod-" + pvc_name
+        try:
+            self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
+        except Exception as e:
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " {}".format(str(e))
+            return JsonResponse(response)
+
+        return JsonResponse(RESPONSE.SUCCESS)
+
+
+class FileDisplayHandler(UserSpaceHandler):
+    http_method_names = ['get', 'post', 'put', 'delete']
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.api_instance = CoreV1Api(get_kubernetes_api_client())
+
+    def _get_pod(self, **kwargs):
+        """
+        :param kwargs: parameters needed
+        :return: pod: the pod allocated; username: the username to execute file ops
+        """
+        pvc_name = kwargs.get('pvcname')
+
+        pod_name = "pod-" + pvc_name
+        pod = self.api_instance.read_namespaced_pod_status(pod_name, KUBERNETES_NAMESPACE)
+
+        if pod.status.phase != "Running":
+            return None, None
+
+        return pod, "root"
+
+    def _safe_wrapper(self, request, op_code, **kwargs):
+        pvc_name = kwargs.get('pvcname', None)
+        if pvc_name is None:
+            return JsonResponse(RESPONSE.INVALID_REQUEST)
+        response = super()._safe_wrapper(request, op_code, pvcname=pvc_name)
+        if json.loads(response.content)['message'] == "Operation is unsuccessful. Failed to allocate pod.":
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] = "It will take some time to get information. Please retry later."
+            response = JsonResponse(response)
+        return response

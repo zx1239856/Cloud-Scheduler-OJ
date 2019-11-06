@@ -28,11 +28,6 @@
           <span>{{ scope.row.capacity }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Access Mode" width="130" align="center">
-        <template slot-scope="scope">
-          <span>{{ scope.row.mode }}</span>
-        </template>
-      </el-table-column>
       <el-table-column label="Create Time" width="200" align="center">
         <template slot-scope="scope">
           <span>{{ new Date(scope.row.time).toLocaleString() }}</span>
@@ -43,10 +38,13 @@
           <span>{{ scope.row.status }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" min-width="120" align="center">
+      <el-table-column label="Actions" min-width="200" align="center">
         <template slot-scope="{row}">
           <el-button icon="el-icon-upload" type="primary" size="small" @click="handleUpload(row)">
             upload
+          </el-button>
+          <el-button type="primary" plain size="small" @click="handleIde(row)">
+            IDE
           </el-button>
           <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name == 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
         </template>
@@ -169,7 +167,7 @@
 </template>
 
 <script>
-import { getPVCList, createPVC, deletePVC, uploadFile, getFileList, reuploadFile } from '@/api/storage';
+import { getPVCList, createPVC, deletePVC, uploadFile, getFileList, reuploadFile, createPod } from '@/api/storage';
 import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 import { mapGetters } from 'vuex';
@@ -413,6 +411,11 @@ export default {
                 showClose: true,
                 message: row.error,
                 type: 'info'
+            });
+        },
+        handleIde(row) {
+            createPod(row.name).then(response => {
+                this.$router.push({ name: 'ide', query: { pvcname: row.name }});
             });
         }
     }

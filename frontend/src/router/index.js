@@ -114,7 +114,6 @@ export const constantRoutes = [
         name: 'log',
         component: () => import('@/views/log/index')
     },
-
     {
         path: '/webssh/',
         name: 'webssh',
@@ -149,6 +148,13 @@ export const asyncRoutes = [
             name: 'Storage',
             component: () => import('@/views/storage/index'),
             meta: { title: 'Storage', icon: 'storage', roles: ['admin'] }
+        },
+        {
+            path: 'ide/',
+            name: 'ide',
+            hidden: true,
+            component: () => import('@/views/storage/ide'),
+            meta: { title: 'Web IDE' }
         }]
     },
     {
