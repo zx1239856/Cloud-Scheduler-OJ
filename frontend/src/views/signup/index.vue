@@ -219,7 +219,7 @@ export default {
                             this.loading = false;
                             this.$router.push('/login');
                         })
-                        .catch(() => {
+                        .finally(() => {
                             this.loading = false;
                         });
                 } else {

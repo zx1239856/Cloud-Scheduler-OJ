@@ -88,7 +88,7 @@
       <span>Are you sure to delete this settings?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible = false">Cancel</el-button>
-        <el-button type="danger" @click="deleteTaskSettings">Delete</el-button>
+        <el-button :loading="deleteDialogLoading" type="danger" @click="deleteTaskSettings">Delete</el-button>
       </span>
     </el-dialog>
   </div>
@@ -123,6 +123,7 @@ export default {
         return {
             dialogType: 'Create',
             dialogFormVisible: false,
+            deleteDialogLoading: false,
             deleteDialogVisible: false,
             tableKey: 0,
             list: null,
@@ -200,13 +201,16 @@ export default {
             this.$router.push({ name: 'vnc', query: { uuid: row.uuid }});
         },
         deleteTaskSettings() {
-            this.deleteDialogVisible = false;
+            this.deleteDialogLoading = true;
             deleteTaskSettings(this.dialogData.uuid).then(response => {
                 this.$message({
                     message: 'Task Settings Deleted',
                     type: 'success'
                 });
                 this.getList();
+            }).finally(() => {
+                this.deleteDialogLoading = false;
+                this.deleteDialogVisible = false;
             });
         },
         handleDialogConfirm() {
