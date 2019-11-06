@@ -99,7 +99,7 @@
 
 <script>
 import { codemirror } from 'vue-codemirror';
-import { getTreePath, getFile, updateFile, renameFile, renameDirectory, createFile, createDirectory, deleteFile, deleteDirectory, deletePod } from '@/api/storage';
+import { getTreePath, getFile, updateFile, renameFile, renameDirectory, createFile, createDirectory, deleteFile, deleteDirectory, deletePod, createPod } from '@/api/storage';
 import 'codemirror/lib/codemirror.css';
 
 import 'codemirror/mode/javascript/javascript.js';
@@ -210,29 +210,10 @@ export default {
             }
         };
     },
-    mounted() {
-        window.addEventListener('beforeunload', e => this.beforeunloadHandler(e));
-        window.addEventListener('unload', e => this.unloadHandler(e));
-    },
     destroyed() {
-        window.removeEventListener('beforeunload', e => this.beforeunloadHandler(e));
-        window.removeEventListener('unload', e => this.unloadHandler(e));
         deletePod(this.pvcname).then(response => { });
     },
     methods: {
-        beforeunloadHandler() {
-            this._beforeUnload_time = new Date().getTime();
-        },
-        unloadHandler(e) {
-            this._gap_time = new Date().getTime() - this._beforeUnload_time;
-            debugger;
-            if (this._gap_time <= 5) {
-                this.$message({
-                    message: 'Window closed.',
-                    type: 'success'
-                });
-            }
-        },
         onCmReady(cm) {
 
         },
@@ -320,8 +301,9 @@ export default {
                         // frontend delete
                         this.$refs.tree.remove(this.selectedNode);
                         this.selectedNode = this.topLevelNode;
-                    }).finally(() => {
                         this.deleteDialogVisible = false;
+                    }).catch(() => {
+                        createPod(this.pvcname).then(response => { });
                     });
             } else {
                 // delete file
@@ -334,8 +316,9 @@ export default {
                         // frontend delete
                         this.$refs.tree.remove(this.selectedNode);
                         this.selectedNode = this.topLevelNode;
-                    }).finally(() => {
                         this.deleteDialogVisible = false;
+                    }).catch(() => {
+                        createPod(this.pvcname).then(response => { });
                     });
             }
         },
@@ -388,8 +371,9 @@ export default {
                                 // frontend rename
                                 this.selectedNode.data.label = this.dialogFormData.name + '/';
                                 this.selectedNode.data.key = dir + this.dialogFormData.name + '/';
-                            }).finally(() => {
                                 this.dialogFormVisible = false;
+                            }).catch(() => {
+                                createPod(this.pvcname).then(response => { });
                             });
                     } else {
                         const dir = this.selectedNode.data.key.substr(0, this.selectedNode.data.key.lastIndexOf('/') + 1);
@@ -403,8 +387,9 @@ export default {
                                 this.selectedNode.data.label = this.dialogFormData.name;
                                 this.selectedNode.data.key = dir + this.dialogFormData.name;
                                 this.selectedNode.data.icon = this.getIconClass(this.selectedNode.data.key);
-                            }).finally(() => {
                                 this.dialogFormVisible = false;
+                            }).catch(() => {
+                                createPod(this.pvcname).then(response => { });
                             });
                     }
                 } else {
@@ -426,8 +411,9 @@ export default {
                                 isLeaf: true,
                                 icon: this.getIconClass(this.selectedNode.data.key + this.dialogFormData.name)
                             }, this.selectedNode);
-                        }).finally(() => {
                             this.dialogFormVisible = false;
+                        }).catch(() => {
+                            createPod(this.pvcname).then(response => { });
                         });
                     } else {
                         // create directory
@@ -445,8 +431,9 @@ export default {
                                 isLeaf: false,
                                 icon: this.getIconClass(newPath)
                             }, this.selectedNode);
-                        }).finally(() => {
                             this.dialogFormVisible = false;
+                        }).catch(() => {
+                            createPod(this.pvcname).then(response => { });
                         });
                     }
                 }
@@ -477,6 +464,7 @@ export default {
                 node.data.icon = 'folder_open';
                 return resolve(resolveData);
             }).catch(() => {
+                createPod(this.pvcname).then(response => { });
                 this.loading = setInterval(() => {
                     getTreePath(this.pvcname, node.data.key).then(response => {
                         const paths = response.payload;
@@ -564,6 +552,7 @@ export default {
                     this.codeMirrorLoading = false;
                 }).catch(() => {
                     this.codeMirrorLoading = false;
+                    createPod(this.pvcname).then(response => { });
                 });
             } else if (isImage) {
                 this.currentFile = node.data.key;
@@ -607,8 +596,10 @@ export default {
                     message: 'Code saved',
                     type: 'success'
                 });
-            }).finally(() => {
                 this.codeMirrorLoading = false;
+            }).catch(() => {
+                this.codeMirrorLoading = false;
+                createPod(this.pvcname).then(response => { });
             });
         }
     }

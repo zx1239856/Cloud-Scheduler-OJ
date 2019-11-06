@@ -22,6 +22,7 @@ db.sqlite3
 backend/.coverage
 backend/htmlcov/
 backend/storage/data/
+backend/registry_manager/data/
 
 /apidocs/
 .coverage
