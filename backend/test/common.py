@@ -63,7 +63,62 @@ class MockThread:
         return self._running
 
 
+class MockExtensionsV1beta1Api:
+    ingress_map = {}
+
+    def __init__(self, _):
+        pass
+
+    @staticmethod
+    def create_namespaced_ingress(namespace, body):
+        name = '{}-{}'.format(namespace, body.metadata['name'])
+        if name in MockExtensionsV1beta1Api.ingress_map.keys():
+            raise ApiException(status=409)
+        else:
+            MockExtensionsV1beta1Api.ingress_map[name] = body
+            return body
+
+    @staticmethod
+    def patch_namespaced_ingress(name, namespace, body):
+        name = '{}-{}'.format(namespace, name)
+        MockExtensionsV1beta1Api.ingress_map[name] = body
+        return body
+
+
+class MockAppsV1Api:
+    pod_map = {}
+
+    def __init__(self, _):
+        pass
+
+    @staticmethod
+    def read_namespaced_deployment(name, namespace):
+        pod = MockAppsV1Api.pod_map.get('{}-{}'.format(name, namespace), None)
+        if not pod:
+            raise ApiException(status=404)
+        else:
+            return pod
+
+    @staticmethod
+    def create_namespaced_deployment(body, namespace):
+        name = '{}-{}'.format(body.metadata.name, namespace)
+        if name in MockAppsV1Api.pod_map.keys():
+            raise ApiException(status=409)
+        MockAppsV1Api.pod_map[name] = body
+        return body
+
+    @staticmethod
+    def delete_namespaced_deployment(name, namespace):
+        if name == 'dep_not_exist':
+            raise ApiException(status=404)
+        elif name == 'dep_error':
+            raise ApiException(status=409)
+        print(name, namespace)
+
+
 class MockCoreV1Api:
+    service_map = {}
+
     def __init__(self, _):
         self.pod_dict = {}
         self.pvc_list = []
@@ -182,6 +237,15 @@ class MockCoreV1Api:
 
     def connect_get_namespaced_pod_exec(self, _name, _namespace, _command, **_):
         pass
+
+    @staticmethod
+    def create_namespaced_service(body, namespace):
+        name = '{}-{}'.format(body.metadata.name, namespace)
+        if name in MockCoreV1Api.service_map.keys():
+            raise ApiException(status=409)  # mock conflict
+        else:
+            MockCoreV1Api.service_map[name] = body
+            return body
 
 
 class MockBatchV1Api:
