@@ -154,7 +154,7 @@ export const asyncRoutes = [
             name: 'ide',
             hidden: true,
             component: () => import('@/views/storage/ide'),
-            meta: { title: 'Web IDE', roles: ['admin', 'super'] }
+            meta: { title: 'File Editor', roles: ['admin', 'super'] }
         }]
     },
     {

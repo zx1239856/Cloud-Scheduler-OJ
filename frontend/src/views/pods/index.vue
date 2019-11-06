@@ -69,7 +69,8 @@ export default {
                 Succeeded: 'success',
                 Failed: 'danger',
                 Unknown: 'info',
-                Pending: 'warning'
+                Pending: 'warning',
+                Terminating: 'warning'
             };
             return statusMap[status];
         }

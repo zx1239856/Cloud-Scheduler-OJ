@@ -32,7 +32,7 @@ class PodListHandler(View):
                     'name': i.metadata.name,
                     'create_time': i.metadata.creation_timestamp,
                     'uid': i.metadata.uid,
-                    'status': i.status.phase,
+                    'status': i.status.phase if not i.metadata.deletion_timestamp else 'Terminating',
                     'node_name': i.spec.node_name,
                 })
         except ValueError:

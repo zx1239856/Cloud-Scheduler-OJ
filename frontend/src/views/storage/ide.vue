@@ -2,58 +2,60 @@
   <div class="container">
     <el-container>
       <el-aside width="300px">
-        <div style="height: 50px; padding: 18px;">
-          <span>
-            Edit
-          </span>
-          <span style="float: right;">
-            <el-tooltip class="item" effect="dark" content="New File" placement="top">
-              <svg-icon icon-class="new_file" style="cursor:pointer; margin-left: 5px;" @click="handleCreateFile" />
-            </el-tooltip>
-            <el-tooltip class="item" effect="dark" content="New Directory" placement="top">
-              <svg-icon icon-class="new_directory" style="cursor:pointer; margin-left: 5px;" @click="handleCreateDirectory" />
-            </el-tooltip>
-          </span>
-        </div>
-        <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
-        <div style="overflow-y: scroll;">
-          <v-contextmenu ref="contextmenu">
-            <v-contextmenu-item @click="handleRename">
-              <svg-icon icon-class="rename" />
-              <span style="margin-left: 5px;">Rename</span>
-            </v-contextmenu-item>
-            <v-contextmenu-item @click="handleDelete">
-              <svg-icon icon-class="delete" />
-              <span style="margin-left: 5px;">Delete</span>
-            </v-contextmenu-item>
-          </v-contextmenu>
-
-          <el-tree id="el-tree" ref="tree" node-key="key" :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick" @node-contextmenu="handleNodeContextMenu" @click.native.prevent="handleNodeClick">
-            <span slot-scope="{ node }" class="custom-tree-node">
-              <span>
-                <span>
-                  <svg-icon :icon-class="node.data.icon" />
-                </span>
-                <span style="margin-left: 5px;">{{ node.data.label }}</span>
-              </span>
+        <div class="file-tree">
+          <div style="height: 50px; padding: 18px;">
+            <span>
+              Edit
             </span>
-          </el-tree>
+            <span style="float: right;">
+              <el-tooltip class="item" effect="dark" content="New File" placement="top">
+                <svg-icon icon-class="new_file" style="cursor:pointer; margin-left: 5px;" @click="handleCreateFile" />
+              </el-tooltip>
+              <el-tooltip class="item" effect="dark" content="New Directory" placement="top">
+                <svg-icon icon-class="new_directory" style="cursor:pointer; margin-left: 5px;" @click="handleCreateDirectory" />
+              </el-tooltip>
+            </span>
+          </div>
+          <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
+          <div style="overflow-y: scroll;">
+            <v-contextmenu ref="contextmenu">
+              <v-contextmenu-item @click="handleRename">
+                <svg-icon icon-class="rename" />
+                <span style="margin-left: 5px;">Rename</span>
+              </v-contextmenu-item>
+              <v-contextmenu-item @click="handleDelete">
+                <svg-icon icon-class="delete" />
+                <span style="margin-left: 5px;">Delete</span>
+              </v-contextmenu-item>
+            </v-contextmenu>
+
+            <el-tree id="el-tree" ref="tree" node-key="key" :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick" @node-contextmenu="handleNodeContextMenu" @click.native.prevent="handleNodeClick">
+              <span slot-scope="{ node }" class="custom-tree-node">
+                <span>
+                  <span>
+                    <svg-icon :icon-class="node.data.icon" />
+                  </span>
+                  <span style="margin-left: 5px;">{{ node.data.label }}</span>
+                </span>
+              </span>
+            </el-tree>
+          </div>
+          <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
         </div>
-        <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
-        <div style="text-align: center; margin: 20px;">
+        <div style="text-align: center; margin: 20px;" class="save-btn">
           <el-button :loading="codeMirrorLoading" type="primary" style="width: 80%;" @click="handleSave">Save</el-button>
         </div>
       </el-aside>
       <el-divider direction="vertical" />
       <el-main v-loading="codeMirrorLoading" style="padding: 0px;">
-        <div style="height: 50px; padding-top: 9px;">
+        <div>
           <el-tabs v-if="tabs.length" v-model="currentFile" type="border-card" closable @edit="handleTabsEdit" @tab-click="handleTabClick">
             <el-tab-pane v-for="item in tabs" :key="item.key" :label="item.label" :name="item.key" tab-position="bottom" />
           </el-tabs>
         </div>
         <div @keydown.ctrl.83.prevent="handleSave">
           <codemirror
-            v-if="tabs.length"
+            v-if="tabs.length && !imageUrl"
             ref="codemirror"
             v-model="code"
             class="codemirror"
@@ -62,6 +64,9 @@
             @focus="onCmFocus"
             @input="onCmCodeChange"
           />
+        </div>
+        <div v-if="imageUrl" class="image-container">
+          <el-image style="width: 100px; height: 100px" :src="imageUrl" fit="contain" />
         </div>
       </el-main>
     </el-container>
@@ -168,6 +173,7 @@ export default {
             },
             codeMirrorLoading: false,
             code: '',
+            imageUrl: '',
             cmOptions: {
                 // codemirror options
                 tabSize: 2,
@@ -195,6 +201,12 @@ export default {
                 txt: '',
                 s: { name: 'gas', architecture: 'x86' },
                 html: 'application/x-ejs'
+            },
+            imageMap: {
+                jpg: 'data:image/jpg',
+                jpeg: 'data:image/jpeg',
+                png: 'data:image/png',
+                gif: 'data:image/gif'
             }
         };
     },
@@ -253,8 +265,13 @@ export default {
                             const nextTab = this.tabs[index + 1] || this.tabs[index - 1];
                             if (nextTab) {
                                 this.currentFile = nextTab.key;
-                                this.code = nextTab.content;
-                                this.cmOptions.mode = this.getHighlightMode(this.currentFile);
+                                if (nextTab.isImage) {
+                                    this.imageUrl = nextTab.content;
+                                } else {
+                                    this.imageUrl = '';
+                                    this.code = nextTab.content;
+                                    this.cmOptions.mode = this.getHighlightMode(this.currentFile);
+                                }
                             }
                         }
                     });
@@ -328,8 +345,13 @@ export default {
                 return;
             }
             this.currentFile = this.tabs[tab.index].key;
-            this.code = this.tabs[tab.index].content;
-            this.cmOptions.mode = this.getHighlightMode(this.currentFile);
+            if (this.tabs[tab.index].isImage) {
+                this.imageUrl = this.tabs[tab.index].content;
+            } else {
+                this.imageUrl = '';
+                this.code = this.tabs[tab.index].content;
+                this.cmOptions.mode = this.getHighlightMode(this.currentFile);
+            }
         },
         getTabIndexOfFile(path) {
             let tabIndex = -1;
@@ -472,7 +494,7 @@ export default {
                         return resolve(resolveData);
                     }).catch(() => {
                     });
-                }, 10 * 1000);
+                }, 3 * 1000);
             });
         },
         handleNodeContextMenu(event, nodeObj, node, nodeComponent) {
@@ -498,41 +520,69 @@ export default {
             const tabIndex = this.getTabIndexOfFile(node.data.key);
             if (tabIndex > -1) {
                 this.currentFile = this.tabs[tabIndex].key;
-                this.code = this.tabs[tabIndex].content;
-                this.cmOptions.mode = this.getHighlightMode(this.currentFile);
+                if (this.tabs[tabIndex].isImage) {
+                    this.imageUrl = this.tabs[tabIndex].content;
+                } else {
+                    this.imageUrl = '';
+                    this.code = this.tabs[tabIndex].content;
+                    this.cmOptions.mode = this.getHighlightMode(this.currentFile);
+                }
                 return;
             }
-            var isCode = false;
+            let isCode = false;
             for (const extension in this.modeMap) {
                 if (node.data.key.endsWith('.' + extension)) {
                     isCode = true;
                     break;
                 }
             }
-            if (isCode === false) {
+            let isImage = false;
+            let imageExtension = null;
+            for (const extension in this.imageMap) {
+                if (node.data.key.endsWith('.' + extension)) {
+                    isImage = true;
+                    imageExtension = extension;
+                    break;
+                }
+            }
+
+            if (isCode) {
+                this.codeMirrorLoading = true;
+                this.currentFile = node.data.key;
+
+                getFile(this.pvcname, this.currentFile).then(response => {
+                    this.code = response.payload;
+                    this.imageUrl = '';
+                    this.cmOptions.mode = this.getHighlightMode(this.currentFile);
+                    this.tabs.push({
+                        key: this.currentFile,
+                        label: this.currentFile.substr(this.currentFile.lastIndexOf('/') + 1),
+                        content: response.payload,
+                        isImage: false
+                    });
+                }).finally(() => {
+                    this.codeMirrorLoading = false;
+                }).catch(() => {
+                    this.codeMirrorLoading = false;
+                });
+            } else if (isImage) {
+                this.currentFile = node.data.key;
+                getFile(this.pvcname, this.currentFile, true).then(response => {
+                    this.imageUrl = this.imageMap[imageExtension] + ';base64,' + response.payload;
+                    this.tabs.push({
+                        key: this.currentFile,
+                        label: this.currentFile.substr(this.currentFile.lastIndexOf('/') + 1),
+                        content: this.imageUrl,
+                        isImage: true
+                    });
+                });
+            } else {
                 this.$message({
                     message: 'Unsupported file format.',
                     type: 'warning'
                 });
                 return;
             }
-
-            this.codeMirrorLoading = true;
-            this.currentFile = node.data.key;
-
-            getFile(this.pvcname, this.currentFile).then(response => {
-                this.code = response.payload;
-                this.cmOptions.mode = this.getHighlightMode(this.currentFile);
-                this.tabs.push({
-                    key: this.currentFile,
-                    label: this.currentFile.substr(this.currentFile.lastIndexOf('/') + 1),
-                    content: response.payload
-                });
-            }).finally(() => {
-                this.codeMirrorLoading = false;
-            }).catch(() => {
-                this.codeMirrorLoading = false;
-            });
         },
         handleCreateFile() {
             this.dialogTitle = 'Create File';
@@ -566,6 +616,20 @@ export default {
 </script>
 
 <style lang="scss">
+.el-aside {
+    height: calc(100vh - 50px);
+    .el-tree {
+        height: calc(100vh - 150px - 40px)
+    }
+    .save-btn {
+        flex: 0 0 auto;
+    }
+}
+
+.el-tabs--border-card>.el-tabs__content {
+    padding: 0 !important;
+}
+
 .el-tabs{
     .el-tabs__header{
         margin: 0px;
@@ -592,7 +656,7 @@ export default {
 }
 
 .vue-codemirror{
-    height: 86vh;
+    height: calc(100vh - 100px);
     width: 100%;
     .CodeMirror {
         font-family: Consolas, monaco, monospace;
@@ -616,5 +680,19 @@ export default {
 
 .v-contextmenu-item{
     padding: 10px 16px 10px 16px !important;
+}
+
+.image-container {
+    height: calc(100vh - 100px);
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    div {
+        height: auto !important;
+        width: auto !important;
+        max-height: 80vh !important;
+        max-width: 80% !important;
+    }
 }
 </style>
