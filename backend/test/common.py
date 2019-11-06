@@ -298,7 +298,7 @@ def MockUrlOpen(request, **_):
         return {
             "schemaVersion": 1,
             "name": "test_repo",
-            "tag": "test_alias",
+            "tag": "[test_alias]",
             "architecture": "amd64",
             "fsLayers": [
                 {
@@ -330,12 +330,24 @@ def MockUrlOpen(request, **_):
     else:
         return None
 
+def MockUrlOpenErrorResponse(*_, **__):
+    class MockResponse:
+        def __init__(self, response_code, contentLength):
+            self.status = response_code
+            self.contentLength = contentLength
+
+        def info(self):
+            return {
+                'Content-Length': self.contentLength
+            }
+
+    return MockResponse(400, '0')
 
 def MockJsonRequest(*_):
     return {
         "schemaVersion": 1,
         "name": "test_repo",
-        "tag": "test_alias",
+        "tags": ["test_alias"],
         "architecture": "amd64",
         "fsLayers": [
             {
