@@ -4,7 +4,8 @@ from kubernetes.stream import ws_client
 from api.common import RESPONSE
 import user_space.views as views
 from task_manager.models import TaskSettings
-from .common import login_test_user, TestCaseWithBasicUser, MockCoreV1Api, MockTaskExecutor, MockWSClient
+from .common import login_test_user, TestCaseWithBasicUser, MockCoreV1Api, MockTaskExecutor, MockWSClient, \
+    MockTaskExecutorNotReady, MockTaskExecutorWithInternalError
 
 
 class MockWsClientUserSpace(MockWSClient):
@@ -29,6 +30,10 @@ def mock_bad_stream(_p0, _p1, _p2, **_):
 
 
 class MockNullPodExecutor(MockTaskExecutor):
+    @classmethod
+    def instance(cls, **_):
+        return MockNullPodExecutor()
+
     @staticmethod
     def get_user_space_pod(*_):
         return None
@@ -53,25 +58,25 @@ class TestUserSpace(TestCaseWithBasicUser):
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.INVALID_REQUEST)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
-    @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
+    @mock.patch.object(views, 'TaskExecutor', MockTaskExecutorNotReady)
     def test_null_executor(self):
         token = login_test_user('admin')
-        response = self.client.get('/user_space/my_uuid/', HTTP_X_ACCESS_TOKEN=token,
+        response = self.client.get('/user_space/my_uuid/?file=test', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.OPERATION_FAILED)
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
     @mock.patch.object(views, 'TaskExecutor', MockNullPodExecutor)
     def test_null_pod(self):
         token = login_test_user('admin')
-        response = self.client.get('/user_space/my_uuid/', HTTP_X_ACCESS_TOKEN=token,
+        response = self.client.get('/user_space/my_uuid/?file=test', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.OPERATION_FAILED)
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
     def test_invalid_task_settings(self):
@@ -82,7 +87,7 @@ class TestUserSpace(TestCaseWithBasicUser):
                                     HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.OPERATION_FAILED)
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
     def test_post_files_invalid_request(self):
@@ -93,20 +98,20 @@ class TestUserSpace(TestCaseWithBasicUser):
                                     HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.INVALID_REQUEST)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
     def test_put_files_invalid_request(self):
         token = login_test_user('admin')
-        response = self.client.post('/user_space/my_uuid/', data=json.dumps({
+        response = self.client.put('/user_space/my_uuid/', data=json.dumps({
             'old_file': 'old_file',
             'path': 'path'
         }), content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
-                                    HTTP_X_ACCESS_TOKEN=token,
-                                    HTTP_X_ACCESS_USERNAME='admin')
+                                   HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.INVALID_REQUEST)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
 
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
     def test_file_crud(self):
@@ -116,8 +121,8 @@ class TestUserSpace(TestCaseWithBasicUser):
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.SUCCESS)
-        self.assertTrue(response['payload'], 'app\ntest\nmain.cpp')
+        self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
+        self.assertEqual(response['payload'], 'app\ntest\nmain.cpp')
 
         response = self.client.post('/user_space/my_uuid/', data=json.dumps({'file': 'file'}),
                                     content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
@@ -125,7 +130,7 @@ class TestUserSpace(TestCaseWithBasicUser):
                                     HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.SUCCESS)
+        self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
 
         response = self.client.put('/user_space/my_uuid/', data=json.dumps({'file': 'file',
                                                                             'old_file': 'old',
@@ -135,7 +140,7 @@ class TestUserSpace(TestCaseWithBasicUser):
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.SUCCESS)
+        self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
 
         response = self.client.delete('/user_space/my_uuid/', data=json.dumps({'file': 'file'}),
                                       content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
@@ -143,7 +148,7 @@ class TestUserSpace(TestCaseWithBasicUser):
                                       HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.SUCCESS)
+        self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
 
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
     def test_path_crud(self):
@@ -153,8 +158,8 @@ class TestUserSpace(TestCaseWithBasicUser):
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.SUCCESS)
-        self.assertTrue(response['payload'], 'app\ntest\nmain.cpp'.split())
+        self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
+        self.assertEqual(response['payload'], 'app\ntest\nmain.cpp'.split())
 
         response = self.client.post('/user_space/my_uuid/', data=json.dumps({'path': 'path'}),
                                     content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
@@ -162,7 +167,7 @@ class TestUserSpace(TestCaseWithBasicUser):
                                     HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.SUCCESS)
+        self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
 
         response = self.client.put('/user_space/my_uuid/', data=json.dumps({'old_path': 'old',
                                                                             'path': 'new'}),
@@ -171,7 +176,7 @@ class TestUserSpace(TestCaseWithBasicUser):
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.SUCCESS)
+        self.assertTrue(response['status'], RESPONSE.SUCCESS['status'])
 
         response = self.client.delete('/user_space/my_uuid/', data=json.dumps({'path': 'file'}),
                                       content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
@@ -179,7 +184,7 @@ class TestUserSpace(TestCaseWithBasicUser):
                                       HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.SUCCESS)
+        self.assertTrue(response['status'], RESPONSE.SUCCESS['status'])
 
     @mock.patch.object(views, 'stream', mock_bad_stream)
     @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
@@ -190,5 +195,45 @@ class TestUserSpace(TestCaseWithBasicUser):
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
-        self.assertTrue(response['status'], RESPONSE.OPERATION_FAILED)
+        self.assertTrue(response['status'], RESPONSE.OPERATION_FAILED['status'])
         self.assertTrue(response['payload'], 'app\ntest\nmain.cpp'.split())
+
+    @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
+    def test_user_vnc_handler(self):
+        token = login_test_user('admin')
+        response = self.client.get('/vnc/my_uuid/',
+                                   HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
+        self.assertEqual(response['payload']['magic'], 19260817)
+
+    @mock.patch.object(views, 'TaskExecutor', MockTaskExecutorNotReady)
+    def test_user_vnc_handler_executor_not_ready(self):
+        token = login_test_user('admin')
+        response = self.client.get('/vnc/my_uuid/',
+                                   HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+
+    @mock.patch.object(views, 'TaskExecutor', MockTaskExecutorWithInternalError)
+    def test_user_vnc_handler_executor_server_err(self):
+        token = login_test_user('admin')
+        response = self.client.get('/vnc/my_uuid/',
+                                   HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SERVER_ERROR['status'])
+
+    @mock.patch.object(views, 'TaskExecutor', MockTaskExecutorWithInternalError)
+    def test_user_space_server_err(self):
+        token = login_test_user('admin')
+        response = self.client.get('/user_space/my_uuid/?file=test', HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SERVER_ERROR['status'])

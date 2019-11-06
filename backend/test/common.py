@@ -197,6 +197,23 @@ class MockBatchV1Api:
         pass
 
 
+class MockTaskExecutorNotReady:
+    @classmethod
+    def instance(cls, **_):
+        return None
+
+
+class MockTaskExecutorWithInternalError:
+    @classmethod
+    def instance(cls, **_):
+        return MockTaskExecutorWithInternalError()
+
+    @staticmethod
+    def get_user_vnc_pod(uuid, user):
+        # user object is not JSON serializable
+        return {'uuid': uuid, 'user': user}
+
+
 class MockTaskExecutor:
     def __init__(self):
         self.ready = True
@@ -220,6 +237,10 @@ class MockTaskExecutor:
             }),
             'spec': DotDict({'node_name': 'test_node'})
         })
+
+    @staticmethod
+    def get_user_vnc_pod(uuid, user):
+        return {'magic': 19260817, 'uuid': uuid, 'user': user.username}
 
 
 class MockWSClient:
@@ -330,6 +351,7 @@ def MockUrlOpen(request, **_):
     else:
         return None
 
+
 def MockUrlOpenErrorResponse(*_, **__):
     class MockResponse:
         def __init__(self, response_code, contentLength):
@@ -342,6 +364,7 @@ def MockUrlOpenErrorResponse(*_, **__):
             }
 
     return MockResponse(400, '0')
+
 
 def MockJsonRequest(*_):
     return {
