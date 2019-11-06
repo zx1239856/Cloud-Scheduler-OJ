@@ -123,7 +123,7 @@ class MockCoreV1Api:
     @staticmethod
     def list_namespaced_persistent_volume_claim(**_):
         item_list = []
-        for i in range(0, 51):
+        for i in range(0, 50):
             item_list.append(DotDict({
                 'metadata':
                     DotDict({
@@ -144,6 +144,26 @@ class MockCoreV1Api:
                         'capacity': {'storage': "100Mi"}
                     })
             }))
+        item_list.append(DotDict({
+            'metadata':
+                DotDict({
+                    'namespace': 'test-ns',
+                    'name': 'pvc_50',
+                }),
+            'spec':
+                DotDict({
+                    'resources':
+                        DotDict({
+                            'requests': {'storage': '100Mi'}
+                        }),
+                    'access_modes': ['ReadWriteMany']
+                }),
+            'status':
+                DotDict({
+                    'phase': "Pending",
+                    'capacity': None
+                })
+        }))
         return ReturnItemsList(item_list)
 
     @staticmethod
@@ -156,14 +176,13 @@ class MockCoreV1Api:
         pass
 
     @staticmethod
-    def create_namespaced_persistent_volume_claim(namespace, body, **_):
+    def create_namespaced_persistent_volume_claim(namespace, body, **__):
         print(namespace)
         if body.metadata.name == 'existing-pvc':
             raise ApiException(status=409, reason="existing-pvc")
 
     @staticmethod
-    def read_namespaced_persistent_volume_claim(namespace, name, **_):
-        print(namespace)
+    def read_namespaced_persistent_volume_claim(name, *_, **__):
         if name == 'nonexistent-pvc':
             raise ApiException(status=404, reason="nonexistent-pvc")
 
@@ -177,7 +196,9 @@ class MockCoreV1Api:
         pass
 
     @staticmethod
-    def read_namespaced_pod_status(*_, **__):
+    def read_namespaced_pod_status(_name, *_, **__):
+        if _name == "pod-unreadypvc":
+            return DotDict({'status': DotDict({'phase': 'Pending'})})
         return DotDict({'status': DotDict({'phase': 'Running'})})
 
     def connect_get_namespaced_pod_exec(self, _name, _namespace, _command, **_):
