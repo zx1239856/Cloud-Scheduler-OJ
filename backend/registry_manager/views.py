@@ -85,13 +85,10 @@ class ConnectionUtils:
 
     # get information of a repository
     def get_repository(self, repo):
-        try:
-            response = {
-                'Repo': repo,
-            }
-            return response
-        except Exception as ex:
-            return str(ex)
+        response = {
+            'Repo': repo,
+        }
+        return response
 
     # urllib request
     def request_registry(self, *args, **kwargs):
@@ -224,8 +221,7 @@ class RepositoryHandler(View):
                     ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.CACHING)
                     self.cacheFile(f, md)
             return JsonResponse(RESPONSE.SUCCESS)
-        except Exception as ex:
-            LOGGER.info(str(ex))
+        except Exception:
             return JsonResponse(RESPONSE.OPERATION_FAILED)
 
     def cacheFile(self, file, md):
@@ -330,5 +326,4 @@ class UploadHandler(View):
             response['payload'] = payload
             return JsonResponse(response)
         except Exception:
-            print("error in upload get")
             return JsonResponse(RESPONSE.INVALID_REQUEST)

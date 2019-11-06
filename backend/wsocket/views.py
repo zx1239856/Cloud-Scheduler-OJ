@@ -2,7 +2,6 @@
 View handler for WebSocket
 """
 # pylint: disable=C0411
-import socket
 import logging
 import base64
 import time
@@ -52,8 +51,6 @@ class SSH:
         try:
             Thread(target=self.django_to_websocket, kwargs={'pod': pod, 'shell': shell,
                                                             'namespace': namespace, 'args': args}).start()
-        except socket.timeout:
-            self.close()
         except Exception as e:
             LOGGER.error(e)
             self.close()

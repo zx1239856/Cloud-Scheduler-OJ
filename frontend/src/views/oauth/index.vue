@@ -67,14 +67,14 @@
           <el-input ref="inputName" v-model="dialogData.name" />
         </el-form-item>
         <el-form-item label="Redirect URI" prop="redirect_uri">
-          <el-input v-model="dialogData.redirect_uri" />
+          <el-input v-model="dialogData.redirect_uri" @keyup.enter.native="handleDialogConfirm" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button @click="dialogVisible = false">
           Cancel
         </el-button>
-        <el-button type="primary" @click="handleDialogConfirm">
+        <el-button :loading="dialogLoading" type="primary" @click="handleDialogConfirm">
           {{ dialogTitle }}
         </el-button>
       </div>
@@ -88,7 +88,7 @@
       <span>Are you sure to delete this app?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible = false">Cancel</el-button>
-        <el-button type="danger" @click="deleteOAuthApp">Delete</el-button>
+        <el-button :loading="deleteDialogLoading" type="danger" @click="handleDeleteConfirm">Delete</el-button>
       </span>
     </el-dialog>
 
@@ -148,6 +148,8 @@ export default {
     components: { Pagination },
     data() {
         return {
+            dialogLoading: false,
+            deleteDialogLoading: false,
             dialogData: {
                 uuid: 0,
                 name: '',
@@ -205,15 +207,18 @@ export default {
                 this.$refs.inputName.focus();
             });
         },
-        deleteOAuthApp() {
+        handleDeleteConfirm() {
+            this.deleteDialogLoading = true;
             deleteOAuthApp(this.selectedRowData.pk)
                 .then(response => {
                     this.$message({
                         message: 'Successfully Deleted',
                         type: 'success'
                     });
-                    this.deleteDialogVisible = false;
                     this.getList();
+                }).finally(() => {
+                    this.deleteDialogLoading = false;
+                    this.deleteDialogVisible = false;
                 });
         },
         handleDisplayDetail(row) {
@@ -242,6 +247,7 @@ export default {
                 if (!valid) {
                     return false;
                 }
+                this.dialogLoading = true;
                 this.dialogVisible = false;
                 if (this.dialogTitle === 'Create') {
                     // create
@@ -252,6 +258,8 @@ export default {
                                 type: 'success'
                             });
                             this.getList();
+                        }).finally(() => {
+                            this.dialogLoading = false;
                         });
                 } else {
                     // update
@@ -262,6 +270,8 @@ export default {
                                 type: 'success'
                             });
                             this.getList();
+                        }).finally(() => {
+                            this.dialogLoading = false;
                         });
                 }
             });

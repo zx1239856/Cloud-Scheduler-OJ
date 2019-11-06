@@ -3,7 +3,7 @@ import uuid
 import time
 import mock
 import bcrypt
-from django.test import TestCase
+from django.test import TestCase, RequestFactory
 from api.common import RESPONSE
 import user_model.views as view
 from user_model.models import UserModel, UserType
@@ -33,6 +33,22 @@ class TestMisc(TestCase):
         self.assertTrue(view.get_access_token_model())
         self.assertTrue(view.get_access_token_model(False))
         self.assertTrue(view.get_application_model(False))
+
+    def test_user_login_common_wrapper(self):
+        factory = RequestFactory()
+        req = factory.get('/url')
+        req.COOKIES['username'] = 'test'
+        req.COOKIES['token'] = 'token'
+
+        def assertion(username, token):
+            self.assertEqual(username, 'test')
+            self.assertEqual(token, 'token')
+
+        view.user_login_common_wrapper(req, assertion, True)
+
+    def test_token_manager_exceptions(self):
+        view.TokenManager.get_token(None)
+        # should not throw exception here
 
 
 class TestUserModel(TestCase):
@@ -290,6 +306,17 @@ class TestSuperAdminApis(TestCaseWithBasicUser):
         admin = UserModel.objects.get(uuid=self.admin.uuid)
         self.assertEqual(admin.email, 'test222@126.com')
 
+    @mock.patch.object(view, 'send_mail', mock_send_mail)
+    def test_change_admin_invalid_req(self):
+        token = login_test_user('su_admin')
+        response = self.client.put('/user/admin/{}/'.format(self.admin.uuid), 'invalid_body',
+                                   content_type='application/json', HTTP_X_REQUEST_WITH='XMLHttpRequest',
+                                   HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='su_admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.INVALID_REQUEST['status'])
+
     @mock.patch.object(view, 'send_mail', mock_send_mail_fail)
     def test_change_admin_mail_fail(self):
         token = login_test_user('su_admin')
@@ -321,6 +348,14 @@ class TestOAuthApplications(TestCaseWithBasicUser):
     def test_get_list_invalid_req(self):
         token = login_test_user('admin')
         response = self.client.get('/oauth/applications/?page=invalid', HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response, RESPONSE.INVALID_REQUEST)
+
+    def test_get_list_invalid_req_2(self):
+        token = login_test_user('admin')
+        response = self.client.get('/oauth/applications/?page=0', HTTP_X_ACCESS_TOKEN=token,
                                    HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
@@ -477,6 +512,10 @@ class TestOAuthLogin(TestCaseWithBasicUser):
                                     {'username': 'user',
                                      'password': 'user'})
         self.assertEqual(response.status_code, 302)
+        response = self.client.post('/oauth/login/?next=https://test.com/',
+                                    {'username': 'admin',
+                                     'password': 'wrong_pass'})
+        self.assertEqual(response.status_code, 200)
         response = self.client.post('/oauth/login/',
                                     {'username': 'user',
                                      'password': 'user'})

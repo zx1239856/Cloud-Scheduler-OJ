@@ -136,7 +136,7 @@ export const asyncRoutes = [
             path: 'index/',
             name: 'pods',
             component: () => import('@/views/pods/index'),
-            meta: { title: 'Pods', icon: 'box', roles: ['admin'] }
+            meta: { title: 'Pods', icon: 'box', roles: ['admin', 'super'] }
         }]
     },
     {
@@ -147,14 +147,14 @@ export const asyncRoutes = [
             path: 'storage',
             name: 'Storage',
             component: () => import('@/views/storage/index'),
-            meta: { title: 'Storage', icon: 'storage', roles: ['admin'] }
+            meta: { title: 'Storage', icon: 'storage', roles: ['admin', 'super'] }
         },
         {
             path: 'ide/',
             name: 'ide',
             hidden: true,
             component: () => import('@/views/storage/ide'),
-            meta: { title: 'Web IDE' }
+            meta: { title: 'Web IDE', roles: ['admin', 'super'] }
         }]
     },
     {
@@ -166,7 +166,7 @@ export const asyncRoutes = [
                 path: 'repositories/',
                 name: 'repositories',
                 component: () => import('@/views/registry/index'),
-                meta: { title: 'Repositories', icon: 'repository', roles: ['admin'] }
+                meta: { title: 'Repositories', icon: 'repository', roles: ['admin', 'super'] }
             }
             // {
             //     path: 'image/',
@@ -179,14 +179,13 @@ export const asyncRoutes = [
     },
     {
         path: '/oauth/',
-        meta: { title: 'OAuth', icon: 'oauth' },
         component: Layout,
         children: [
             {
                 path: '',
                 name: 'oauth',
                 component: () => import('@/views/oauth/index'),
-                meta: { title: 'OAuth', roles: ['admin'] }
+                meta: { title: 'OAuth', icon: 'oauth', roles: ['admin', 'super'] }
             }
         ]
     },
@@ -198,7 +197,19 @@ export const asyncRoutes = [
                 path: '',
                 name: 'Grafana',
                 component: () => import('@/views/grafana/index'),
-                meta: { title: 'Grafana', icon: 'grafana', roles: ['admin'] }
+                meta: { title: 'Grafana', icon: 'grafana', roles: ['admin', 'super'] }
+            }
+        ]
+    },
+    {
+        path: '/admin_management/',
+        component: Layout,
+        children: [
+            {
+                path: '',
+                name: 'admin_management',
+                component: () => import('@/views/admin_management/index'),
+                meta: { title: 'Admin Management', icon: 'admin', roles: ['super'] }
             }
         ]
     }

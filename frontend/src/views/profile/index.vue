@@ -36,7 +36,7 @@
         <el-button @click="dialogVisible = false">
           Cancel
         </el-button>
-        <el-button type="primary" @click="handleDialogConfirm">
+        <el-button :loading="dialogLoading" type="primary" @click="handleDialogConfirm">
           Update
         </el-button>
       </div>
@@ -68,6 +68,7 @@ export default {
                 password: '',
                 confirmPassword: ''
             },
+            dialogLoading: false,
             dialogVisible: false,
             dialogRules: {
                 email: [{
@@ -114,13 +115,15 @@ export default {
                 if (!valid) {
                     return false;
                 }
-
+                this.dialogLoading = true;
                 updateUserInfo(this.profile.email, md5(this.profile.password))
                     .then(response => {
                         this.$message({
                             message: 'Successfully Updated',
                             type: 'success'
                         });
+                    }).finally(() => {
+                        this.dialogLoading = false;
                         this.dialogVisible = false;
                     });
             });

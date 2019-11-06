@@ -14,7 +14,7 @@
       <el-button v-waves class="filter-item" type="primary" icon="el-icon-search" @click="handleFilter">
         Search
       </el-button> -->
-      <el-button v-if="permission==='admin'" class="filter-item" style="margin: 20px;" type="primary" icon="el-icon-plus" @click="handleCreate">
+      <el-button v-if="permission!=='user'" class="filter-item" style="margin: 20px;" type="primary" icon="el-icon-plus" @click="handleCreate">
         New Settings
       </el-button>
     </div>
@@ -36,8 +36,8 @@
       </el-table-column>
       <el-table-column label="Name" width="150" align="center">
         <template slot-scope="{row}">
-          <span v-if="permission==='admin'" class="link-type" @click="handleUpdate(row)">{{ row.name }}</span>
-          <span v-if="permission!=='admin'">{{ row.name }}</span>
+          <span v-if="permission!=='user'" class="link-type" @click="handleUpdate(row)">{{ row.name }}</span>
+          <span v-if="permission==='user'">{{ row.name }}</span>
         </template>
       </el-table-column>
       <el-table-column label="Description" min-width="120" align="center">
@@ -55,12 +55,12 @@
           <span>{{ new Date(scope.row.create_time).toLocaleString() }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="Actions" align="center" :width="permission==='admin'?500:380" class-name="small-padding fixed-width">
+      <el-table-column label="Actions" align="center" :width="permission!=='user'?450:350" class-name="small-padding fixed-width">
         <template slot-scope="{row}">
           <el-button type="primary" plain size="small" @click="handleIde(row)">
             IDE
           </el-button>
-          <el-button type="primary" plain size="small" @click="handleSsh(row)">
+          <el-button type="info" plain size="small" @click="handleSsh(row)">
             SSH
           </el-button>
           <el-button type="warning" plain size="small" @click="handleVnc(row)">
@@ -69,7 +69,7 @@
           <el-button type="success" plain size="small" icon="el-icon-plus" @click="handleAddTask(row)">
             Add Task
           </el-button>
-          <el-button v-if="permission==='admin'" plain type="danger" size="small" icon="el-icon-delete" @click="handleDelete(row)">
+          <el-button v-if="permission!=='user'" plain type="danger" size="small" icon="el-icon-delete" @click="handleDelete(row)">
             Delete
           </el-button>
         </template>
@@ -88,7 +88,7 @@
       <span>Are you sure to delete this settings?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible = false">Cancel</el-button>
-        <el-button type="danger" @click="deleteTaskSettings">Delete</el-button>
+        <el-button :loading="deleteDialogLoading" type="danger" @click="deleteTaskSettings">Delete</el-button>
       </span>
     </el-dialog>
   </div>
@@ -123,6 +123,7 @@ export default {
         return {
             dialogType: 'Create',
             dialogFormVisible: false,
+            deleteDialogLoading: false,
             deleteDialogVisible: false,
             tableKey: 0,
             list: null,
@@ -200,13 +201,16 @@ export default {
             this.$router.push({ name: 'vnc', query: { uuid: row.uuid }});
         },
         deleteTaskSettings() {
-            this.deleteDialogVisible = false;
+            this.deleteDialogLoading = true;
             deleteTaskSettings(this.dialogData.uuid).then(response => {
                 this.$message({
                     message: 'Task Settings Deleted',
                     type: 'success'
                 });
                 this.getList();
+            }).finally(() => {
+                this.deleteDialogLoading = false;
+                this.deleteDialogVisible = false;
             });
         },
         handleDialogConfirm() {

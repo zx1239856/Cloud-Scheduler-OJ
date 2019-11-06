@@ -46,7 +46,7 @@
           <el-button type="primary" plain size="small" @click="handleIde(row)">
             IDE
           </el-button>
-          <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name == 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
+          <el-button type="danger" size="small" icon="el-icon-delete" :disabled="row.name === 'cloud-scheduler-userspace'" @click="handleDelete(row)" />
         </template>
       </el-table-column>
     </el-table>
@@ -269,6 +269,7 @@ export default {
             getPVCList(this.listQuery).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
+            }).finally(() => {
                 this.listLoading = false;
             });
         },
@@ -320,6 +321,7 @@ export default {
                     type: 'success'
                 });
                 this.getList();
+            }).finally(() => {
                 this.deleteDialogVisible = false;
             });
         },
@@ -385,6 +387,7 @@ export default {
             getFileList(this.historyList.listQuery).then(response => {
                 this.historyList.list = response.payload.entry;
                 this.historyList.total = response.payload.count;
+            }).finally(() => {
                 this.historyList.listLoading = false;
             });
         },
