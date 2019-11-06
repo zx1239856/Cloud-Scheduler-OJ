@@ -2,6 +2,8 @@ import logging
 import json
 import re
 import os
+import hashlib
+import time
 from threading import Thread
 from urllib.request import Request
 from urllib.request import urlopen
@@ -14,6 +16,7 @@ from dxf import DXFBase
 from api.common import RESPONSE
 from config import REGISTRY_V2_API_ADDRESS, DOCKER_ADDRESS, REGISTRY_ADDRESS
 from registry_manager.manifest import makeManifest
+from registry_manager.models import ImageModel, ImageStatusCode
 from user_model.views import permission_required
 
 LOGGER = logging.getLogger(__name__)
@@ -106,7 +109,6 @@ class ConnectionUtils:
         response = self.string_request(*args, **kwargs)
         return json.loads(response)
 
-
 class RegistryHandler(View):
     http_method_names = ['get']
     util = ConnectionUtils()
@@ -140,7 +142,6 @@ class RegistryHandler(View):
             return JsonResponse(response)
         except Exception:
             return JsonResponse(RESPONSE.OPERATION_FAILED)
-
 
 class RepositoryHandler(View):
     http_method_names = ['get', 'post', 'put', 'delete']
@@ -214,34 +215,49 @@ class RepositoryHandler(View):
                 tar_pattern = "[.](tar)$"
                 searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
                 if searched_tar:
-                    self.cacheFile(f)
+                    upload_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                    md = hashlib.md5()
+                    md.update((f.name+upload_time).encode('utf-8'))
+                    md = md.hexdigest()
+                    file_model = ImageModel(hashid=md, filename=f.name, status=ImageStatusCode.PENDING, uploadtime=upload_time)
+                    file_model.save()
+                    ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.CACHING)
+                    self.cacheFile(f, md)
             return JsonResponse(RESPONSE.SUCCESS)
-        except Exception:
+        except Exception as ex:
+            LOGGER.info(str(ex))
             return JsonResponse(RESPONSE.OPERATION_FAILED)
 
-    def cacheFile(self, file):
+    def cacheFile(self, file, md):
         if not os.path.exists(self.basePath):
             os.makedirs(self.basePath)
         writeFile = open(self.basePath + file.name, 'wb+')
         for chunk in file.chunks():
             writeFile.write(chunk)
         writeFile.close()
-        upload = Thread(target=self.upload, args=(file.name,))
+        ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.CACHED)
+        upload = Thread(target=self.upload, args=(file.name, md,))
         upload.start()
 
-    def upload(self, filename):
-        client = DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-        docker_api = APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-        readFile = open(self.basePath+filename, 'rb+')
-        file = readFile.read()
-        image = client.images.load(file)[0]
-        name = image.tags[0]
-        newName = REGISTRY_ADDRESS + '/' + name
-        docker_api.tag(name, newName)
-        docker_api.push(newName)
-        readFile.close()
-        if os.path.exists(self.basePath + filename):
-            os.remove(self.basePath + filename)
+    def upload(self, filename, md):
+        try:
+            ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.UPLOADING)
+            client = DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
+            docker_api = APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
+            readFile = open(self.basePath+filename, 'rb+')
+            file = readFile.read()
+            image = client.images.load(file)[0]
+            name = image.tags[0]
+            newName = REGISTRY_ADDRESS + '/' + name
+            docker_api.tag(name, newName)
+            docker_api.push(newName)
+            readFile.close()
+            if os.path.exists(self.basePath + filename):
+                os.remove(self.basePath + filename)
+            LOGGER.info("done upload")
+            ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.SUCCEEDED)
+        except Exception:
+            ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.FAILED)
 
     @method_decorator(permission_required)
     def delete(self, _, **kwargs):
@@ -266,3 +282,53 @@ class RepositoryHandler(View):
             return JsonResponse(RESPONSE.SUCCESS)
         except Exception:
             return JsonResponse(RESPONSE.OPERATION_FAILED)
+
+class UploadHandler(View):
+    http_method_names = ['get']
+
+    @method_decorator(permission_required)
+    def get(self, request, **_):
+        """
+        @api {get} /registry/history/ get uploading image list
+        @apiName getImageList
+        @apiGroup RegistryManager
+        @apiVersion 0.1.0
+        @apiSuccess {Object} payload Response Object
+        @apiSuccess {Number} payload.count Count of total images
+        @apiSuccess {Number} payload.page_count Count of total pages
+        @apiSuccess {Object[]} payload.entry List of images
+        @apiSuccess {String} payload.entry.name Filename
+        @apiSuccess {Number} payload.entry.status File uploading status
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
+        """
+        try:
+            page = int(request.GET.get('page', 1))
+            image_list = ImageModel.objects.all().order_by('-uploadtime')
+            response = RESPONSE.SUCCESS
+            payload = {
+                'count': len(image_list),
+                'page_count': (len(image_list) + 24) // 25,
+                'entry': []
+            }
+            if page < 1 or page > payload['page_count']:
+                if page == 1 and payload['page_count'] == 0:
+                    pass
+                else:
+                    raise ValueError()
+            for f in image_list[25 * (page - 1): 25 * page]:
+                payload['entry'].append({'id': f.hashid,
+                                         'name': f.filename,
+                                         'status': f.status,
+                                         'time': f.uploadtime,
+                                         })
+            response['payload'] = payload
+            return JsonResponse(response)
+        except Exception:
+            print("error in upload get")
+            return JsonResponse(RESPONSE.INVALID_REQUEST)
