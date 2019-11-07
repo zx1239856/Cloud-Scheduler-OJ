@@ -76,7 +76,7 @@ class DockerTarUploader:
                     layers = manifest['Layers']
                     formatted_layers = []
                     for layer in layers:
-                        LOGGER.info("Start pushing layer " + str(layer))
+                        LOGGER.info("Start pushing layer %s", str(layer))
                         layer_path = os.path.join(tmp_dir, layer)
                         self._dxf.push_blob(layer_path, progress=on_progress, check_exists=check_exists)
                         formatted_layers.append(layer_path)

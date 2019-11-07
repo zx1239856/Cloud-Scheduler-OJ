@@ -8,7 +8,7 @@ import mock
 from api.common import RESPONSE
 import registry_manager.views as registry_views
 from registry_manager.models import ImageModel
-from .common import MockRequest, MockUrlOpen, MockDXF, MockDXFBase, MockJsonRequest, MockGetTags, MockDockerClient, MockAPIClient, TestCaseWithBasicUser, login_test_user, MockUrlOpenErrorResponse
+from .common import MockRequest, MockUrlOpen, MockDXF, MockDXFBase, MockJsonRequest, MockGetTags, TestCaseWithBasicUser, login_test_user, MockUrlOpenErrorResponse
 
 @mock.patch.object(registry_views, 'Request', MockRequest)
 @mock.patch.object(registry_views, 'urlopen', MockUrlOpen)
@@ -72,8 +72,6 @@ class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views, 'DXF', MockDXF)
     @mock.patch.object(registry_views.ConnectionUtils, 'json_request', MockJsonRequest)
     @mock.patch.object(registry_views.ConnectionUtils, 'get_tags', MockGetTags)
-    @mock.patch.object(registry_views, 'DockerClient', MockDockerClient)
-    @mock.patch.object(registry_views, 'APIClient', MockAPIClient)
     def test_RepositoryHandler_post(self):
         token = login_test_user('admin')
         f = open('test.tar', 'w')
@@ -90,8 +88,6 @@ class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views, 'urlopen', MockUrlOpen)
     @mock.patch.object(registry_views, 'DXF', MockDXF)
     @mock.patch.object(registry_views.ConnectionUtils, 'get_tags', MockGetTags)
-    @mock.patch.object(registry_views, 'DockerClient', MockDockerClient)
-    @mock.patch.object(registry_views, 'APIClient', MockAPIClient)
     def test_RepositoryHandler_post_error1(self):
         token = login_test_user('admin')
         response = self.client.post('/registry/repository/upload/', data={}, HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
@@ -115,15 +111,13 @@ class TestRepositoryHander(TestCaseWithBasicUser):
     @mock.patch.object(registry_views, 'DXF', MockDXF)
     @mock.patch.object(registry_views.ConnectionUtils, 'json_request', MockJsonRequest)
     @mock.patch.object(registry_views.ConnectionUtils, 'get_tags', MockGetTags)
-    @mock.patch.object(registry_views, 'DockerClient', MockDockerClient)
-    @mock.patch.object(registry_views, 'APIClient', MockAPIClient)
     def test_cacheFile(self):
         shutil.rmtree('registry_manager/data', ignore_errors=True)
         token = login_test_user('admin')
         f = open('test.tar', 'w')
         f.close()
         f = open('test.tar', 'r')
-        response = self.client.post('/registry/repository/upload/', data={'file[]': [f]}, HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
+        response = self.client.post('/registry/repository/upload/', data={'file[]': [f], 'repo': 'test_repo'}, HTTP_X_ACCESS_TOKEN=token, HTTP_X_ACCESS_USERNAME='admin')
         self.assertEqual(response.status_code, 200)
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
@@ -132,10 +126,8 @@ class TestRepositoryHander(TestCaseWithBasicUser):
 
     @mock.patch.object(registry_views, 'Request', MockRequest)
     @mock.patch.object(registry_views, 'urlopen', MockUrlOpen)
-    @mock.patch.object(registry_views, 'DockerClient', MockDockerClient)
-    @mock.patch.object(registry_views, 'APIClient', MockAPIClient)
     def test_upload(self):
-        registry_views.RepositoryHandler().upload("test.tar", 'testid')
+        registry_views.RepositoryHandler().upload("test.tar", 'testid', 'test_repo')
 
     @mock.patch.object(registry_views, 'Request', MockRequest)
     @mock.patch.object(registry_views, 'urlopen', MockUrlOpenErrorResponse)

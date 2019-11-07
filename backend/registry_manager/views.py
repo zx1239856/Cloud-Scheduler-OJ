@@ -13,7 +13,7 @@ from django.utils.decorators import method_decorator
 from dxf import DXF
 from dxf import DXFBase
 from api.common import RESPONSE
-from config import REGISTRY_V2_API_ADDRESS, DOCKER_ADDRESS, REGISTRY_ADDRESS
+from config import REGISTRY_V2_API_ADDRESS, REGISTRY_ADDRESS
 from registry_manager.manifest import make_manifest
 from registry_manager.models import ImageModel, ImageStatusCode
 from registry_manager.uploader import DockerTarUploader
@@ -204,7 +204,7 @@ class RepositoryHandler(View):
         """
         try:
             files = request.FILES.getlist('file[]', None)
-            repo = request.POST.get('Repo', None)
+            repo = request.POST.get('repo', None)
             if not files:
                 response = RESPONSE.INVALID_REQUEST
                 response['message'] += " File is empty."
