@@ -76,7 +76,7 @@ class DockerTarUploader:
                     layers = manifest['Layers']
                     formatted_layers = []
                     for layer in layers:
-                        LOGGER.info("Start pushing layer " + layer)
+                        LOGGER.info("Start pushing layer " + str(layer))
                         layer_path = os.path.join(tmp_dir, layer)
                         self._dxf.push_blob(layer_path, progress=on_progress, check_exists=check_exists)
                         formatted_layers.append(layer_path)
@@ -84,7 +84,7 @@ class DockerTarUploader:
                     LOGGER.info("Pushing manifest for %s:%s", image, tag)
                     registry_manifest = self._create_manifest(config_path, formatted_layers)
                     self._dxf.set_manifest(tag, registry_manifest)
-                    LOGGER.info("Pushing image succeeded", image, tag)
+                    LOGGER.info("Pushing image succeeded %s:%s", image, tag)
             return True
         except Exception as ex:
             LOGGER.exception(ex)
