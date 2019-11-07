@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <el-form ref="dialogForm" :rules="dialogRules" :model="formData" label-position="left" label-width="200px" style="margin:50px; ">
+    <el-form ref="dialogForm" :rules="dialogRules" :model="formData" label-position="left" label-width="200px" style="margin:50px; width: 700px;">
 
       <el-form-item label="Name" prop="name">
         <el-input ref="inputName" v-model="formData.name" placeholder="Task Settings Name" />
@@ -34,7 +34,13 @@
       </el-form-item>
 
       <el-form-item label="Memory Limit" prop="memory_limit">
-        <el-input v-model="formData.memory_limit" placeholder="128M" />
+        <el-input v-model="formData.memory_limit" placeholder="128">
+          <el-radio-group slot="append" v-model="formData.memory_limit_unit">
+            <el-radio-button label="K" />
+            <el-radio-button label="M" />
+            <el-radio-button label="G" />
+          </el-radio-group>
+        </el-input>
       </el-form-item>
       <el-form-item label="Working Path" prop="working_path">
         <el-input v-model="formData.working_path" placeholder="/home/task/" />
@@ -73,10 +79,21 @@
 
 <script>
 import { getTaskSettings, createTaskSettings, updateTaskSettings } from '@/api/task_settings';
+import { validatePath } from '@/utils/validate';
 import { getPVCList } from '@/api/storage';
+
 export default {
     data() {
+        const errorMessage = 'Invalid input';
+        const pathValidator = (rule, value, callback) => {
+            if (validatePath(value)) {
+                callback();
+            } else {
+                callback(new Error(errorMessage));
+            }
+        };
         return {
+            select: 'G',
             confirmMessage: 'Create',
             dialogLoading: false,
             formData: {
@@ -88,6 +105,7 @@ export default {
                 shell: '',
                 commands: '',
                 memory_limit: '',
+                memory_limit_unit: 'M',
                 time_limit: 10,
                 replica: 2,
                 ttl_interval: 3,
@@ -98,48 +116,60 @@ export default {
             dialogRules: {
                 name: [{
                     required: true,
-                    message: 'Name is required',
+                    message: errorMessage,
                     trigger: 'blur'
                 }],
                 image: [{
                     required: true,
-                    message: 'Image is required',
+                    message: errorMessage,
                     trigger: 'blur'
                 }],
                 shell: [{
                     required: true,
-                    message: 'Shell is required',
-                    trigger: 'blur'
+                    message: errorMessage,
+                    trigger: 'blur',
+                    validator: pathValidator
                 }],
                 persistent_volume_name: [{
                     required: true,
-                    message: 'Persistent volume is required',
+                    message: errorMessage,
                     trigger: 'blur'
                 }],
                 persistent_volume_mount_path: [{
                     required: true,
-                    message: 'Mount path is required',
-                    trigger: 'blur'
+                    message: errorMessage,
+                    trigger: 'blur',
+                    validator: pathValidator
                 }],
                 memory_limit: [{
                     required: true,
-                    message: 'Memory Limit is required',
-                    trigger: 'blur'
+                    message: errorMessage,
+                    trigger: 'blur',
+                    validator: (rule, value, callback) => {
+                        if (/^\d+$/.test(value) && !isNaN(Number(value))) {
+                            callback();
+                        } else {
+                            callback(new Error(errorMessage));
+                        }
+                    }
                 }],
                 working_path: [{
                     required: true,
-                    message: 'Working path is required',
-                    trigger: 'blur'
+                    message: errorMessage,
+                    trigger: 'blur',
+                    validator: pathValidator
                 }],
                 task_script_path: [{
                     required: true,
-                    message: 'Task script path is required',
-                    trigger: 'blur'
+                    message: errorMessage,
+                    trigger: 'blur',
+                    validator: pathValidator
                 }],
                 task_initial_file_path: [{
                     required: true,
-                    message: 'Task initial file path is required',
-                    trigger: 'blur'
+                    message: errorMessage,
+                    trigger: 'blur',
+                    validator: pathValidator
                 }]
             }
         };
@@ -178,7 +208,7 @@ export default {
                     },
                     shell: form.shell,
                     commands: form.commands.split('\n'),
-                    memory_limit: form.memory_limit,
+                    memory_limit: form.memory_limit + form.memory_limit_unit,
                     working_path: form.working_path,
                     task_script_path: form.task_script_path,
                     task_initial_file_path: form.task_initial_file_path
@@ -198,7 +228,8 @@ export default {
                 persistent_volume_mount_path: form.container_config.persistent_volume.mount_path,
                 shell: form.container_config.shell,
                 commands: form.container_config.commands.join('\n'),
-                memory_limit: form.container_config.memory_limit,
+                memory_limit: parseInt(form.container_config.memory_limit),
+                memory_limit_unit: form.container_config.memory_limit.charAt(form.container_config.memory_limit.length - 1),
                 working_path: form.container_config.working_path,
                 task_script_path: form.container_config.task_script_path,
                 task_initial_file_path: form.container_config.task_initial_file_path,
@@ -244,3 +275,11 @@ export default {
     }
 };
 </script>
+
+<style lang="scss">
+.el-input-group__append {
+    background-color: #fff;
+    border: none;
+    padding: 0px;
+}
+</style>
