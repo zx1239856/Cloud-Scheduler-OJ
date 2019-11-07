@@ -8,7 +8,18 @@ export function login(data) {
     });
 }
 
-export function getInfo(token) {
+export function updateUserInfo(email, password) {
+    return request({
+        url: '/user/',
+        method: 'put',
+        data: {
+            password: password,
+            email: email
+        }
+    });
+}
+
+export function getInfo() {
     return request({
         url: '/user/',
         method: 'get'

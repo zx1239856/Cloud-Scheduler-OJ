@@ -1,4 +1,5 @@
 import request from '@/utils/request';
+import filerequest from '@/utils/file-request';
 
 export function getRepositories(query) {
     return request({
@@ -9,14 +10,14 @@ export function getRepositories(query) {
 
 export function getRepository(repo) {
     return request({
-        url: '/registry/' + repo + '/',
+        url: '/registry/repository/' + repo + '/',
         method: 'get'
     });
 }
 
 export function uploadImage(query) {
-    return request({
-        url: '/registry/upload/',
+    return filerequest({
+        url: '/registry/repository/upload/',
         method: 'post',
         headers: {
             'Content-Type': 'multipart/form-data'
@@ -27,7 +28,15 @@ export function uploadImage(query) {
 
 export function deleteImage(repo, tag) {
     return request({
-        url: '/registry/' + repo + '/delete/' + tag + '/',
+        url: '/registry/repository/' + repo + '/' + tag + '/',
         method: 'delete'
+    });
+}
+
+export function getImageList(query) {
+    return request({
+        url: '/registry/history/',
+        method: 'get',
+        params: query
     });
 }

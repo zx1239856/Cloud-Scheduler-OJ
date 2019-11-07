@@ -83,20 +83,16 @@ export default {
                 password: ''
             },
             loginRules: {
-                username: [
-                    {
-                        required: true,
-                        trigger: 'blur',
-                        validator: validateUsername
-                    }
-                ],
-                password: [
-                    {
-                        required: true,
-                        trigger: 'blur',
-                        validator: validatePassword
-                    }
-                ]
+                username: [{
+                    required: true,
+                    trigger: 'blur',
+                    validator: validateUsername
+                }],
+                password: [{
+                    required: true,
+                    trigger: 'blur',
+                    validator: validatePassword
+                }]
             },
             loading: false,
             passwordType: 'password',
@@ -110,6 +106,11 @@ export default {
             },
             immediate: true
         }
+    },
+    mounted() {
+        this.$nextTick(() => {
+            this.$refs.username.focus();
+        });
     },
     methods: {
         showPwd() {
@@ -136,7 +137,7 @@ export default {
                             this.loading = false;
                             this.$router.push('/');
                         })
-                        .catch(() => {
+                        .finally(() => {
                             this.loading = false;
                         });
                 } else {

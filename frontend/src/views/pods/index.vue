@@ -48,7 +48,9 @@
       </el-table-column>
     </el-table>
 
-    <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
+    <div style="text-align: center;">
+      <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
+    </div>
   </div>
 </template>
 
@@ -67,7 +69,8 @@ export default {
                 Succeeded: 'success',
                 Failed: 'danger',
                 Unknown: 'info',
-                Pending: 'warning'
+                Pending: 'warning',
+                Terminating: 'warning'
             };
             return statusMap[status];
         }
@@ -103,8 +106,7 @@ export default {
             getPodList(this.listQuery).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
-                this.listLoading = false;
-            }).catch(() => {
+            }).finally(() => {
                 this.listLoading = false;
             });
         },

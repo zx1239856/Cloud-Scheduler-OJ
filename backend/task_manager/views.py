@@ -1,7 +1,6 @@
 """View handlers for TaskManager"""
 import logging
 import json
-from uuid import uuid1
 from django.http import JsonResponse
 from django.views import View
 from django.db.utils import IntegrityError
@@ -9,17 +8,13 @@ from django.db.models import ProtectedError
 from django.core.paginator import Paginator
 from kubernetes.client import CoreV1Api
 from kubernetes.client.rest import ApiException
-from api.common import RESPONSE
+from api.common import RESPONSE, get_uuid
 from user_model.models import UserType
 from config import KUBERNETES_NAMESPACE
 from .models import TaskSettings, Task, TASK
-from .executor import TaskExecutor, getKubernetesAPIClient
+from .executor import TaskExecutor, get_kubernetes_api_client
 
 LOGGER = logging.getLogger(__name__)
-
-
-def getUUID():
-    return uuid1()
 
 
 class TaskSettingsListHandler(View):
@@ -74,7 +69,7 @@ class TaskSettingsListHandler(View):
                 entry = {'uuid': item.uuid, 'name': item.name,
                          'description': item.description, 'create_time': item.create_time,
                          'time_limit': item.time_limit}
-                if user.user_type == UserType.ADMIN:
+                if user.user_type == UserType.ADMIN or user.user_type == UserType.SUPER_ADMIN:
                     entry['container_config'] = json.loads(item.container_config)
                     entry['replica'] = item.replica
                     entry['ttl_interval'] = item.ttl_interval
@@ -154,14 +149,14 @@ class TaskSettingsListHandler(View):
                 if invalid:
                     response = RESPONSE.INVALID_REQUEST
                 else:
-                    item = TaskSettings.objects.create(uuid=str(getUUID()), name=query['name'],
+                    item = TaskSettings.objects.create(uuid=str(get_uuid()), name=query['name'],
                                                        description=query['description'],
                                                        container_config=json.dumps(query['container_config']),
                                                        time_limit=query['time_limit'], replica=query['replica'],
                                                        ttl_interval=max(query['ttl_interval'], 1),
                                                        max_sharing_users=query['max_sharing_users'])
                     response = RESPONSE.SUCCESS
-                    executor.scheduleTaskSettings(item)
+                    executor.schedule_task_settings(item)
         except ValueError:
             response = RESPONSE.INVALID_REQUEST
         except IntegrityError as ex:
@@ -278,7 +273,7 @@ class TaskSettingsItemHandler(View):
                 item.max_sharing_users = int(query['max_sharing_users'])
             item.save(force_update=True)
             if need_reschedule:
-                executor.scheduleTaskSettings(item)
+                executor.schedule_task_settings(item)
         except ValueError:
             response = RESPONSE.INVALID_REQUEST
         except IntegrityError:
@@ -372,7 +367,7 @@ class ConcreteTaskListHandler(View):
                     response = RESPONSE.INVALID_REQUEST
                 else:
                     settings = TaskSettings.objects.get(uuid=query['settings_uuid'])
-                    item = Task.objects.create(user=user, settings=settings, uuid=str(getUUID()))
+                    item = Task.objects.create(user=user, settings=settings, uuid=str(get_uuid()))
                     response = RESPONSE.SUCCESS
                     response['payload'] = {'settings': {'name': item.settings.name, 'uuid': item.settings.uuid},
                                            'status': item.status,
@@ -406,7 +401,7 @@ class ConcreteTaskHandler(View):
         if uuid is None:
             return None
         else:
-            if user.user_type == UserType.ADMIN:
+            if user.user_type == UserType.ADMIN or user.user_type == UserType.SUPER_ADMIN:
                 item = Task.objects.get(uuid=uuid)
             else:
                 item = Task.objects.get(uuid=uuid, user=user)
@@ -414,7 +409,7 @@ class ConcreteTaskHandler(View):
 
     def get(self, _, **kwargs):
         response = RESPONSE.SUCCESS
-        api = CoreV1Api(getKubernetesAPIClient())
+        api = CoreV1Api(get_kubernetes_api_client())
         try:
             item = self._get_task(kwargs)
             if item is None:

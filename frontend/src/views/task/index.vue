@@ -48,7 +48,9 @@
       </el-table-column>
     </el-table>
 
-    <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
+    <div style="text-align: center;">
+      <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" :page-sizes="pageSizes" @pagination="getList" />
+    </div>
 
     <el-dialog
       title="Warning"
@@ -58,7 +60,7 @@
       <span>Are you sure to delete this task?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible = false">Cancel</el-button>
-        <el-button type="danger" @click="deleteTask">Delete</el-button>
+        <el-button :loading="deleteDialogLoading" type="danger" @click="deleteTask">Delete</el-button>
       </span>
     </el-dialog>
   </div>
@@ -66,13 +68,11 @@
 
 <script>
 import { getTaskList, deleteTask } from '@/api/task';
-import waves from '@/directive/waves'; // waves directive
 import Pagination from '@/components/Pagination'; // secondary package based on el-pagination
 
 export default {
     name: 'Task',
     components: { Pagination },
-    directives: { waves },
     filters: {
         statusTypeFilter(status) {
             const statusTypeMap = {
@@ -107,6 +107,7 @@ export default {
             list: null,
             total: 0,
             listLoading: true,
+            deleteDialogLoading: false,
             pageSizes: [25],
             listQuery: {
                 page: 1,
@@ -135,8 +136,7 @@ export default {
             getTaskList(this.listQuery.page).then(response => {
                 this.list = response.payload.entry;
                 this.total = response.payload.count;
-                this.listLoading = false;
-            }).catch(() => {
+            }).finally(() => {
                 this.listLoading = false;
             });
         },
@@ -145,12 +145,15 @@ export default {
             this.deleteDialogVisible = true;
         },
         deleteTask() {
-            this.deleteDialogVisible = false;
+            this.deleteDialogLoading = true;
             deleteTask(this.selectedData.uuid).then(response => {
                 this.$message({
                     message: 'Task Deleted',
                     type: 'success'
                 });
+            }).finally(() => {
+                this.deleteDialogLoading = false;
+                this.deleteDialogVisible = false;
             });
         },
         handleLog(row) {

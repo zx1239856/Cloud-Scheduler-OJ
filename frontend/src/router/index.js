@@ -58,14 +58,14 @@ export const constantRoutes = [
         }]
     },
     {
-        path: '/webide/',
+        path: '/profile/',
         component: Layout,
         hidden: true,
         children: [{
             path: '/',
-            name: 'webide',
-            component: () => import('@/views/webide/index'),
-            meta: { title: 'Web IDE' }
+            name: 'profile',
+            component: () => import('@/views/profile/index'),
+            meta: { title: 'Dashboard' }
         }]
     },
     {
@@ -92,79 +92,126 @@ export const constantRoutes = [
                 name: 'task-list',
                 component: () => import('@/views/task/index'),
                 meta: { title: 'Task List' }
+            },
+            {
+                path: 'webide/',
+                name: 'webide',
+                hidden: true,
+                component: () => import('@/views/webide/index'),
+                meta: { title: 'Web IDE' }
+            },
+            {
+                path: 'vnc-view/',
+                name: 'vnc',
+                hidden: true,
+                component: () => import('@/views/vnc/index'),
+                meta: { title: 'VNC Viewer' }
             }
         ]
     },
-
     {
         path: '/log/',
         name: 'log',
         component: () => import('@/views/log/index')
     },
-
     {
         path: '/webssh/',
         name: 'webssh',
         component: () => import('@/views/webssh/index')
     },
     {
-        path: '/storage',
-        name: 'storage',
-        component: Layout,
-        meta: { title: 'Storage', icon: 'storage' },
-        children: [{
-            path: 'index',
-            name: 'files',
-            component: () => import('@/views/files/index'),
-            meta: { title: 'File Upload History', icon: 'list' }
-        },
-        {
-            path: 'pvc',
-            name: 'PV claims',
-            component: () => import('@/views/storage/index'),
-            meta: { title: 'PV claims', icon: 'list' }
-        }]
-    },
-
-    {
-        path: '/registry',
-        name: 'registry',
-        component: Layout,
-        meta: { title: 'Registry', icon: 'list' },
-        children: [{
-            path: 'repositories',
-            name: 'repositories',
-            component: () => import('@/views/registry/index'),
-            meta: { title: 'Repositories', icon: 'list' }
-        }]
-    },
-    {
-        path: '/registry/image/',
-        name: 'image',
-        component: () => import('@/views/registry/image')
-    },
-
-    {
         path: '/user-terminal/',
         name: 'user-terminal',
         component: () => import('@/views/user_terminal/index')
     },
-
     // 404 page must be placed at the end !!!
     { path: '*', redirect: '/404', hidden: true }
 ];
 
 export const asyncRoutes = [
     {
-        path: '/pods',
+        path: '/pods/',
         component: Layout,
-        meta: { title: 'Pod List', icon: 'list', roles: ['admin'] },
         children: [{
-            path: 'index',
+            path: 'index/',
             name: 'pods',
             component: () => import('@/views/pods/index'),
-            meta: { title: 'Pod List', roles: ['admin'] }
+            meta: { title: 'Pods', icon: 'box', roles: ['admin', 'super'] }
         }]
+    },
+    {
+        path: '/storage',
+        name: 'storage',
+        component: Layout,
+        children: [{
+            path: 'storage',
+            name: 'Storage',
+            component: () => import('@/views/storage/index'),
+            meta: { title: 'Storage', icon: 'storage', roles: ['admin', 'super'] }
+        },
+        {
+            path: 'ide/',
+            name: 'ide',
+            hidden: true,
+            component: () => import('@/views/storage/ide'),
+            meta: { title: 'File Editor', roles: ['admin', 'super'] }
+        }]
+    },
+    {
+        path: '/registry',
+        name: 'registry',
+        component: Layout,
+        children: [
+            {
+                path: 'repositories/',
+                name: 'repositories',
+                component: () => import('@/views/registry/index'),
+                meta: { title: 'Repositories', icon: 'repository', roles: ['admin', 'super'] }
+            }
+            // {
+            //     path: 'image/',
+            //     name: 'image',
+            //     hidden: true,
+            //     component: () => import('@/views/registry/image'),
+            //     meta: { title: 'Image', roles: ['admin'] }
+            // }
+        ]
+    },
+    {
+        path: '/oauth/',
+        component: Layout,
+        children: [
+            {
+                path: '',
+                name: 'oauth',
+                component: () => import('@/views/oauth/index'),
+                meta: { title: 'OAuth', icon: 'oauth', roles: ['admin', 'super'] }
+            }
+        ]
+    },
+    {
+        path: '/grafana/',
+        component: Layout,
+        children: [
+            {
+                path: '',
+                name: 'Grafana',
+                component: () => import('@/views/grafana/index'),
+                meta: { title: 'Grafana', icon: 'grafana', roles: ['admin', 'super'] }
+            }
+        ]
+    },
+    {
+        path: '/admin_management/',
+        component: Layout,
+        children: [
+            {
+                path: '',
+                name: 'admin_management',
+                component: () => import('@/views/admin_management/index'),
+                meta: { title: 'Admin Management', icon: 'admin', roles: ['super'] }
+            }
+        ]
     }
 ];
 

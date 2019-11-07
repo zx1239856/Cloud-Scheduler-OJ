@@ -2,11 +2,12 @@
 View handler for WebSocket
 """
 # pylint: disable=C0411
-import socket
 import logging
+import base64
 import time
 import json
 from threading import Thread
+from rpyc import connect
 from channels.generic.websocket import WebsocketConsumer
 from django.http.request import QueryDict
 from kubernetes.client import Configuration, ApiClient
@@ -15,9 +16,9 @@ from kubernetes.client.rest import ApiException
 from kubernetes.stream import stream, ws_client
 from user_model.models import UserModel, UserType
 from user_model.views import TokenManager
-from task_manager.executor import TaskExecutor
 from task_manager.models import TaskSettings, TaskStorage
-from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL, KUBERNETES_NAMESPACE, USER_SPACE_POD_TIMEOUT
+from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL, KUBERNETES_NAMESPACE, USER_SPACE_POD_TIMEOUT, \
+    IPC_PORT
 
 SHELL_LIST = [
     '/bin/sh',
@@ -50,8 +51,6 @@ class SSH:
         try:
             Thread(target=self.django_to_websocket, kwargs={'pod': pod, 'shell': shell,
                                                             'namespace': namespace, 'args': args}).start()
-        except socket.timeout:
-            self.close()
         except Exception as e:
             LOGGER.error(e)
             self.close()
@@ -64,9 +63,10 @@ class SSH:
                     username = ls[0]
                     header_token = ls[1]
                     user = UserModel.objects.get(username=username)
-                    token = TokenManager.getToken(user)
-                    if token == header_token and user.user_type == UserType.ADMIN:
-                        TokenManager.updateToken(user)
+                    token = TokenManager.get_token(user)
+                    if token == header_token and user.user_type == UserType.ADMIN \
+                            or user.user_type == UserType.SUPER_ADMIN:
+                        TokenManager.update_token(user)
                         self.auth_ok = True
                 if not self.auth_ok:
                     self.websocket.send('Authentication failed.')
@@ -75,7 +75,7 @@ class SSH:
                 self.api_response.write_stdin(data)
                 if isinstance(self.websocket, UserWebSSH):
                     LOGGER.debug("Update expire time")
-                    self.websocket.updateExpireTime()
+                    self.websocket.update_expire_time()
             else:
                 self.close()
         except Exception as e:
@@ -165,11 +165,12 @@ class WebSSH(WebsocketConsumer):
 
 class UserWebSSH(WebSSH):
     """UserSSH for storage mgmt"""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = None
 
-    def updateExpireTime(self):
+    def update_expire_time(self):
         if self.user:
             try:
                 TaskStorage.objects.filter(user=self.user).update(expire_time=
@@ -181,17 +182,20 @@ class UserWebSSH(WebSSH):
         self.accept()
         query_string = self.scope.get('query_string')
         ssh_args = QueryDict(query_string=query_string, encoding='utf-8')
-        uuid = ssh_args.get('uuid', None)
-        token = ssh_args.get('token', None)
-        username = ssh_args.get('username', None)
-        cols = ssh_args.get('cols', 80)
-        rows = ssh_args.get('rows', 24)
-        if not uuid or not token or not username:
-            self.send("\nInvalid request.")
-            LOGGER.warning("Invalid request")
-            self.close(code=4000)
-            return
+        encoded = ssh_args.get('identity', None)
         try:
+            if not encoded:
+                raise TypeError
+            decoded = base64.b64decode(encoded)
+            LOGGER.error(decoded)
+            decoded = json.loads(decoded)
+            username = decoded.get('username', None)
+            uuid = decoded.get('uuid', None)
+            token = decoded.get('token', None)
+            if username is None or uuid is None or token is None:
+                raise TypeError
+            cols = ssh_args.get('cols', 80)
+            rows = ssh_args.get('rows', 24)
             user = UserModel.objects.get(username=username)
             self.user = user
             settings = TaskSettings.objects.get(uuid=uuid)
@@ -199,17 +203,23 @@ class UserWebSSH(WebSSH):
             self.send("\nFailed to process.")
             self.close(code=4000)
             return
-        real_token = TokenManager.getToken(user)
-        if token == real_token:
-            TokenManager.updateToken(user)
-        # try to fetch pod
-        executor = TaskExecutor.instance(new=False)
-        if executor is None:
-            self.send("\nExecutor is initializing, please wait.")
+        except (TypeError, ValueError):
+            self.send("\nInvalid request.")
+            LOGGER.warning("Invalid request")
             self.close(code=4000)
             return
-        pod = executor.get_user_space_pod(uuid, user)
-        username = '{}_{}'.format(user.username, settings.id)
-        self.ssh = SSH(websocket=self, cols=cols, rows=rows, need_auth=False)
-        self.ssh.connect(pod.metadata.name, '/bin/sh', KUBERNETES_NAMESPACE,
-                         args=['-c', 'su - {}'.format(username)])
+        real_token = TokenManager.get_token(user)
+        if token == real_token:
+            TokenManager.update_token(user)
+        # try to fetch pod
+        try:
+            conn = connect('localhost', IPC_PORT)
+            pod_name = conn.root.get_user_space_pod(uuid, user.uuid)
+            username = '{}_{}'.format(user.username, settings.id)
+            self.ssh = SSH(websocket=self, cols=cols, rows=rows, need_auth=False)
+            self.ssh.connect(pod_name, '/bin/bash', KUBERNETES_NAMESPACE,
+                             args=['-c', 'su - {}'.format(username)])
+        except Exception as ex:
+            LOGGER.error(ex)
+            self.send('Internal server error occurred.\n')
+            self.close(code=4000)

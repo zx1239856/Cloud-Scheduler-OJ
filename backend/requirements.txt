@@ -1,8 +1,13 @@
 django
 django-cors-headers
+django-oauth-toolkit
 gunicorn
 gevent
 channels
 schedule
 docker
 kubernetes
+python-dxf
+bcrypt
+rpyc
+mysqlclient

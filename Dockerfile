@@ -39,6 +39,7 @@ RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
 
 COPY backend/ $HOME
 COPY config/ $HOME
+COPY backend/config.py.prod $HOME/config.py
 
 EXPOSE 80
 

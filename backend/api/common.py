@@ -1,8 +1,12 @@
 """Common variable used in modules"""
+import random
+import string
+from uuid import uuid1
 from kubernetes.client import Configuration, ApiClient
 from config import KUBERNETES_CLUSTER_TOKEN, KUBERNETES_API_SERVER_URL
+
 """
-@apiDefine admin User access only
+@apiDefine admin Admin access only
 Only admin user can access this API
 """
 """
@@ -10,15 +14,29 @@ Only admin user can access this API
 All users can access this API
 """
 """
+@apiDefine super_admin Super Admin access only
+Only super admin can access this API
+"""
+"""
 @apiDefine APIHeader
 @apiHeader {String} X-Access-Token access token of the user
 @apiHeader {String} X-Access-Username username
 """
 
-USERSPACE_NAME = "cloud-scheduler-userspace"
+USERSPACE_NAME = 'cloud-scheduler-userspace'
+OAUTH_LOGIN_URL = 'oauth/login/'
 
 
-def getKubernetesAPIClient():
+def get_uuid():
+    return uuid1()
+
+
+def random_password(length=32):
+    password_chars = string.ascii_letters + string.digits + string.punctuation
+    return ''.join(random.choice(password_chars) for _ in range(length))
+
+
+def get_kubernetes_api_client():
     conf = Configuration()
     conf.host = KUBERNETES_API_SERVER_URL
     conf.verify_ssl = False
@@ -156,6 +174,44 @@ class _Response(object):
         return {
             "status": 403,
             "message": "Permission denied.",
+            "payload": {},
+        }
+
+    @property
+    def RESOURCE_LOCKED(self):
+        """
+        @apiDefine PermissionDenied
+        @apiError PermissionDenied User does not have permission to access
+        @apiErrorExample {json} Error-Response:
+        HTTP/1.1 200 OK
+        {
+            "status": 423,
+            "message": "The requested resource is unavailable.",
+            "payload": {}
+        }
+        """
+        return {
+            "status": 423,
+            "message": "The requested resource is unavailable.",
+            "payload": {},
+        }
+
+    @property
+    def NOT_FOUND(self):
+        """
+        @apiDefine PermissionDenied
+        @apiError PermissionDenied User does not have permission to access
+        @apiErrorExample {json} Error-Response:
+        HTTP/1.1 200 OK
+        {
+            "status": 404,
+            "message": "The requested resource is not found.",
+            "payload": {}
+        }
+        """
+        return {
+            "status": 404,
+            "message": "The requested resource is not found.",
             "payload": {},
         }
 

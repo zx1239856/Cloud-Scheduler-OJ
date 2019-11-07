@@ -6,7 +6,7 @@ import store from '@/store';
 const service = axios.create({
     baseURL: process.env.VUE_APP_BASE_API, // url = base url + request url
     // withCredentials: true, // send cookies when cross-domain requests
-    timeout: 5000 // request timeout
+    timeout: 10000 // request timeout
 });
 
 // request interceptor
@@ -59,11 +59,19 @@ service.interceptors.response.use(
                     });
                 });
             } else {
-                Message({
-                    message: res.message || 'Error',
-                    type: 'error',
-                    duration: 5 * 1000
-                });
+                if (res.status === 423 || res.status === 404) {
+                    Message({
+                        message: res.message,
+                        type: 'warning',
+                        duration: 5 * 1000
+                    });
+                } else {
+                    Message({
+                        message: res.message || 'Error',
+                        type: 'error',
+                        duration: 5 * 1000
+                    });
+                }
             }
             return Promise.reject(new Error(res.message || 'Error'));
         } else {

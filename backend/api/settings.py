@@ -31,6 +31,10 @@ CORS_ALLOW_HEADERS = [
     'x-access-username'
 ]
 
+OAUTH2_PROVIDER = {
+    'ALLOWED_REDIRECT_URI_SCHEMES': ["http", "https"]
+}
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -38,7 +42,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '(t@s1tb(r%^7q0s6^$%vfzb!)5(=ywp3(%vu0d0gwidsdizkav'
+SECRET_KEY = config.SECRET_KEY
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config.DEBUG
@@ -49,6 +53,7 @@ ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'corsheaders',
+    'oauth2_provider',
     'wsocket',
     'django.contrib.contenttypes',
     'django.contrib.auth',
@@ -58,6 +63,7 @@ INSTALLED_APPS = [
     'monitor',
     'task_manager',
     'storage',
+    'registry_manager'
 ]
 
 MIDDLEWARE = [
@@ -72,6 +78,23 @@ LOGGING_CONSOLE_HANDLER = {
     'level': 'DEBUG' if DEBUG else 'INFO',
     'propagate': True,
 }
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.static',
+            ],
+        },
+    },
+]
 
 LOGGING = {
     'version': 1,
@@ -100,9 +123,11 @@ LOGGING = {
         'user_space': LOGGING_CONSOLE_HANDLER,
         'monitor': LOGGING_CONSOLE_HANDLER,
         'storage': LOGGING_CONSOLE_HANDLER,
+        'registry_manaer': LOGGING_CONSOLE_HANDLER
     },
 }
 
+AUTH_USER_MODEL = 'user_model.UserModel'
 ROOT_URLCONF = 'api.urls'
 
 WSGI_APPLICATION = 'api.wsgi.application'
@@ -111,12 +136,17 @@ ASGI_APPLICATION = 'api.routing.application'
 # Database
 # https://docs.djangoproject.com/en/2.2/ref/settings/#databases
 
+
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': config.DATABASE_NAME,
+        'USER': config.DATABASE_USER,
+        'PASSWORD': config.DATABASE_PASSWORD,
+        'HOST': config.DATABASE_HOST,
+        'PORT': config.DATABASE_PORT
     }
-}
+} if not hasattr(config, 'DATABASES') else config.DATABASES
 
 # Internationalization
 # https://docs.djangoproject.com/en/2.2/topics/i18n/
@@ -130,3 +160,12 @@ USE_I18N = True
 USE_L10N = True
 
 USE_TZ = True
+
+EMAIL_USE_TLS = config.EMAIL_USE_TLS
+EMAIL_USE_SSL = config.EMAIL_USE_SSL
+EMAIL_HOST = config.EMAIL_HOST
+EMAIL_HOST_USER = config.EMAIL_HOST_USER
+EMAIL_HOST_PASSWORD = config.EMAIL_HOST_PASSWORD
+EMAIL_PORT = config.EMAIL_PORT
+DEFAULT_FROM_EMAIL = config.DEFAULT_FROM_EMAIL
+SERVER_EMAIL = config.SERVER_EMAIL

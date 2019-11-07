@@ -16,6 +16,11 @@
               Home
             </el-dropdown-item>
           </router-link>
+          <router-link to="/profile/">
+            <el-dropdown-item>
+              Profile
+            </el-dropdown-item>
+          </router-link>
           <a target="_blank" href="https://gitlab.secoder.net/SIGQUIT/cloud-scheduler">
             <el-dropdown-item>GitLab</el-dropdown-item>
           </a>
@@ -128,6 +133,7 @@ export default {
         .el-icon-caret-bottom {
           cursor: pointer;
           position: absolute;
+          top: 15px;
           right: -20px;
           font-size: 12px;
         }

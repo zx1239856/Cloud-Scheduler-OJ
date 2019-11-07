@@ -93,6 +93,8 @@
 </template>
 
 <script>
+import { validateEmail } from '@/utils/validate';
+
 export default {
     name: 'SignUp',
     data() {
@@ -119,9 +121,8 @@ export default {
                 callback();
             }
         };
-        const validateEmail = (rule, value, callback) => {
-            const pattern = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-            if (!pattern.test(value)) {
+        const emailValidator = (rule, value, callback) => {
+            if (!validateEmail(value)) {
                 callback(new Error('Please enter a valid email address'));
             } else {
                 callback();
@@ -160,7 +161,7 @@ export default {
                     {
                         required: true,
                         trigger: 'blur',
-                        validator: validateEmail
+                        validator: emailValidator
                     }
                 ]
             },
@@ -177,6 +178,11 @@ export default {
             },
             immediate: true
         }
+    },
+    mounted() {
+        this.$nextTick(() => {
+            this.$refs.email.focus();
+        });
     },
     methods: {
         showPwd() {
@@ -213,7 +219,7 @@ export default {
                             this.loading = false;
                             this.$router.push('/login');
                         })
-                        .catch(() => {
+                        .finally(() => {
                             this.loading = false;
                         });
                 } else {

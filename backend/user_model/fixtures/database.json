@@ -5,9 +5,9 @@
     "fields": {
       "uuid": "690e85eb-efce-11e9-bedb-6b55132cab61",
       "username": "admin",
-      "password": "c852409b7f46a526a68c8142cebe680d",
-      "salt": "690e85ea-efce-11e9-bedb-6b55132cab61",
-      "user_type": 1,
+      "password": "$2b$12$WkjKShwu35LrFym6zNyoue1zUumiAzyUfqQxxabT6KMOr2zrODLYy",
+      "salt": "$2b$12$WkjKShwu35LrFym6zNyoue",
+      "user_type": 2,
       "email": "admin@admin.local",
       "create_time": "2019-10-16T04:35:41.637Z",
       "token": "",
