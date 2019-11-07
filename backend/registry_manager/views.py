@@ -7,16 +7,16 @@ import time
 from threading import Thread
 from urllib.request import Request
 from urllib.request import urlopen
-from docker import DockerClient, APIClient
 from django.http import JsonResponse
 from django.views import View
 from django.utils.decorators import method_decorator
 from dxf import DXF
 from dxf import DXFBase
 from api.common import RESPONSE
-from config import REGISTRY_V2_API_ADDRESS, DOCKER_ADDRESS, REGISTRY_ADDRESS
+from config import REGISTRY_V2_API_ADDRESS, REGISTRY_ADDRESS
 from registry_manager.manifest import make_manifest
 from registry_manager.models import ImageModel, ImageStatusCode
+from registry_manager.uploader import DockerTarUploader
 from user_model.views import permission_required
 
 LOGGER = logging.getLogger(__name__)
@@ -204,6 +204,7 @@ class RepositoryHandler(View):
         """
         try:
             files = request.FILES.getlist('file[]', None)
+            repo = request.POST.get('repo', None)
             if not files:
                 response = RESPONSE.INVALID_REQUEST
                 response['message'] += " File is empty."
@@ -219,12 +220,12 @@ class RepositoryHandler(View):
                     file_model = ImageModel(hashid=md, filename=f.name, status=ImageStatusCode.PENDING, uploadtime=upload_time)
                     file_model.save()
                     ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.CACHING)
-                    self.cacheFile(f, md)
+                    self.cacheFile(f, md, repo)
             return JsonResponse(RESPONSE.SUCCESS)
         except Exception:
             return JsonResponse(RESPONSE.OPERATION_FAILED)
 
-    def cacheFile(self, file, md):
+    def cacheFile(self, file, md, repo):
         if not os.path.exists(self.basePath):
             os.makedirs(self.basePath)
         writefile = open(self.basePath + file.name, 'wb+')
@@ -232,22 +233,17 @@ class RepositoryHandler(View):
             writefile.write(chunk)
         writefile.close()
         ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.CACHED)
-        upload = Thread(target=self.upload, args=(file.name, md,))
+        upload = Thread(target=self.upload, args=(file.name, md, repo))
         upload.start()
 
-    def upload(self, filename, md):
+    def upload(self, filename, md, repo):
         try:
+            print(repo)
             ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.UPLOADING)
-            client = DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-            docker_api = APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-            readfile = open(self.basePath+filename, 'rb+')
-            file = readfile.read()
-            image = client.images.load(file)[0]
-            name = image.tags[0]
-            newname = REGISTRY_ADDRESS + '/' + name
-            docker_api.tag(name, newname)
-            docker_api.push(newname)
-            readfile.close()
+            dxf = DXF(REGISTRY_ADDRESS, repo)
+            status = DockerTarUploader(dxf).upload_tar(self.basePath+filename)
+            print("upload status")
+            print(status)
             if os.path.exists(self.basePath + filename):
                 os.remove(self.basePath + filename)
             LOGGER.info("done upload")
@@ -312,9 +308,8 @@ class UploadHandler(View):
                 'page_count': (len(image_list) + 24) // 25,
                 'entry': []
             }
-            if page < 1 or page > payload['page_count']:
-                if page != 1 or payload['page_count'] != 0:
-                    raise ValueError()
+            if (page < 1 or page > payload['page_count']) and (page != 1 or payload['page_count'] != 0):
+                raise ValueError()
             for f in image_list[25 * (page - 1): 25 * page]:
                 payload['entry'].append({'id': f.hashid,
                                          'name': f.filename,
