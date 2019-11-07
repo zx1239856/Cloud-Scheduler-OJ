@@ -312,9 +312,8 @@ class UploadHandler(View):
                 'page_count': (len(image_list) + 24) // 25,
                 'entry': []
             }
-            if page < 1 or page > payload['page_count']:
-                if page != 1 or payload['page_count'] != 0:
-                    raise ValueError()
+            if (page < 1 or page > payload['page_count']) and (page != 1 or payload['page_count'] != 0):
+                raise ValueError()
             for f in image_list[25 * (page - 1): 25 * page]:
                 payload['entry'].append({'id': f.hashid,
                                          'name': f.filename,
