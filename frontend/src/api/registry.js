@@ -15,14 +15,14 @@ export function getRepository(repo) {
     });
 }
 
-export function uploadImage(query) {
+export function uploadImage(param) {
     return filerequest({
         url: '/registry/repository/upload/',
         method: 'post',
         headers: {
             'Content-Type': 'multipart/form-data'
         },
-        data: query
+        data: param
     });
 }
 
