@@ -218,7 +218,7 @@ class UserWebSSH(WebSSH):
             username = '{}_{}'.format(user.username, settings.id)
             self.ssh = SSH(websocket=self, cols=cols, rows=rows, need_auth=False)
             self.ssh.connect(pod_name, '/bin/bash', KUBERNETES_NAMESPACE,
-                             args=['-c', 'su - {}'.format(username)])
+                             args=['-c', 'ulimit -u 35; su - {}'.format(username)])
         except Exception as ex:
             LOGGER.error(ex)
             self.send('Internal server error occurred.\n')
