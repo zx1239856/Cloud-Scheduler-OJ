@@ -238,12 +238,11 @@ class RepositoryHandler(View):
 
     def upload(self, filename, md, repo):
         try:
-            print(repo)
             ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.UPLOADING)
             dxf = DXF(REGISTRY_ADDRESS, repo)
             status = DockerTarUploader(dxf).upload_tar(self.basePath+filename)
-            print("upload status")
-            print(status)
+            LOGGER.info("upload status")
+            LOGGER.info(status)
             if os.path.exists(self.basePath + filename):
                 os.remove(self.basePath + filename)
             LOGGER.info("done upload")
