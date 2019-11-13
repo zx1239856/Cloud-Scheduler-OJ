@@ -124,7 +124,21 @@ class SSH:
 
 
 class WebSSH(WebsocketConsumer):
-    """Actual handler for SSH"""
+    """
+    @api {websocket} /terminals/ WebSSH portal for admin
+    @apiDescription After WebSocket connection is established, client must write `username@token` string to socket for
+    authentication, and then SSH traffic will be permitted.
+    @apiName WebSSHAdmin
+    @apiGroup WebSocket
+    @apiVersion 0.1.0
+    @apiPermission admin
+
+    @apiParam {String} pod Pod name
+    @apiParam {String} namespace Pod namespace
+    @apiParam {String} shell Shell to use. Must be one of [/bin/sh, /bin/bash, /bin/zsh, /bin/csh, /bin/ksh, /bin/fish]
+    @apiParam {Number} cols Shell columns
+    @apiParam {Number} rows Shell rows
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -164,7 +178,16 @@ class WebSSH(WebsocketConsumer):
 
 
 class UserWebSSH(WebSSH):
-    """UserSSH for storage mgmt"""
+    """
+    @api {websocket} /user_terminals/ WebSSH portal for user
+    @apiName WebSSHUser
+    @apiGroup WebSocket
+    @apiVersion 0.1.0
+    @apiPermission user
+
+    @apiParam {String} Identity Base64 encoded JSON string. The JSON object must contain `username`, `token` for auth,
+    and a proper `uuid` of TaskSettings
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

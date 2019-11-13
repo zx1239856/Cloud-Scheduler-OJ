@@ -7,11 +7,6 @@ from dxf import hash_file
 
 LOGGER = logging.getLogger(__name__)
 
-# WARNING: example function
-bars = {}
-
-# REMOVE LATER
-
 
 class DockerTarUploader:
     def __init__(self, dxf):

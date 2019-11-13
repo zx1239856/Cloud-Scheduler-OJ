@@ -21,6 +21,7 @@ from user_model.views import permission_required
 
 LOGGER = logging.getLogger(__name__)
 
+
 class ConnectionUtils:
     GET_MANIFEST_TEMPLATE = '{url}/{repo}/manifests/{tag}'
     GET_LAYER_TEMPLATE = '{url}/{repo}/blobs/{digest}'
@@ -106,6 +107,7 @@ class ConnectionUtils:
         response = self.string_request(*args, **kwargs)
         return json.loads(response)
 
+
 class RegistryHandler(View):
     http_method_names = ['get']
     util = ConnectionUtils()
@@ -135,8 +137,10 @@ class RegistryHandler(View):
                 response['payload']['entity'].append(self.util.get_repository(repository))
             response['payload']['count'] = len(response['payload']['entity'])
             return JsonResponse(response)
-        except Exception:
+        except Exception as ex:
+            LOGGER.exception(ex)
             return JsonResponse(RESPONSE.OPERATION_FAILED)
+
 
 class RepositoryHandler(View):
     http_method_names = ['get', 'post', 'put', 'delete']
@@ -174,7 +178,8 @@ class RepositoryHandler(View):
                     response['payload']['entity'].append(image)
             response['payload']['count'] = len(response['payload']['entity'])
             return JsonResponse(response)
-        except Exception:
+        except Exception as ex:
+            LOGGER.exception(ex)
             return JsonResponse(RESPONSE.OPERATION_FAILED)
 
     @method_decorator(permission_required)
@@ -207,18 +212,20 @@ class RepositoryHandler(View):
                 return JsonResponse(response)
             for f in files:
                 tar_pattern = "[.](tar)$"
-                searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
+                searched_tar = re.search(tar_pattern, f.name, re.M | re.I)
                 if searched_tar:
                     upload_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
                     md = hashlib.md5()
-                    md.update((f.name+upload_time).encode('utf-8'))
+                    md.update((f.name + upload_time).encode('utf-8'))
                     md = md.hexdigest()
-                    file_model = ImageModel(hashid=md, filename=f.name, status=ImageStatusCode.PENDING, uploadtime=upload_time)
+                    file_model = ImageModel(hashid=md, filename=f.name, status=ImageStatusCode.PENDING,
+                                            uploadtime=upload_time)
                     file_model.save()
                     ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.CACHING)
                     self.cacheFile(f, md, repo)
             return JsonResponse(RESPONSE.SUCCESS)
-        except Exception:
+        except Exception as ex:
+            LOGGER.exception(ex)
             return JsonResponse(RESPONSE.OPERATION_FAILED)
 
     def cacheFile(self, file, md, repo):
@@ -236,14 +243,15 @@ class RepositoryHandler(View):
         try:
             ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.UPLOADING)
             dxf = DXF(REGISTRY_ADDRESS, repo)
-            status = DockerTarUploader(dxf).upload_tar(self.basePath+filename)
+            status = DockerTarUploader(dxf).upload_tar(self.basePath + filename)
             LOGGER.info("upload status")
             LOGGER.info(status)
             if os.path.exists(self.basePath + filename):
                 os.remove(self.basePath + filename)
             LOGGER.info("done upload")
             ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.SUCCEEDED)
-        except Exception:
+        except Exception as ex:
+            LOGGER.exception(ex)
             ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.FAILED)
 
     @method_decorator(permission_required)
@@ -267,8 +275,10 @@ class RepositoryHandler(View):
             digest = dxf.get_digest(tag)
             dxf.del_blob(digest)
             return JsonResponse(RESPONSE.SUCCESS)
-        except Exception:
+        except Exception as ex:
+            LOGGER.exception(ex)
             return JsonResponse(RESPONSE.OPERATION_FAILED)
+
 
 class UploadHandler(View):
     http_method_names = ['get']
@@ -280,6 +290,7 @@ class UploadHandler(View):
         @apiName getImageList
         @apiGroup RegistryManager
         @apiVersion 0.1.0
+        @apiPermission admin
         @apiSuccess {Object} payload Response Object
         @apiSuccess {Number} payload.count Count of total images
         @apiSuccess {Number} payload.page_count Count of total pages
@@ -313,5 +324,6 @@ class UploadHandler(View):
                                          })
             response['payload'] = payload
             return JsonResponse(response)
-        except Exception:
+        except Exception as ex:
+            LOGGER.exception(ex)
             return JsonResponse(RESPONSE.INVALID_REQUEST)
