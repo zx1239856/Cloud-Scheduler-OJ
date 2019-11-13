@@ -252,15 +252,16 @@ class TaskExecutor:
                     common_name = "task-exec-{}".format(item.uuid)
                     try:
                         response = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE,
-                                                           label_selector="app={}".format(item.uuid))
+                                                           label_selector="task-exec={}".format(item.uuid))
                         if response.items:
                             status = response.items[0].status.phase
                             new_status = item.status
+                            deleting = response.items[0].metadata.deletion_timestamp
                             if status == 'Running':
                                 new_status = TASK.RUNNING
                             elif status == 'Succeeded':
                                 new_status = TASK.SUCCEEDED
-                            elif status == 'Pending':
+                            elif status == 'Pending' and not deleting:
                                 new_status = TASK.PENDING
                             elif status == 'Failed':
                                 new_status = TASK.FAILED
@@ -271,20 +272,24 @@ class TaskExecutor:
                                     if detailed_status and detailed_status[0].state.terminated:
                                         exit_code = detailed_status[0].state.terminated.exit_code
                                         LOGGER.debug(exit_code)
-                                    if exit_code is None or exit_code != 137:  # SIGKILL caused by timeout
-                                        response = api.read_namespaced_pod_log(name=response.items[0].metadata.name,
-                                                                               namespace=KUBERNETES_NAMESPACE)
-                                        if response:
-                                            item.logs = response
-                                    else:
-                                        item.logs = "Time limit exceeded when executing job."
-                                        new_status = TASK.TLE
+                                    response = api.read_namespaced_pod_log(name=response.items[0].metadata.name,
+                                                                           namespace=KUBERNETES_NAMESPACE)
+                                    if response:
+                                        item.logs = response
                                     item.logs_get = True
+                                    if exit_code:
+                                        item.exit_code = exit_code
+                                    if exit_code == 124:  # SIGTERM by TLE
+                                        item.logs += "\nTime limit exceeded when executing job."
+                                        new_status = TASK.TLE
+                                    elif exit_code == 137:  # SIGKILL by MLE
+                                        item.logs += "\nMemory limit exceeded when executing job."
+                                        new_status = TASK.MLE
                                     job_api.delete_namespaced_job(name=common_name,
                                                                   namespace=KUBERNETES_NAMESPACE,
                                                                   body=client.V1DeleteOptions(
                                                                       propagation_policy='Foreground',
-                                                                      grace_period_seconds=5
+                                                                      grace_period_seconds=3
                                                                   ))
                                 item.status = new_status
                                 idle = False
@@ -630,7 +635,7 @@ class TaskExecutor:
                             # overwrite
                             commands.append('chmod -R +x {}'.format(working_dir))
                             commands.append('cd {}'.format(working_dir))
-                            commands.append('timeout --signal KILL {timeout} {shell} -c \'{commands}\''.format(
+                            commands.append('timeout --signal TERM {timeout} {shell} -c \'{commands}\''.format(
                                 timeout=time_limit, shell=shell, commands=';'.join(conf['commands'])))
 
                             shared_mount = client.V1VolumeMount(mount_path=shared_mount_path, name=shared_storage_name,
@@ -661,11 +666,11 @@ class TaskExecutor:
                             user_volume = client.V1Volume(name=user_storage_name,
                                                           persistent_volume_claim=user_volume_claim)
                             template = client.V1PodTemplateSpec(
-                                metadata=client.V1ObjectMeta(labels={"app": item.uuid}),
+                                metadata=client.V1ObjectMeta(labels={"task-exec": item.uuid}),
                                 spec=client.V1PodSpec(restart_policy="Never",
                                                       containers=[container],
                                                       volumes=[volume, user_volume]))
-                            spec = client.V1JobSpec(template=template, backoff_limit=1,
+                            spec = client.V1JobSpec(template=template, backoff_limit=0,
                                                     active_deadline_seconds=GLOBAL_TASK_TIME_LIMIT)
                             job = client.V1Job(api_version="batch/v1", kind="Job",
                                                metadata=client.V1ObjectMeta(name=common_name),

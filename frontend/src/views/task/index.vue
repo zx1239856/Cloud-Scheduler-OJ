@@ -83,7 +83,8 @@ export default {
                 '4': 'info',
                 '5': 'warning',
                 '6': 'danger',
-                '7': 'warning'
+                '7': 'warning',
+                '8': 'danger'
             };
             return statusTypeMap[status];
         },
@@ -96,7 +97,8 @@ export default {
                 '4': 'Deleting',
                 '5': 'Pending',
                 '6': 'TLE',
-                '7': 'Waiting'
+                '7': 'Waiting',
+                '8': 'MLE'
             };
             return statusMap[status];
         }
