@@ -3,26 +3,9 @@ import tarfile
 import tempfile
 import json
 import logging
-import tqdm
 from dxf import hash_file
 
 LOGGER = logging.getLogger(__name__)
-
-# WARNING: example function
-bars = {}
-
-
-def progress(dgst, chunk, size):
-    if dgst not in bars:
-        bars[dgst] = tqdm.tqdm(desc=dgst[0:8], total=size, leave=True)
-    if chunk:
-        bars[dgst].update(len(chunk))
-    if bars[dgst].n >= bars[dgst].total:
-        bars[dgst].close()
-        del bars[dgst]
-
-
-# REMOVE LATER
 
 
 class DockerTarUploader:

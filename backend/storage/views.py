@@ -52,6 +52,7 @@ class StorageHandler(View):
         @api {get} /storage/ Get PVC list
         @apiName GetPVCList
         @apiGroup StorageManager
+        @apiPermission admin
         @apiVersion 0.1.0
         @apiSuccess {Object} payload Response Object
         @apiSuccess {Number} payload.count Count of total PVCs
@@ -112,6 +113,7 @@ class StorageHandler(View):
             "name": "pvc-name",
             "capacity": "1Gi"
         }
+        @apiPermission admin
         @apiParam {String} name Name of the PVC
         @apiParam {String} capacity Required capacity for storage
         @apiSuccess {Object} payload Success payload is empty
@@ -144,9 +146,9 @@ class StorageHandler(View):
                 return JsonResponse(RESPONSE.SERVER_ERROR)
 
         # Create PVC
-        pvc_body = client.V1PersistentVolumeClaim(api_version="v1", kind="PersistentVolumeClaim", \
+        pvc_body = client.V1PersistentVolumeClaim(api_version="v1", kind="PersistentVolumeClaim",
                                                   metadata=client.V1ObjectMeta(name=pvc_name,
-                                                                               namespace=KUBERNETES_NAMESPACE), \
+                                                                               namespace=KUBERNETES_NAMESPACE),
                                                   spec=client.V1PersistentVolumeClaimSpec(
                                                       access_modes=["ReadWriteMany"],
                                                       resources=client.V1ResourceRequirements(
@@ -168,6 +170,7 @@ class StorageHandler(View):
         """
         @api {delete} /storage/ Delete a PVC
         @apiName DeletePVC
+        @apiPermission admin
         @apiGroup StorageManager
         @apiVersion 0.1.0
         @apiParamExample {json} Request-Example:
@@ -255,7 +258,8 @@ class StorageFileHandler(View):
             pod_name = "file-upload-pod-" + f.hashid
             try:
                 if f.status == 0 or f.status == 1:
-                    FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED, error="File uncached.")
+                    FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED,
+                                                                     error="File uncached.")
                     self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
                 elif f.status == 2 or f.status == 3:
                     # cached or uploading
@@ -273,6 +277,7 @@ class StorageFileHandler(View):
         @api {get} /storage/upload_file/ Get uploaded file list
         @apiName getUploadingFileList
         @apiGroup StorageManager
+        @apiPermission admin
         @apiVersion 0.1.0
         @apiSuccess {Object} payload Response Object
         @apiSuccess {Number} payload.count Count of total files
@@ -321,6 +326,7 @@ class StorageFileHandler(View):
         @api {post} /storage/upload_file/ Upload files into a PVC
         @apiName UploadFile
         @apiGroup StorageManager
+        @apiPermission admin
         @apiVersion 0.1.0
         @apiParamExample {json} Request-Example:
         {
@@ -411,7 +417,6 @@ class StorageFileHandler(View):
 
     def caching(self, file_upload, pvc_name, path, md):
         """cache file"""
-        # cache file
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
         file_save = open(self.save_dir + file_upload.name, 'wb+')
@@ -523,6 +528,7 @@ class PVCPodHandler(View):
         """
         @api {post} /storage/pod/ Create a pod for a PVC
         @apiName CreatePod
+        @apiPermission admin
         @apiGroup StorageManager
         @apiVersion 0.1.0
         @apiParamExample {json} Request-Example:
@@ -565,7 +571,8 @@ class PVCPodHandler(View):
                                  persistent_volume_claim=client.V1PersistentVolumeClaimVolumeSource(
                                      claim_name=pvc_name, read_only=False))
         volume_mount = client.V1VolumeMount(name=volume_name, mount_path='/cephfs-data/')
-        container = client.V1Container(name=container_name, image="registry.dropthu.online:30443/ubuntu:19.10", image_pull_policy="IfNotPresent",
+        container = client.V1Container(name=container_name, image="registry.dropthu.online:30443/ubuntu:19.10",
+                                       image_pull_policy="IfNotPresent",
                                        volume_mounts=[volume_mount])
         pod = client.V1Pod(api_version="v1", kind="Pod",
                            metadata=client.V1ObjectMeta(name=pod_name, namespace=KUBERNETES_NAMESPACE),
@@ -588,6 +595,7 @@ class PVCPodHandler(View):
         """
         @api {delete} /storage/pod/ Delete a pod for a PVC
         @apiName DeletePod
+        @apiPermission admin
         @apiGroup StorageManager
         @apiVersion 0.1.0
         @apiParamExample {json} Request-Example:
@@ -629,6 +637,7 @@ class PVCPodHandler(View):
 
 class FileDisplayHandler(UserSpaceHandler):
     http_method_names = ['get', 'post', 'put', 'delete']
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.api_instance = CoreV1Api(get_kubernetes_api_client())
@@ -654,7 +663,8 @@ class FileDisplayHandler(UserSpaceHandler):
         if pvc_name is None:
             return JsonResponse(RESPONSE.INVALID_REQUEST)
         try:
-            self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name, namespace=KUBERNETES_NAMESPACE)
+            self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name,
+                                                                             namespace=KUBERNETES_NAMESPACE)
         except ApiException:
             response = RESPONSE.OPERATION_FAILED
             response['message'] += " PVC {} does not exist in namespaced {}.".format(pvc_name, KUBERNETES_NAMESPACE)

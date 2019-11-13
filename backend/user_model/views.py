@@ -217,12 +217,13 @@ class UserLogin(View):
         @apiVersion 0.1.0
         @apiPermission user
 
-        @apiParam {String} [username] Specifies the username as the unique identification.
-        @apiParam {String} [password] Specifies the password.
+        @apiParam {String} username Specifies the username as the unique identification.
+        @apiParam {String} password Specifies the password.
         @apiSuccess {Object} payload Response object
         @apiSuccess {String} payload.username Username
         @apiSuccess {String} payload.token Total element count
         @apiSuccess {String} payload.avatar Avatar source of user.
+        @apiSuccess {String} payload.permission User permission, must be one of [user, admin, super]
         @apiParamExample {json} Request-Example:
         {
             "username": "123456",
@@ -281,14 +282,17 @@ class UserHandler(View):
         @apiGroup User
         @apiVersion 0.1.0
         @apiPermission user
+        @apiDescription Get the detailed info of current user
 
         @apiSuccess {Object} payload Response object
         @apiSuccess {String} payload.username Username
-        @apiSuccess {String} payload.token Total element count
-        @apiSuccess {String} payload.avatar Avatar source of user.
+        @apiSuccess {String} payload.email Email of current user
+        @apiSuccess {String} payload.create_time Creation time of current user
+        @apiSuccess {String} payload.uuid UUID of current user
         @apiUse APIHeader
         @apiUse Success
         @apiUse InvalidRequest
+        @apiUse Unauthorized
         """
         user = kwargs.get('__user', None)
         if user is not None:
@@ -305,15 +309,15 @@ class UserHandler(View):
 
     def post(self, request):
         """
-        @api {post} /user/ User Sign Up (for plain user)
+        @api {post} /user/ User sign up (for plain user)
         @apiName UserSignUp
         @apiGroup User
         @apiVersion 0.1.0
         @apiPermission user
 
-        @apiParam {String} [username] Specifies the username as the unique identification.
-        @apiParam {String} [password] Specifies the password.
-        @apiParam {String} [email] Specifies the email.
+        @apiParam {String} username Specifies the username as the unique identification.
+        @apiParam {String} password Specifies the password.
+        @apiParam {String} email Specifies the email.
         @apiParamExample {json} Request-Example:
         {
             "username": "123456",
@@ -353,16 +357,18 @@ class UserHandler(View):
     @method_decorator(login_required)
     def delete(self, _, **kwargs):
         """
-        @api {delete} /user/ Delete user.
+        @api {delete} /user/ Delete user
         @apiName UserDelete
         @apiGroup User
         @apiVersion 0.1.0
         @apiPermission user
+        @apiDescription Delete current user if there is no associated task, otherwise fail
 
         @apiUse APIHeader
         @apiUse Success
         @apiUse OperationFailed
         @apiUse InvalidRequest
+        @apiUse Unauthorized
         """
         user = kwargs.get('__user', None)
         if user is not None:
@@ -378,7 +384,7 @@ class UserHandler(View):
     @method_decorator(login_required)
     def put(self, request, **kwargs):
         """
-        @api {put} /user/ Update User Info
+        @api {put} /user/ Update user info
         @apiName UserUpdate
         @apiGroup User
         @apiVersion 0.1.0
@@ -396,6 +402,7 @@ class UserHandler(View):
         @apiUse OperationFailed
         @apiUse InvalidRequest
         @apiUse ServerError
+        @apiUse Unauthorized
         """
         response = None
         try:
@@ -439,6 +446,7 @@ class UserLogout(View):
         @apiUse Success
         @apiUse OperationFailed
         @apiUse InvalidRequest
+        @apiUse Unauthorized
         """
         user = kwargs.get('__user', None)
         if user is not None:
@@ -458,6 +466,20 @@ class SuperUserItemHandler(View):
     http_method_names = ['delete', 'put']
 
     def delete(self, _, **kwargs):
+        """
+        @api {delete} /user/admin/<uuid>/ Delete admin user
+        @apiName DeleteAdmin
+        @apiGroup AdminMgmt
+        @apiVersion 0.1.0
+        @apiPermission super_admin
+
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse OperationFailed
+        @apiUse InvalidRequest
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
+        """
         user_id = kwargs.get('uuid', None)
         if user_id is not None:
             try:
@@ -470,6 +492,29 @@ class SuperUserItemHandler(View):
             return JsonResponse(RESPONSE.INVALID_REQUEST)
 
     def put(self, request, **kwargs):
+        """
+        @api {put} /user/admin/<uuid>/ Update an admin user
+        @apiName UpdateAdmin
+        @apiGroup AdminMgmt
+        @apiVersion 0.1.0
+        @apiPermission super_admin
+
+        @apiParam {String} [email] Specifies new email.
+        @apiParam {Boolean} [password_reset] Specifies whether to reset password.
+        @apiParamExample {json} Request-Example:
+        {
+            "email": "abc@163.com",
+            "password_reset": true
+        }
+
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse OperationFailed
+        @apiUse InvalidRequest
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
+        @apiUse ServerError
+        """
         response = None
         try:
             user_id = kwargs.get('uuid', None)
@@ -513,6 +558,30 @@ class SuperUserListHandler(View):
     http_method_names = ['get', 'post']
 
     def get(self, request, **_):
+        """
+        @api {get} /user/admin/ Get admin user list
+        @apiName GetAdminList
+        @apiGroup AdminMgmt
+        @apiVersion 0.1.0
+        @apiPermission super_admin
+
+        @apiParam {Number} [page] Specifies the page number (starting from 1, per page 25 elements)
+        @apiSuccess {Object} payload Response object
+        @apiSuccess {Number} payload.page_count Page count
+        @apiSuccess {Number} payload.count Total element count
+        @apiSuccess {Object[]} payload.entry List of AdminUser Object
+        @apiSuccess {String} payload.entry.uuid UUID of AdminUser
+        @apiSuccess {String} payload.entry.username Username of AdminUser
+        @apiSuccess {String} payload.entry.email Email of AdminUser
+        @apiSuccess {String} payload.entry.create_time Date of creation of AdminUser
+
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse InvalidRequest
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
+        @apiUse ServerError
+        """
         response = RESPONSE.SUCCESS
         try:
             params = request.GET
@@ -537,6 +606,24 @@ class SuperUserListHandler(View):
             return JsonResponse(response)
 
     def post(self, request, **_):
+        """
+        @api {post} /user/admin/ Create an admin user
+        @apiName GetAdminList
+        @apiGroup AdminMgmt
+        @apiVersion 0.1.0
+        @apiPermission super_admin
+
+        @apiParam {String} username Username of the Admin
+        @apiParam {String} email Email of the Admin
+
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
+        @apiUse ServerError
+        """
         response = None
         try:
             request = json.loads(request.body)
@@ -591,9 +678,27 @@ class OAuthUserLogin(View):
             })
 
     def get(self, request, *_, **__):
+        """
+        @api {get} /oauth/login/ OAuth login page
+        @apiName OAuthLogin
+        @apiGroup OAuth
+        @apiVersion 0.1.0
+
+        @apiSuccessExample {html} Success-Response:
+        /* HTML page for login ... */
+        """
         return render(request, 'oauth2_provider/login.html')
 
     def post(self, request, *_, **__):
+        """
+        @api {post} /oauth/login/ OAuth login form
+        @apiName OAuthLoginForm
+        @apiDescription Do not directly POST to this API. Instead, use OAuth login page to pass csrf_token and others.
+        @apiGroup OAuth
+        @apiSuccessExample {html} Success-Response:
+        HTTP/1.1 302 Found
+        @apiVersion 0.1.0
+        """
         username = request.POST.get('username', None)
         password = request.POST.get('password', None)
         if username is None or password is None:
@@ -620,6 +725,39 @@ class OAuthUserLogin(View):
 
 class OAuthUserInfoView(ProtectedResourceView):
     def get(self, request, *_, **__):
+        """
+        @api {get} /oauth/user_info/ Get OpenID of user
+        @apiDescription Get the OpenID compatible info of the user.
+        @apiName GetUserOpenID
+        @apiGroup OAuth
+        @apiVersion 0.1.0
+        @apiPermission admin
+
+        @apiHeader {String} Bearer-Token Obtained OAuth bearer token
+        @apiSuccess {String} sub UUID of the user
+        @apiSuccess {String} name Username
+        @apiSuccess {String} email Email
+        @apiSuccess {String} picture Avatar url
+        @apiSuccess {String} updated_at Update time of the user
+        """
+        """
+        @api {get} /oauth/authorize/ Standard OAuth authorize url
+        @apiName OAuthAuthorize
+        @apiGroup OAuth
+        @apiVersion 0.1.0
+        """
+        """
+        @api {get} /oauth/access_token/ Standard OAuth access token url
+        @apiName OAuthAccessToken
+        @apiGroup OAuth
+        @apiVersion 0.1.0
+        """
+        """
+        @api {get} /oauth/revoke_token/ Standard OAuth revoke token url
+        @apiName OAuthRevokeToken
+        @apiGroup OAuth
+        @apiVersion 0.1.0
+        """
         user = request.resource_owner
         md5 = hashlib.md5()
         md5.update(user.email.encode('utf-8'))
@@ -636,6 +774,39 @@ class ApplicationListHandler(View):
     http_method_names = ['get', 'post']
 
     def get(self, req, **kwargs):
+        """
+        @api {get} /oauth/applications/ Get OAuth app list
+        @apiName GetOAuthAppList
+        @apiGroup OAuthMgmt
+        @apiVersion 0.1.0
+        @apiPermission admin
+
+        @apiParam {Number} [page] Specifies the page number (starting from 1, per page 25 elements)
+        @apiSuccess {Object} payload Response object
+        @apiSuccess {Number} payload.page_count Page count
+        @apiSuccess {Number} payload.count Total element count
+        @apiSuccess {Object[]} payload.entry List of OAuthApp Object
+        @apiSuccess {String} payload.entry.model Fixed field, must be `oauth2_provider.application`
+        @apiSuccess {Number} payload.entry.pk Primary key
+        @apiSuccess {Object} payload.entry.fields Detailed fields of the app
+        @apiSuccess {String} payload.entry.fields.client_id OAuth 2.0 ClientID
+        @apiSuccess {String} payload.entry.fields.user Who the app belongs to. Null if the app is a shared one.
+        @apiSuccess {String} payload.entry.redirect_uris Allowed redirect uris separated by space
+        @apiSuccess {String} payload.entry.client_type `confidential`
+        @apiSuccess {String} payload.entry.authorization_grant_type `authorization-code`
+        @apiSuccess {String} payload.entry.client_secret OAuth 2.0 ClientSecret
+        @apiSuccess {String} payload.entry.name Name of the app
+        @apiSuccess {String} payload.entry.skip_authorization False
+        @apiSuccess {String} payload.entry.created Creation timestamp
+        @apiSuccess {String} payload.entry.updated Update timestamp
+
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse InvalidRequest
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
+        @apiUse ServerError
+        """
         user = kwargs.get('__user', None)
         response = None
         try:
@@ -658,6 +829,29 @@ class ApplicationListHandler(View):
             return JsonResponse(response)
 
     def post(self, request, **kwargs):
+        """
+        @api {post} /oauth/applications/ Create an OAuth app
+        @apiName CreateOAuthApp
+        @apiGroup OAuthMgmt
+        @apiVersion 0.1.0
+        @apiPermission admin
+
+        @apiParam {String} name App name
+        @apiParam {String[]} redirect uris List of allowed redirect uris
+        @apiParam {Boolean} [shared] If `true`, the app is a shared one
+
+        @apiSuccess {Number} id Primary key
+        @apiSuccess {String} name App name
+        @apiSuccess {String} client_id Allocated OAuth 2.0 `client_id`
+        @apiSuccess {String} client_secret Allocated OAuth 2.0 `client_secret`
+
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse InvalidRequest
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
+        @apiUse ServerError
+        """
         user = kwargs.get('__user', None)
         response = None
         try:
@@ -697,6 +891,34 @@ class ApplicationDetailHandler(View):
     http_method_names = ['get', 'put', 'delete']
 
     def get(self, _, **kwargs):
+        """
+       @api {get} /oauth/applications/<id> Get OAuth app detail
+       @apiName GetOAuthAppDetail
+       @apiGroup OAuthMgmt
+       @apiVersion 0.1.0
+       @apiPermission admin
+
+       @apiParam {Number} id Primary key of the app
+
+       @apiSuccess {Number} id Primary key
+       @apiSuccess {String} name Name of the app
+       @apiSuccess {String} user Who the app belongs to. Null if the app is a shared one.
+       @apiSuccess {String} client_id OAuth 2.0 ClientID
+       @apiSuccess {String[]} redirect_uris List of allowed redirect uris
+       @apiSuccess {String} client_type `confidential`
+       @apiSuccess {String} authorization_grant_type `authorization-code`
+       @apiSuccess {String} client_secret OAuth 2.0 ClientSecret
+       @apiSuccess {String} created Creation timestamp
+       @apiSuccess {String} updated Update timestamp
+
+       @apiUse APIHeader
+       @apiUse Success
+       @apiUse InvalidRequest
+       @apiUse OperationFailed
+       @apiUse Unauthorized
+       @apiUse PermissionDenied
+       @apiUse ServerError
+       """
         try:
             id = kwargs['id']
             user = kwargs['__user']
@@ -724,6 +946,25 @@ class ApplicationDetailHandler(View):
             return JsonResponse(RESPONSE.SERVER_ERROR)
 
     def put(self, request, **kwargs):
+        """
+       @api {put} /oauth/applications/<id> Update OAuth app
+       @apiName UpdateOAuthApp
+       @apiGroup OAuthMgmt
+       @apiVersion 0.1.0
+       @apiPermission admin
+
+       @apiParam {Number} id Primary key of the app
+       @apiParam {String} name Name of the app
+       @apiParam {String[]} redirect_uris List of allowed redirect uris
+       @apiParam {Boolean} shared Whether the app is shared
+
+       @apiUse APIHeader
+       @apiUse Success
+       @apiUse InvalidRequest
+       @apiUse Unauthorized
+       @apiUse PermissionDenied
+       @apiUse ServerError
+       """
         response = None
         try:
             id = kwargs['id']
@@ -752,6 +993,23 @@ class ApplicationDetailHandler(View):
             return JsonResponse(response)
 
     def delete(self, _, **kwargs):
+        """
+       @api {delete} /oauth/applications/<id>/ Delete OAuth app
+       @apiDescription Only shared app or the one belongs to the requester can be deleted
+       @apiName DeleteOAuthApp
+       @apiGroup OAuthMgmt
+       @apiVersion 0.1.0
+       @apiPermission admin
+
+       @apiParam {Number} id Primary key of the app
+
+       @apiUse APIHeader
+       @apiUse Success
+       @apiUse OperationFailed
+       @apiUse Unauthorized
+       @apiUse PermissionDenied
+       @apiUse ServerError
+       """
         response = None
         try:
             id = kwargs['id']
@@ -770,6 +1028,31 @@ class ApplicationDetailHandler(View):
 
 
 class AuthorizedTokensListHandler(View):
+    """
+   @api {get} /oauth/authorized_tokens/ Get OAuth authorized token list
+   @apiName GetOAuthTokenList
+   @apiGroup OAuthMgmt
+   @apiVersion 0.1.0
+   @apiPermission admin
+
+   @apiSuccess {Object[]} payload List of OAuthToken Object
+   @apiSuccess {String} payload.model Fixed field, must be `oauth2_provider.accesstoken`
+   @apiSuccess {Number} payload.pk Primary key
+   @apiSuccess {Object} payload.fields Detailed fields
+   @apiSuccess {Number} payload.fields.user The user primary key that the token belongs to
+   @apiSuccess {String} payload.fields.source_refresh_token RefreshToken
+   @apiSuccess {String} payload.fields.token Token
+   @apiSuccess {String} payload.fields.application Application that the token applies
+   @apiSuccess {String} payload.fields.expires Expiration timestamp
+   @apiSuccess {String} payload.fields.scope OAuth scope
+   @apiSuccess {String} payload.fields.created Creation timestamp
+   @apiSuccess {String} payload.fields.updated Update timestamp
+
+   @apiUse APIHeader
+   @apiUse Success
+   @apiUse Unauthorized
+   @apiUse PermissionDenied
+   """
     def get(self, _, **kwargs):
         user = kwargs.get('__user', None)
         items = get_access_token_model().objects.get_queryset().select_related("application").filter(
@@ -784,6 +1067,21 @@ class AuthorizedTokensDeleteHandler(View):
     http_method_names = ['delete']
 
     def delete(self, _, **kwargs):
+        """
+       @api {get} /oauth/authorized_tokens/<id>/ Delete an OAuth authorized token
+       @apiName DeleteOAuthToken
+       @apiGroup OAuthMgmt
+       @apiVersion 0.1.0
+       @apiPermission admin
+
+       @apiParam {Number} id Primary key
+
+       @apiUse APIHeader
+       @apiUse Success
+       @apiUse OperationFailed
+       @apiUse Unauthorized
+       @apiUse PermissionDenied
+       """
         user = kwargs.get('__user', None)
         id = kwargs.get('id', None)
         model = get_access_token_model()

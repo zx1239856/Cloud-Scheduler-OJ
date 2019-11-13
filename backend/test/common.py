@@ -390,7 +390,15 @@ class MockDXF:
 
     @staticmethod
     def del_blob(*_):
-        pass
+        return True
+
+    @staticmethod
+    def push_blob(*_, **__):
+        return True
+
+    @staticmethod
+    def set_manifest(*_):
+        return True
 
 
 class MockRequest:
@@ -477,28 +485,37 @@ def MockJsonRequest(*_):
 def MockGetTags(*_):
     return ['test_alias']
 
+def Mock_extract_tar_file(*_):
+    return True
 
-class MockDockerClient:
-    def __init__(self, *_, **__):
-        class MockImageCollection:
-            def load(self, *_):
-                class MockImage:
-                    def __init__(self):
-                        self.tags = [
-                            'test_upload_image'
-                        ]
+def Mock_get_json_from_file(*_):
+    return [{
+        "RepoTags": ["test_repo:test_repo_tag"],
+        "Config": "test_config",
+        "Layers": ["test_layer"]
+    }]
 
-                return [MockImage()]
+def Mock_create_manifest(*_):
+    return {
+        "RepoTags": ["test_repo2:test_repo_tag2"],
+        "Config": "test_config2",
+        "Layers": ["test_layer2"]
+    }
 
-        self.images = MockImageCollection()
+class MockOs:
+
+    class path:
+        def __init__(self):
+            pass
+
+        def getsize(self, *_):
+            return 0
+
+        def join(self, *_):
+            return "test_path"
+
+    path = path()
 
 
-class MockAPIClient:
-    def __init__(self, **_):
-        pass
-
-    def tag(self, *_, **__):
-        pass
-
-    def push(self, *_, **__):
-        pass
+def MockHashfile(*_):
+    return "test_digest"
