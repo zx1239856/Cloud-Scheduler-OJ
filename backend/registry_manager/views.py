@@ -122,8 +122,6 @@ class RegistryHandler(View):
         @apiSuccess {Number} payload.count Count of total repositories
         @apiSuccess {Object[]} payload.entry List of Repositoris
         @apiSuccess {String} payload.entry.Repo Repository Name
-        @apiSuccess {String} payload.entry.NumberOfTags Number of Tags
-        @apiSuccess {String} payload.entry.SizeOfRepository Size of Repository
         @apiUse APIHeader
         @apiUse Success
         @apiUse OperationFailed
@@ -162,8 +160,6 @@ class RepositoryHandler(View):
         @apiSuccess {String} payload.entry.DockerVersion Docker Version of the Tag
         @apiSuccess {String} payload.entry.ExposedPorts Exposed Ports of the Tag
         @apiSuccess {String} payload.entry.Volumes Volumes of the Tag
-        @apiSuccess {String} payload.entry.Size Size of the Tag
-        @apiSuccess {String} payload.entry.Layers Number of Layers of the Tag
         @apiUse APIHeader
         @apiUse Success
         @apiUse OperationFailed
@@ -238,12 +234,11 @@ class RepositoryHandler(View):
 
     def upload(self, filename, md, repo):
         try:
-            print(repo)
             ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.UPLOADING)
             dxf = DXF(REGISTRY_ADDRESS, repo)
             status = DockerTarUploader(dxf).upload_tar(self.basePath+filename)
-            print("upload status")
-            print(status)
+            LOGGER.info("upload status")
+            LOGGER.info(status)
             if os.path.exists(self.basePath + filename):
                 os.remove(self.basePath + filename)
             LOGGER.info("done upload")
@@ -281,7 +276,7 @@ class UploadHandler(View):
     @method_decorator(permission_required)
     def get(self, request, **_):
         """
-        @api {get} /registry/history/ get uploading image list
+        @api {get} /registry/history/ Get uploading image list
         @apiName getImageList
         @apiGroup RegistryManager
         @apiVersion 0.1.0
