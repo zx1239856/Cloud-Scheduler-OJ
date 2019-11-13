@@ -256,6 +256,22 @@ class TestStorage(TestCaseWithBasicUser):
         os.remove('test3.txt')
 
     @mock.patch.object(storage.views.StorageFileHandler, 'uploading', mock_uploading)
+    def testFileUploadPostPendingPVC(self):
+        token = login_test_user('admin')
+        f = open('test4.txt', 'w')
+        f.close()
+        f = open('test4.txt', 'r')
+        response = self.client.post('/storage/upload_file/',
+                                    data={'file[]': [f], 'pvcName': 'pending-pvc', 'mountPath': 'test/'}, HTTP_X_ACCESS_TOKEN=token,
+                                    HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+        self.assertEqual(response['message'], RESPONSE.OPERATION_FAILED['message'] + " PVC pending-pvc is still pending.")
+        f.close()
+        os.remove('test4.txt')
+
+    @mock.patch.object(storage.views.StorageFileHandler, 'uploading', mock_uploading)
     def testRestart(self):
         token = login_test_user('admin')
         response = self.client.put('/storage/upload_file/', HTTP_X_ACCESS_TOKEN=token,
