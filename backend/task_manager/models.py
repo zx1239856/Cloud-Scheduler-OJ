@@ -13,6 +13,7 @@ class TASK:
     PENDING = 5  # waiting the pod initializing
     TLE = 6  # time limit exceeded
     WAITING = 7  # waiting for pod to be created
+    MLE = 8  # memory limit exceeded
 
 
 class TaskSettings(models.Model):
@@ -40,6 +41,7 @@ class Task(models.Model):
     create_time = models.DateTimeField(auto_now_add=True)
     logs = models.TextField()
     logs_get = models.BooleanField(default=False)
+    exit_code = models.IntegerField(default=0)
 
 
 class TaskStorage(models.Model):

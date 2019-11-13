@@ -107,6 +107,11 @@ class MockCoreV1ApiForTTL(MockCoreV1Api):
             return client.V1PodList(items=[])
         else:
             pods = client.V1PodList(items=MockCoreV1ApiForTTL.pod_map[label_selector].copy())
+            if pods.items:
+                pods.items[0].status.container_statuses = [
+                    client.V1ContainerStatus(state=client.V1ContainerStateTerminated(exit_code=0),
+                                             image='aaa', image_id='aaa', name='name', container_id='id',
+                                             ready=True, restart_count=0)]
             print("Sending {} pods".format(len(pods.items)))
             return pods
 

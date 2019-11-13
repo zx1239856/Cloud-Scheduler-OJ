@@ -344,7 +344,7 @@ class ConcreteTaskListHandler(View):
         @apiSuccess {Object[]} payload.entry List of TaskSettings Object
         @apiSuccess {String} payload.entry.uuid Task uuid
         @apiSuccess {Number} payload.entry.status Task status code, defined as [SCHEDULED = 0, RUNNING = 1,
-        SUCCEEDED = 2, FAILED = 3, DELETING = 4, PENDING = 5, TLE = 6, WAITING = 7]
+        SUCCEEDED = 2, FAILED = 3, DELETING = 4, PENDING = 5, TLE = 6, WAITING = 7, MLE = 8]
         @apiSuccess {String} payload.entry.user Name of the user that the task belongs to
         @apiSuccess {Object} payload.entry.settings Corresponding task setting
         @apiSuccess {String} payload.entry.settings.name Name of the task setting
@@ -478,7 +478,8 @@ class ConcreteTaskHandler(View):
         @apiSuccess {Object} payload.settings Corresponding task setting
         @apiSuccess {String} payload.settings.name Name of the task setting
         @apiSuccess {String} payload.settings.uuid UUID of the task setting
-        @apiSuccess {String} payload.settings.log Logs of the task
+        @apiSuccess {Number} payload.exit_code Exit code of the task
+        @apiSuccess {String} payload.log Logs of the task
         @apiSuccess {String} payload.create_time Create time
         @apiUse APIHeader
         @apiUse Success
@@ -510,6 +511,7 @@ class ConcreteTaskHandler(View):
                                        'uuid': item.uuid,
                                        'user': item.user.username,
                                        'log': log,
+                                       'exit_code': item.exit_code,
                                        'create_time': item.create_time}
         except Task.DoesNotExist:
             response = RESPONSE.OPERATION_FAILED
