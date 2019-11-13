@@ -356,8 +356,8 @@ class StorageFileHandler(View):
 
         # check if pvc exists
         try:
-            self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name,
-                                                                             namespace=KUBERNETES_NAMESPACE)
+            pvc_status = self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name,
+                                                                                          namespace=KUBERNETES_NAMESPACE)
         except ApiException as ex:
             if ex.status != 404:
                 response = RESPONSE.SERVER_ERROR
@@ -367,6 +367,11 @@ class StorageFileHandler(View):
                 response = RESPONSE.OPERATION_FAILED
                 response['message'] += " PVC {} does not exist in namespaced {}.".format(pvc_name, KUBERNETES_NAMESPACE)
                 return JsonResponse(response)
+
+        if pvc_status.status.phase != 'Bound':
+            response = RESPONSE.OPERATION_FAILED
+            response['message'] += " PVC {} is still pending.".format(pvc_name)
+            return JsonResponse(response)
 
         # create if namespace does not exist
         try:

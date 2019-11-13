@@ -245,6 +245,10 @@ class MockCoreV1Api:
     def read_namespaced_persistent_volume_claim_status(name, **_):
         if name == 'nonexistent-pvc':
             raise ApiException(status=404, reason="nonexistent-pvc")
+        elif name == 'pending-pvc':
+            return DotDict({'status': DotDict({'phase': 'Pending'})})
+        else:
+            return DotDict({'status': DotDict({'phase': 'Bound'})})
 
     @staticmethod
     def create_namespaced_pod(**_):
