@@ -54,7 +54,7 @@ class StorageHandler(View):
         @apiGroup StorageManager
         @apiVersion 0.1.0
         @apiSuccess {Object} payload Response Object
-        @apiSuccess {Number} payload.count Count of total PV claims
+        @apiSuccess {Number} payload.count Count of total PVCs
         @apiSuccess {Object[]} payload.entry List of PVC
         @apiSuccess {String} payload.entry.name PVC name
         @apiSuccess {String} payload.entry.capacity PVC capacity
@@ -62,7 +62,6 @@ class StorageHandler(View):
         @apiUse Success
         @apiUse ServerError
         @apiUse InvalidRequest
-        @apiUse OperationFailed
         @apiUse Unauthorized
         @apiUse PermissionDenied
         """
@@ -110,7 +109,7 @@ class StorageHandler(View):
         @apiVersion 0.1.0
         @apiParamExample {json} Request-Body-Example:
         {
-            "name": "new_pvc_name",
+            "name": "pvc-name",
             "capacity": "1Gi"
         }
         @apiParam {String} name Name of the PVC
@@ -139,9 +138,10 @@ class StorageHandler(View):
                                                                   metadata=client.V1ObjectMeta(
                                                                       name=KUBERNETES_NAMESPACE,
                                                                       labels={"name": KUBERNETES_NAMESPACE})))
-        except ApiException:
-            # namespaces already exists
-            pass
+        except ApiException as ex:
+            if ex.status != 409:
+                LOGGER.error("Kubernetes ApiException %d: %s", ex.status, ex.reason)
+                return JsonResponse(RESPONSE.SERVER_ERROR)
 
         # Create PVC
         pvc_body = client.V1PersistentVolumeClaim(api_version="v1", kind="PersistentVolumeClaim", \
@@ -166,13 +166,13 @@ class StorageHandler(View):
     @method_decorator(permission_required)
     def delete(self, request, **_):
         """
-        @api {delete} /storage/ Delete a PV claim
+        @api {delete} /storage/ Delete a PVC
         @apiName DeletePVC
         @apiGroup StorageManager
         @apiVersion 0.1.0
         @apiParamExample {json} Request-Example:
         {
-            "name": "pvc_name"
+            "name": "pvc-name"
         }
         @apiParam {String} name Name of the PVC to be deleted
         @apiSuccess {Object} payload Success payload is empty
@@ -193,6 +193,7 @@ class StorageHandler(View):
 
         class DeleteError(Exception):
             pass
+
         try:
             pod_list = self.api_instance.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE).items
             for pod in pod_list:
@@ -208,10 +209,18 @@ class StorageHandler(View):
             LOGGER.error(ex)
             response = RESPONSE.OPERATION_FAILED
             response['message'] += " PVC {} is being mounted by some pods now.".format(pvc_name)
+        except ApiException as ex:
+            if ex.status != 404:
+                LOGGER.error("Kubernetes ApiException %d: %s", ex.status, ex.reason)
+                response = RESPONSE.SERVER_ERROR
+            else:
+                LOGGER.error(ex)
+                response = RESPONSE.OPERATION_FAILED
+                response['message'] += " PVC {} not found.".format(pvc_name)
         except Exception as ex:
             LOGGER.error(ex)
             response = RESPONSE.OPERATION_FAILED
-            response['message'] += " PVC {} not found.".format(pvc_name)
+            response['message'] += " " + str(ex)
         return JsonResponse(response)
 
 
@@ -226,16 +235,13 @@ class StorageFileHandler(View):
     @method_decorator(permission_required)
     def put(self, request, **_):
         """
-        @api {post} /storage/upload_file/ re-upload cached files
+        @api {put} /storage/upload_file/ Re-upload cached files
         @apiName ReuploadCachedFiles
         @apiGroup StorageManager
         @apiVersion 0.1.0
         @apiSuccess {Object} payload Response payload is empty
         @apiUse APIHeader
         @apiUse Success
-        @apiUse ServerError
-        @apiUse InvalidRequest
-        @apiUse OperationFailed
         @apiUse Unauthorized
         @apiUse PermissionDenied
         """
@@ -264,7 +270,7 @@ class StorageFileHandler(View):
     @method_decorator(permission_required)
     def get(self, request, **_):
         """
-        @api {post} /storage/upload_file/ get uploading file list
+        @api {get} /storage/upload_file/ Get uploaded file list
         @apiName getUploadingFileList
         @apiGroup StorageManager
         @apiVersion 0.1.0
@@ -279,9 +285,7 @@ class StorageFileHandler(View):
         @apiSuccess {Number} payload.entry.status File uploading status
         @apiUse APIHeader
         @apiUse Success
-        @apiUse ServerError
         @apiUse InvalidRequest
-        @apiUse OperationFailed
         @apiUse Unauthorized
         @apiUse PermissionDenied
         """
@@ -314,15 +318,15 @@ class StorageFileHandler(View):
     @method_decorator(permission_required)
     def post(self, request, **_):
         """
-        @api {post} /storage/upload_file/ Upload a file into a pvc storage
+        @api {post} /storage/upload_file/ Upload files into a PVC
         @apiName UploadFile
         @apiGroup StorageManager
         @apiVersion 0.1.0
         @apiParamExample {json} Request-Example:
         {
             "file[]": [FILE1, FILE2, ...],
-            "pvcName": "mypvc",
-            "mountPath": "data/"
+            "pvcName": "pvc-name",
+            "mountPath": "./data/"
         }
         @apiParam {String} fileDirectory directory of the file to be uploaded
         @apiParam {String} pvcName name of the target PVC
@@ -355,10 +359,14 @@ class StorageFileHandler(View):
             self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name,
                                                                              namespace=KUBERNETES_NAMESPACE)
         except ApiException as ex:
-            LOGGER.warning(ex)
-            response = RESPONSE.OPERATION_FAILED
-            response['message'] += " PVC {} does not exist in namespaced {}.".format(pvc_name, KUBERNETES_NAMESPACE)
-            return JsonResponse(response)
+            if ex.status != 404:
+                response = RESPONSE.SERVER_ERROR
+                response['message'] += " {}".format(ex.reason)
+                return JsonResponse(response)
+            else:
+                response = RESPONSE.OPERATION_FAILED
+                response['message'] += " PVC {} does not exist in namespaced {}.".format(pvc_name, KUBERNETES_NAMESPACE)
+                return JsonResponse(response)
 
         # create if namespace does not exist
         try:
@@ -508,15 +516,15 @@ class PVCPodHandler(View):
     @method_decorator(permission_required)
     def post(self, request, **_):
         """
-        @api {post} /storage/pod/ Create a pod to display files in pvc mounted
+        @api {post} /storage/pod/ Create a pod for a PVC
         @apiName CreatePod
         @apiGroup StorageManager
         @apiVersion 0.1.0
         @apiParamExample {json} Request-Example:
         {
-            "pvcname": "mypvc"
+            "pvcname": "pvc-name"
         }
-        @apiParam {String} pvcname name of the target PVC
+        @apiParam {String} pvcname Name of the target PVC
         @apiSuccess {Object} payload Success payload is empty
         @apiUse APIHeader
         @apiUse Success
@@ -537,10 +545,13 @@ class PVCPodHandler(View):
             self.api_instance.read_namespaced_persistent_volume_claim_status(name=pvc_name,
                                                                              namespace=KUBERNETES_NAMESPACE)
         except ApiException as ex:
-            LOGGER.warning(ex)
-            response = RESPONSE.OPERATION_FAILED
-            response['message'] += " PVC {} does not exist in namespaced {}.".format(pvc_name, KUBERNETES_NAMESPACE)
-            return JsonResponse(response)
+            if ex.status != 404:
+                LOGGER.error("Kubernetes ApiException %d: %s", ex.status, ex.reason)
+                return JsonResponse(RESPONSE.SERVER_ERROR)
+            else:
+                response = RESPONSE.OPERATION_FAILED
+                response['message'] += " PVC {} does not exist in namespaced {}.".format(pvc_name, KUBERNETES_NAMESPACE)
+                return JsonResponse(response)
 
         volume_name = "volume-" + pvc_name
         container_name = "container-" + pvc_name
@@ -558,9 +569,8 @@ class PVCPodHandler(View):
             self.api_instance.create_namespaced_pod(namespace=KUBERNETES_NAMESPACE, body=pod)
         except ApiException as e:
             if e.status != 409:
-                response = RESPONSE.OPERATION_FAILED
-                response['message'] += " {}".format(str(e.reason))
-                return JsonResponse(response)
+                LOGGER.error("Kubernetes ApiException %d: %s", ex.status, ex.reason)
+                return JsonResponse(RESPONSE.SERVER_ERROR)
         except Exception as e:
             response = RESPONSE.OPERATION_FAILED
             response['message'] += " {}".format(str(e))
@@ -571,13 +581,13 @@ class PVCPodHandler(View):
     @method_decorator(permission_required)
     def delete(self, request, **_):
         """
-        @api {delete} /storage/ Delete a pod mounted by a pvc
+        @api {delete} /storage/pod/ Delete a pod for a PVC
         @apiName DeletePod
         @apiGroup StorageManager
         @apiVersion 0.1.0
         @apiParamExample {json} Request-Example:
         {
-            "pvcname": "mypvc"
+            "pvcname": "pvc-name"
         }
         @apiParam {String} pvcname Name of the mounted pvc of the pod
         @apiSuccess {Object} payload Success payload is empty
@@ -601,7 +611,7 @@ class PVCPodHandler(View):
             self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
         except ApiException as e:
             if e.status != 404:
-                response = RESPONSE.OPERATION_FAILED
+                response = RESPONSE.SERVER_ERROR
                 response['message'] += " {}".format(e.reason)
                 return JsonResponse(response)
         except Exception as e:
