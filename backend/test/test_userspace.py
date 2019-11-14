@@ -69,6 +69,42 @@ class TestUserSpace(TestCaseWithBasicUser):
         response = json.loads(response.content)
         self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
 
+    @mock.patch.object(views, 'TaskExecutor', MockTaskExecutorNotReady)
+    def test_null_executor_space_reset(self):
+        token = login_test_user('admin')
+        response = self.client.get('/user_space/my_uuid/reset/', HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+
+    @mock.patch.object(views, 'TaskExecutor', MockTaskExecutorWithInternalError)
+    def test_space_reset_server_error(self):
+        token = login_test_user('admin')
+        response = self.client.get('/user_space/my_uuid/reset/', HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SERVER_ERROR['status'])
+
+    @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
+    def test_space_reset_task_not_found(self):
+        token = login_test_user('admin')
+        response = self.client.get('/user_space/not_exist/reset/', HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.OPERATION_FAILED['status'])
+
+    @mock.patch.object(views, 'TaskExecutor', MockTaskExecutor)
+    def test_space_reset_task_success(self):
+        token = login_test_user('admin')
+        response = self.client.get('/user_space/my_uuid/reset/', HTTP_X_ACCESS_TOKEN=token,
+                                   HTTP_X_ACCESS_USERNAME='admin')
+        self.assertEqual(response.status_code, 200)
+        response = json.loads(response.content)
+        self.assertEqual(response['status'], RESPONSE.SUCCESS['status'])
+
     @mock.patch.object(views, 'TaskExecutor', MockNullPodExecutor)
     def test_null_pod(self):
         token = login_test_user('admin')

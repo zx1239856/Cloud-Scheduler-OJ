@@ -23,6 +23,55 @@ def random_string():
     return ''.join(random.sample(string.ascii_letters + string.digits, 16))
 
 
+class UserSpaceResetHandler(View):
+    http_method_names = ['get']
+
+    def get(self, request, **kwargs):
+        """
+        @api {get} /user_space/<str:uuid>/reset/ Reset user space
+        @apiDescription Reset user space, copy initial task files into it
+        @apiName ResetUserSpace
+        @apiGroup UserSpace
+        @apiVersion 0.1.0
+        @apiPermission user
+
+        @apiParam {Boolean} [purge] Whether to clean all changes made by the user. If `true`, user changes will be
+        dropped and then initial files get copied, otherwise initial files overwrite user changes only if necessary.
+        @apiUse Success
+        @apiUse APIHeader
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        @apiUse Unauthorized
+        @apiUse ServerError
+        """
+        try:
+            user = kwargs.get('__user', None)
+            uuid = kwargs.get('uuid', None)
+            purge = request.GET.get('purge', 'false')
+            purge = purge.lower() == 'true'
+            if user is None:
+                raise Exception("Internal exception raised when trying to get `User` object.")
+            if uuid is None:
+                raise ValueError
+            settings = TaskSettings.objects.get(uuid=uuid)
+            executor = TaskExecutor.instance(new=False)
+            if executor is None:
+                raise TaskSettings.DoesNotExist
+            else:
+                pod = executor.get_user_space_pod(settings.uuid, user, True, isinstance(purge, bool) and purge is True)
+                if pod is None:
+                    raise TaskSettings.DoesNotExist
+            return JsonResponse(RESPONSE.SUCCESS)
+        except TaskSettings.DoesNotExist:
+            res = RESPONSE.OPERATION_FAILED
+            return JsonResponse(res)
+        except ValueError:
+            return JsonResponse(RESPONSE.INVALID_REQUEST)
+        except Exception as ex:
+            LOGGER.exception(ex)
+            return JsonResponse(RESPONSE.SERVER_ERROR)
+
+
 class UserSpaceHandler(View):
     http_method_names = ['get', 'post', 'put', 'delete']
 
@@ -60,7 +109,8 @@ class UserSpaceHandler(View):
                 cmdlist = []
                 file = params.get('file', None)
                 path = params.get('path', None)
-                base64 = params.get('base64', None)
+                base64 = params.get('base64', 'false')
+                base64 = base64.lower() == 'true'
                 if op_code != 'get':
                     query = json.loads(request.body)
                     file = query.get('file', None)

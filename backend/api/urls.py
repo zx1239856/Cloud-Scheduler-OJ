@@ -67,6 +67,7 @@ urlpatterns = [
     path('storage/ide/<str:pvcname>/', storage_views.FileDisplayHandler.as_view()),
     # user space for webIDE
     path('user_space/<str:uuid>/', login_required(user_space_views.UserSpaceHandler.as_view())),
+    path('user_space/<str:uuid>/reset/', login_required(user_space_views.UserSpaceResetHandler.as_view())),
     path('vnc/<str:uuid>/', login_required(user_space_views.UserVNCHandler.as_view())),
     # registry management
     path('registry/', registry_mgmt_views.RegistryHandler.as_view()),
