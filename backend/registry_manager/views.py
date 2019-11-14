@@ -150,7 +150,7 @@ class RepositoryHandler(View):
     @method_decorator(permission_required)
     def get(self, _, **kwargs):
         """
-        @api {get} registry/<str:repo>/ Get Tag Lists of the given Repository
+        @api {get} registry/repository/<str:repo>/ Get Tag Lists of the given Repository
         @apiName GetTags
         @apiGroup RegistryManager
         @apiVersion 0.1.0
@@ -185,7 +185,7 @@ class RepositoryHandler(View):
     @method_decorator(permission_required)
     def post(self, request, **_):
         """
-        @api {post} /registry/upload/ Upload image.tar
+        @api {post} /registry/repository/upload/ Upload image.tar
         @apiName UploadImageTar
         @apiGroup RegistryManager
         @apiVersion 0.1.0
@@ -257,7 +257,7 @@ class RepositoryHandler(View):
     @method_decorator(permission_required)
     def delete(self, _, **kwargs):
         """
-        @api {delete} /registry/<str:repo>/<str:tag>/ Delete an image
+        @api {delete} /registry/repository/<str:repo>/<str:tag>/ Delete an image
         @apiName DeleteImage
         @apiGroup RegistryManager
         @apiVersion 0.1.0
