@@ -222,7 +222,6 @@ export default {
                 });
         },
         handleDisplayDetail(row) {
-            console.log(row);
             this.selectedRowData = Object.assign({}, row);
             this.detailDialogVisible = true;
         },

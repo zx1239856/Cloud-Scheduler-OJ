@@ -11,10 +11,36 @@
       </el-form-item>
 
       <el-form-item label="Image" prop="image">
-        <el-input v-model="formData.image" placeholder="nginx:latest" />
+        <el-col :span="18">
+          <el-select
+            v-model="formData.image"
+            filterable
+            allow-create
+            default-first-option
+            placeholder="Image"
+            style="width: 100%;"
+            @change="handleImageChange"
+          >
+            <el-option v-for="repo in repoList" :key="'registry.dropthu.online:30443/' + repo.Repo" :label="'registry.dropthu.online:30443/' + repo.Repo" :value="repoPrefix + repo.Repo" />
+          </el-select>
+        </el-col>
+        <el-col class="line" :span="1" style="text-align: center;">:</el-col>
+        <el-col :span="5">
+          <el-select
+            v-model="formData.tag"
+            :loading="tagLoading"
+            filterable
+            allow-create
+            default-first-option
+            placeholder="Tag"
+            style="width: 100%;"
+          >
+            <el-option v-for="tag in tagList" :key="tag.Tag" :label="tag.Tag" :value="tag.Tag" />
+          </el-select>
+        </el-col>
       </el-form-item>
       <el-form-item label="Persistent Volume">
-        <el-select v-model="formData.persistent_volume_name" placeholder="cephfs-pvc">
+        <el-select v-model="formData.persistent_volume_name" placeholder="Select Persistent Volume" style="width: 100%;">
           <el-option
             v-for="item in pvcList"
             :key="item.name"
@@ -30,7 +56,7 @@
         <el-input v-model="formData.shell" placeholder="/bin/bash" />
       </el-form-item>
       <el-form-item label="Commands" prop="commands">
-        <el-input v-model="formData.commands" type="textarea" :autosize="{ minRows: 4, maxRows: 4}" placeholder="echo hello world" />
+        <el-input v-model="formData.commands" type="textarea" :autosize="{ minRows: 5, maxRows: 100}" placeholder="echo hello world" />
       </el-form-item>
 
       <el-form-item label="Memory Limit" prop="memory_limit">
@@ -80,6 +106,7 @@
 <script>
 import { getTaskSettings, createTaskSettings, updateTaskSettings } from '@/api/task_settings';
 import { validatePath } from '@/utils/validate';
+import { getRepositories, getRepository } from '@/api/registry';
 import { getPVCList } from '@/api/storage';
 
 export default {
@@ -93,6 +120,10 @@ export default {
             }
         };
         return {
+            tagLoading: false,
+            repoPrefix: 'registry.dropthu.online:30443/',
+            repoList: [],
+            tagList: [],
             select: 'G',
             confirmMessage: 'Create',
             dialogLoading: false,
@@ -100,6 +131,7 @@ export default {
                 name: '',
                 description: '',
                 image: '',
+                tag: '',
                 persistent_volume_name: '',
                 persistent_volume_mount_path: '',
                 shell: '',
@@ -188,8 +220,24 @@ export default {
             });
         }
         this.getList();
+        getRepositories().then(response => {
+            this.repoList = response.payload.entity;
+        });
     },
     methods: {
+        handleImageChange(value) {
+            this.tagList = [];
+            this.formData.tag = '';
+            if (value.startsWith(this.repoPrefix)) {
+                this.tagLoading = true;
+                const repoName = value.substr(this.repoPrefix.length);
+                getRepository(repoName).then(response => {
+                    this.tagList = response.payload.entity;
+                }).finally(() => {
+                    this.tagLoading = false;
+                });
+            }
+        },
         getList() {
             getPVCList({ 'page': -1 }).then(response => {
                 this.pvcList = response.payload.entry;
@@ -201,7 +249,7 @@ export default {
                 name: form.name,
                 description: form.description,
                 container_config: {
-                    image: form.image,
+                    image: form.image + ':' + form.tag,
                     persistent_volume: {
                         name: form.persistent_volume_name,
                         mount_path: form.persistent_volume_mount_path
@@ -223,7 +271,8 @@ export default {
             return {
                 name: form.name,
                 description: form.description,
-                image: form.container_config.image,
+                image: form.container_config.image.substr(0, form.container_config.image.lastIndexOf(':')),
+                tag: form.container_config.image.substr(form.container_config.image.lastIndexOf(':') + 1),
                 persistent_volume_name: form.container_config.persistent_volume.name,
                 persistent_volume_mount_path: form.container_config.persistent_volume.mount_path,
                 shell: form.container_config.shell,
