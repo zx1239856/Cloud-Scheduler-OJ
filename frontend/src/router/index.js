@@ -73,6 +73,7 @@ export const constantRoutes = [
         name: 'task',
         component: Layout,
         meta: { title: 'Task', icon: 'task' },
+        redirect: 'task-settings',
         children: [
             {
                 path: 'task-settings',

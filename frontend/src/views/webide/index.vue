@@ -510,6 +510,7 @@ export default {
             }
             this.currentFile = node.data.key;
             if (isImage) {
+                this.codeMirrorLoading = true;
                 getFile(this.uuid, this.currentFile, true).then(response => {
                     this.imageUrl = this.imageMap[imageExtension] + ';base64,' + response.payload;
                     this.tabs.push({
@@ -518,6 +519,8 @@ export default {
                         content: this.imageUrl,
                         isImage: true
                     });
+                }).finally(() => {
+                    this.codeMirrorLoading = false;
                 });
             } else {
                 this.codeMirrorLoading = true;
