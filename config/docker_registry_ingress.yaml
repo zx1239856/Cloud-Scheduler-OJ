@@ -1,0 +1,22 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+  name: kube-registry
+  namespace: kube-system
+spec:
+  tls:
+  - hosts:
+    - <your-domain>
+    secretName: <your-tls-secret>
+  rules:
+    - host: <your-domain>
+      http:
+        paths:
+        - backend:
+            serviceName: kube-registry
+            servicePort: 5000
+          path: /

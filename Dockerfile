@@ -17,7 +17,19 @@ RUN npm run build
 COPY backend/ $BACKEND
 RUN npm run apidocs
 
-# Second stage for nginx
+# Second stage for mkdocs
+FROM python:3.6.8-alpine3.9
+
+WORKDIR /opt/docs
+
+COPY docs/ /opt/docs
+
+RUN pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
+
+RUN mkdocs build
+
+
+# Third stage for nginx
 FROM elice/python-nginx:3.7
 
 ENV HOME=/opt/backend
@@ -27,6 +39,7 @@ WORKDIR $HOME
 # Copy frontend from the first stage
 COPY --from=0 /opt/frontend/dist /opt/frontend/dist
 COPY --from=0 /opt/apidocs /opt/apidocs
+COPY --from=1 /opt/docs/site /opt/docs
 COPY nginx/ nginx/
 
 RUN rm -r /etc/nginx/conf.d \
