@@ -80,7 +80,7 @@
     </div>
 
     <el-dialog :title="dialogType" :visible.sync="dialogFormVisible">
-      <el-form ref="dialogForm" :model="dialogData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
+      <el-form ref="dialogForm" :rules="dialogRules" :model="dialogData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
         <el-form-item label="file" prop="file">
           <el-upload
             action="no"
@@ -183,6 +183,18 @@ export default {
     },
     data() {
         return {
+            dialogRules: {
+                file: [{
+                    required: true,
+                    message: 'File is required',
+                    trigger: 'change'
+                }],
+                repo: [{
+                    required: true,
+                    message: 'Repository name is required',
+                    trigger: 'change'
+                }]
+            },
             currentRepo: '',
             dialogType: 'Upload',
             dialogFormVisible: false,
