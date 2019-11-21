@@ -180,8 +180,8 @@ class _Response(object):
     @property
     def RESOURCE_LOCKED(self):
         """
-        @apiDefine PermissionDenied
-        @apiError PermissionDenied User does not have permission to access
+        @apiDefine ResourceLocked
+        @apiError ResourceLocked Resource is locked and come back later
         @apiErrorExample {json} Error-Response:
         HTTP/1.1 200 OK
         {
@@ -199,8 +199,8 @@ class _Response(object):
     @property
     def NOT_FOUND(self):
         """
-        @apiDefine PermissionDenied
-        @apiError PermissionDenied User does not have permission to access
+        @apiDefine NotFound
+        @apiError NotFound The resource requested is not found
         @apiErrorExample {json} Error-Response:
         HTTP/1.1 200 OK
         {

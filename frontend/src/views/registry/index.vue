@@ -80,7 +80,7 @@
     </div>
 
     <el-dialog :title="dialogType" :visible.sync="dialogFormVisible">
-      <el-form ref="dialogForm" :model="dialogData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
+      <el-form ref="dialogForm" :rules="dialogRules" :model="dialogData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;">
         <el-form-item label="file" prop="file">
           <el-upload
             action="no"
@@ -89,6 +89,9 @@
           >
             <i class="el-icon-plus" />
           </el-upload>
+        </el-form-item>
+        <el-form-item label="Repo Name" prop="repo">
+          <el-input ref="inputPath" v-model="dialogData.repo" @keyup.enter.native="handleDialogConfirm" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
@@ -180,6 +183,18 @@ export default {
     },
     data() {
         return {
+            dialogRules: {
+                file: [{
+                    required: true,
+                    message: 'File is required',
+                    trigger: 'change'
+                }],
+                repo: [{
+                    required: true,
+                    message: 'Repository name is required',
+                    trigger: 'change'
+                }]
+            },
             currentRepo: '',
             dialogType: 'Upload',
             dialogFormVisible: false,
@@ -204,7 +219,8 @@ export default {
                 Tag: ''
             },
             dialogData: {
-                file: []
+                file: [],
+                repo: ''
             },
             historyList: {
                 tableKey: 0,
@@ -263,6 +279,8 @@ export default {
             this.getTagList();
         },
         handleUpload() {
+            this.dialogData.file.splice(0, this.dialogData.file.length);
+            this.dialogData.repo = '';
             this.dialogFormVisible = true;
             this.dialogType = 'Upload';
         },
@@ -272,6 +290,7 @@ export default {
             for (var f of this.dialogData.file) {
                 formData.append('file[]', f);
             }
+            formData.append('repo', this.dialogData.repo);
 
             uploadImage(formData).then(response => {
                 this.$message({

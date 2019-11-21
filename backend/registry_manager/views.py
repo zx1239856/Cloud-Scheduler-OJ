@@ -7,19 +7,20 @@ import time
 from threading import Thread
 from urllib.request import Request
 from urllib.request import urlopen
-from docker import DockerClient, APIClient
 from django.http import JsonResponse
 from django.views import View
 from django.utils.decorators import method_decorator
 from dxf import DXF
 from dxf import DXFBase
 from api.common import RESPONSE
-from config import REGISTRY_V2_API_ADDRESS, DOCKER_ADDRESS, REGISTRY_ADDRESS
+from config import REGISTRY_V2_API_ADDRESS, REGISTRY_ADDRESS
 from registry_manager.manifest import make_manifest
 from registry_manager.models import ImageModel, ImageStatusCode
+from registry_manager.uploader import DockerTarUploader
 from user_model.views import permission_required
 
 LOGGER = logging.getLogger(__name__)
+
 
 class ConnectionUtils:
     GET_MANIFEST_TEMPLATE = '{url}/{repo}/manifests/{tag}'
@@ -106,6 +107,7 @@ class ConnectionUtils:
         response = self.string_request(*args, **kwargs)
         return json.loads(response)
 
+
 class RegistryHandler(View):
     http_method_names = ['get']
     util = ConnectionUtils()
@@ -122,8 +124,6 @@ class RegistryHandler(View):
         @apiSuccess {Number} payload.count Count of total repositories
         @apiSuccess {Object[]} payload.entry List of Repositoris
         @apiSuccess {String} payload.entry.Repo Repository Name
-        @apiSuccess {String} payload.entry.NumberOfTags Number of Tags
-        @apiSuccess {String} payload.entry.SizeOfRepository Size of Repository
         @apiUse APIHeader
         @apiUse Success
         @apiUse OperationFailed
@@ -137,8 +137,10 @@ class RegistryHandler(View):
                 response['payload']['entity'].append(self.util.get_repository(repository))
             response['payload']['count'] = len(response['payload']['entity'])
             return JsonResponse(response)
-        except Exception:
+        except Exception as ex:
+            LOGGER.exception(ex)
             return JsonResponse(RESPONSE.OPERATION_FAILED)
+
 
 class RepositoryHandler(View):
     http_method_names = ['get', 'post', 'put', 'delete']
@@ -148,7 +150,7 @@ class RepositoryHandler(View):
     @method_decorator(permission_required)
     def get(self, _, **kwargs):
         """
-        @api {get} registry/<str:repo>/ Get Tag Lists of the given Repository
+        @api {get} registry/repository/<str:repo>/ Get Tag Lists of the given Repository
         @apiName GetTags
         @apiGroup RegistryManager
         @apiVersion 0.1.0
@@ -162,8 +164,6 @@ class RepositoryHandler(View):
         @apiSuccess {String} payload.entry.DockerVersion Docker Version of the Tag
         @apiSuccess {String} payload.entry.ExposedPorts Exposed Ports of the Tag
         @apiSuccess {String} payload.entry.Volumes Volumes of the Tag
-        @apiSuccess {String} payload.entry.Size Size of the Tag
-        @apiSuccess {String} payload.entry.Layers Number of Layers of the Tag
         @apiUse APIHeader
         @apiUse Success
         @apiUse OperationFailed
@@ -178,13 +178,14 @@ class RepositoryHandler(View):
                     response['payload']['entity'].append(image)
             response['payload']['count'] = len(response['payload']['entity'])
             return JsonResponse(response)
-        except Exception:
+        except Exception as ex:
+            LOGGER.exception(ex)
             return JsonResponse(RESPONSE.OPERATION_FAILED)
 
     @method_decorator(permission_required)
     def post(self, request, **_):
         """
-        @api {post} /registry/upload/ Upload image.tar
+        @api {post} /registry/repository/upload/ Upload image.tar
         @apiName UploadImageTar
         @apiGroup RegistryManager
         @apiVersion 0.1.0
@@ -204,27 +205,30 @@ class RepositoryHandler(View):
         """
         try:
             files = request.FILES.getlist('file[]', None)
+            repo = request.POST.get('repo', None)
             if not files:
                 response = RESPONSE.INVALID_REQUEST
                 response['message'] += " File is empty."
                 return JsonResponse(response)
             for f in files:
                 tar_pattern = "[.](tar)$"
-                searched_tar = re.search(tar_pattern, f.name, re.M|re.I)
+                searched_tar = re.search(tar_pattern, f.name, re.M | re.I)
                 if searched_tar:
                     upload_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
                     md = hashlib.md5()
-                    md.update((f.name+upload_time).encode('utf-8'))
+                    md.update((f.name + upload_time).encode('utf-8'))
                     md = md.hexdigest()
-                    file_model = ImageModel(hashid=md, filename=f.name, status=ImageStatusCode.PENDING, uploadtime=upload_time)
+                    file_model = ImageModel(hashid=md, filename=f.name, status=ImageStatusCode.PENDING,
+                                            uploadtime=upload_time)
                     file_model.save()
                     ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.CACHING)
-                    self.cacheFile(f, md)
+                    self.cacheFile(f, md, repo)
             return JsonResponse(RESPONSE.SUCCESS)
-        except Exception:
+        except Exception as ex:
+            LOGGER.exception(ex)
             return JsonResponse(RESPONSE.OPERATION_FAILED)
 
-    def cacheFile(self, file, md):
+    def cacheFile(self, file, md, repo):
         if not os.path.exists(self.basePath):
             os.makedirs(self.basePath)
         writefile = open(self.basePath + file.name, 'wb+')
@@ -232,33 +236,28 @@ class RepositoryHandler(View):
             writefile.write(chunk)
         writefile.close()
         ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.CACHED)
-        upload = Thread(target=self.upload, args=(file.name, md,))
+        upload = Thread(target=self.upload, args=(file.name, md, repo))
         upload.start()
 
-    def upload(self, filename, md):
+    def upload(self, filename, md, repo):
         try:
             ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.UPLOADING)
-            client = DockerClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-            docker_api = APIClient(base_url=DOCKER_ADDRESS, version='auto', tls=False)
-            readfile = open(self.basePath+filename, 'rb+')
-            file = readfile.read()
-            image = client.images.load(file)[0]
-            name = image.tags[0]
-            newname = REGISTRY_ADDRESS + '/' + name
-            docker_api.tag(name, newname)
-            docker_api.push(newname)
-            readfile.close()
+            dxf = DXF(REGISTRY_ADDRESS, repo)
+            status = DockerTarUploader(dxf).upload_tar(self.basePath + filename)
+            LOGGER.info("upload status")
+            LOGGER.info(status)
             if os.path.exists(self.basePath + filename):
                 os.remove(self.basePath + filename)
             LOGGER.info("done upload")
             ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.SUCCEEDED)
-        except Exception:
+        except Exception as ex:
+            LOGGER.exception(ex)
             ImageModel.objects.filter(hashid=md).update(status=ImageStatusCode.FAILED)
 
     @method_decorator(permission_required)
     def delete(self, _, **kwargs):
         """
-        @api {delete} /registry/<str:repo>/<str:tag>/ Delete an image
+        @api {delete} /registry/repository/<str:repo>/<str:tag>/ Delete an image
         @apiName DeleteImage
         @apiGroup RegistryManager
         @apiVersion 0.1.0
@@ -276,8 +275,10 @@ class RepositoryHandler(View):
             digest = dxf.get_digest(tag)
             dxf.del_blob(digest)
             return JsonResponse(RESPONSE.SUCCESS)
-        except Exception:
+        except Exception as ex:
+            LOGGER.exception(ex)
             return JsonResponse(RESPONSE.OPERATION_FAILED)
+
 
 class UploadHandler(View):
     http_method_names = ['get']
@@ -285,10 +286,11 @@ class UploadHandler(View):
     @method_decorator(permission_required)
     def get(self, request, **_):
         """
-        @api {get} /registry/history/ get uploading image list
+        @api {get} /registry/history/ Get uploading image list
         @apiName getImageList
         @apiGroup RegistryManager
         @apiVersion 0.1.0
+        @apiPermission admin
         @apiSuccess {Object} payload Response Object
         @apiSuccess {Number} payload.count Count of total images
         @apiSuccess {Number} payload.page_count Count of total pages
@@ -312,9 +314,8 @@ class UploadHandler(View):
                 'page_count': (len(image_list) + 24) // 25,
                 'entry': []
             }
-            if page < 1 or page > payload['page_count']:
-                if page != 1 or payload['page_count'] != 0:
-                    raise ValueError()
+            if (page < 1 or page > payload['page_count']) and (page != 1 or payload['page_count'] != 0):
+                raise ValueError()
             for f in image_list[25 * (page - 1): 25 * page]:
                 payload['entry'].append({'id': f.hashid,
                                          'name': f.filename,
@@ -323,5 +324,6 @@ class UploadHandler(View):
                                          })
             response['payload'] = payload
             return JsonResponse(response)
-        except Exception:
+        except Exception as ex:
+            LOGGER.exception(ex)
             return JsonResponse(RESPONSE.INVALID_REQUEST)

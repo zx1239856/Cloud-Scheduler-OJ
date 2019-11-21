@@ -69,13 +69,14 @@ export const constantRoutes = [
         }]
     },
     {
-        path: '/task',
+        path: '/task/',
         name: 'task',
         component: Layout,
         meta: { title: 'Task', icon: 'task' },
+        redirect: 'task-settings',
         children: [
             {
-                path: 'task-settings',
+                path: 'task-settings/',
                 name: 'task-settings',
                 component: () => import('@/views/task_settings/index'),
                 meta: { title: 'Task Settings' }
@@ -83,9 +84,9 @@ export const constantRoutes = [
             {
                 path: 'task-settings-detail/',
                 name: 'task-settings-detail',
+                hidden: true,
                 component: () => import('@/views/task_settings/detail'),
-                meta: { title: 'Task Settings Detail', noCache: true, activeMenu: '/task/task-settings/' },
-                hidden: true
+                meta: { title: 'Task Settings Detail', activeMenu: '/task/task-settings' }
             },
             {
                 path: 'task-list',
@@ -98,14 +99,14 @@ export const constantRoutes = [
                 name: 'webide',
                 hidden: true,
                 component: () => import('@/views/webide/index'),
-                meta: { title: 'Web IDE' }
+                meta: { title: 'Web IDE', activeMenu: '/task/task-settings' }
             },
             {
                 path: 'vnc-view/',
                 name: 'vnc',
                 hidden: true,
                 component: () => import('@/views/vnc/index'),
-                meta: { title: 'VNC Viewer' }
+                meta: { title: 'VNC Viewer', activeMenu: '/task/task-settings' }
             }
         ]
     },

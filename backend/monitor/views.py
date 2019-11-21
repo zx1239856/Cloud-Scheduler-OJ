@@ -11,6 +11,32 @@ class PodListHandler(View):
     http_method_names = ['get']
 
     def get(self, request, **_):
+        """
+        @api {get} /pods/ Get pod list
+        @apiName GetPodList
+        @apiGroup Monitor
+        @apiVersion 0.1.0
+        @apiPermission admin
+
+        @apiParam {Number} [page] Specifies the page number (starting from 1, per page 25 elements)
+        @apiSuccess {Object} payload Response object
+        @apiSuccess {Number} payload.page_count Page count
+        @apiSuccess {Number} payload.count Total element count
+        @apiSuccess {Object[]} payload.entry List of Pod Object
+        @apiSuccess {String} payload.entry.pod_id IP address
+        @apiSuccess {String} payload.entry.namespace Namespace of the pod
+        @apiSuccess {String} payload.entry.name Name of the pod
+        @apiSuccess {String} payload.entry.uid UUID
+        @apiSuccess {String} payload.entry.status Status of the pod, can be [pending, running,
+        success, failed, terminating]
+        @apiSuccess {String} payload.entry.node_name The name of the kubernetes node
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse InvalidRequest
+        @apiUse Unauthorized
+        @apiUse PermissionDenied
+        @apiUse ServerError
+        """
         response = RESPONSE.SUCCESS
         try:
             params = request.GET

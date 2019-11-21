@@ -4,15 +4,21 @@
       <el-aside width="300px">
         <div class="file-tree">
           <div style="height: 50px; padding: 18px;">
-            <span>
-              Edit
-            </span>
+            <span>Edit</span>
             <span style="float: right;">
-              <el-tooltip class="item" effect="dark" content="New File" placement="top">
-                <svg-icon icon-class="new_file" style="cursor:pointer; margin-left: 5px;" @click="handleCreateFile" />
+              <el-tooltip class="item" content="New File" effect="dark" placement="top">
+                <svg-icon
+                  icon-class="new_file"
+                  style="cursor:pointer; margin-left: 5px;"
+                  @click="handleCreateFile"
+                />
               </el-tooltip>
-              <el-tooltip class="item" effect="dark" content="New Directory" placement="top">
-                <svg-icon icon-class="new_directory" style="cursor:pointer; margin-left: 5px;" @click="handleCreateDirectory" />
+              <el-tooltip class="item" content="New Directory" effect="dark" placement="top">
+                <svg-icon
+                  icon-class="new_directory"
+                  style="cursor:pointer; margin-left: 5px;"
+                  @click="handleCreateDirectory"
+                />
               </el-tooltip>
             </span>
           </div>
@@ -29,7 +35,18 @@
               </v-contextmenu-item>
             </v-contextmenu>
 
-            <el-tree id="el-tree" ref="tree" node-key="key" :props="props" :load="loadNode" lazy highlight-current @node-click="handleNodeClick" @node-contextmenu="handleNodeContextMenu" @click.native.prevent="handleNodeClick">
+            <el-tree
+              id="el-tree"
+              ref="tree"
+              :load="loadNode"
+              :props="props"
+              highlight-current
+              lazy
+              node-key="key"
+              @click.native.prevent="handleNodeClick"
+              @node-click="handleNodeClick"
+              @node-contextmenu="handleNodeContextMenu"
+            >
               <span slot-scope="{ node }" class="custom-tree-node">
                 <span>
                   <span>
@@ -42,15 +59,41 @@
           </div>
           <hr style="margin: 0px; border-top: 0.5px solid #dcdfe6;">
         </div>
-        <div style="text-align: center; margin: 20px;" class="save-btn">
-          <el-button type="primary" style="width: 80%;" @click="handleSave">Save</el-button>
+        <div class="save-btn" style="text-align: center; margin: 20px;">
+          <el-button style="width: 40%;" type="primary" @click="handleSave">Save</el-button>
+          <el-button style="width: 40%;" type="danger" @click="resetDialogVisible = true; purgeUserSpace = false;">Reset</el-button>
         </div>
+        <el-dialog :visible.sync="resetDialogVisible" title="Warning" width="30%">
+          <p>Are you sure to reset your user space?</p>
+          <el-checkbox v-model="purgeUserSpace">Purge all</el-checkbox>
+          <span slot="footer" class="dialog-footer">
+            <el-button @click="resetDialogVisible = false">Cancel</el-button>
+            <el-button
+              :loading="resetDialogLoading"
+              type="danger"
+              @click="handleResetUserSpace"
+            >Delete</el-button>
+          </span>
+        </el-dialog>
       </el-aside>
       <el-divider direction="vertical" />
       <el-main v-loading="codeMirrorLoading" style="padding: 0px;">
         <div>
-          <el-tabs v-if="tabs.length" v-model="currentFile" type="border-card" closable @edit="handleTabsEdit" @tab-click="handleTabClick">
-            <el-tab-pane v-for="item in tabs" :key="item.key" :label="item.label" :name="item.key" tab-position="bottom" />
+          <el-tabs
+            v-if="tabs.length"
+            v-model="currentFile"
+            closable
+            type="border-card"
+            @edit="handleTabsEdit"
+            @tab-click="handleTabClick"
+          >
+            <el-tab-pane
+              v-for="item in tabs"
+              :key="item.key"
+              :label="item.label"
+              :name="item.key"
+              tab-position="bottom"
+            />
           </el-tabs>
         </div>
         <div @keydown.ctrl.83.prevent="handleSave">
@@ -58,36 +101,41 @@
             v-if="tabs.length && !imageUrl"
             ref="codemirror"
             v-model="code"
-            class="codemirror"
             :options="cmOptions"
-            @ready="onCmReady"
+            class="codemirror"
             @focus="onCmFocus"
             @input="onCmCodeChange"
+            @ready="onCmReady"
           />
         </div>
         <div v-if="imageUrl" class="image-container">
-          <el-image style="width: 100px; height: 100px" :src="imageUrl" fit="contain" />
+          <el-image :src="imageUrl" fit="contain" style="width: 100px; height: 100px" />
         </div>
       </el-main>
     </el-container>
 
     <el-dialog :title="dialogTitle" :visible.sync="dialogFormVisible">
-      <el-form ref="dialogForm" :rules="dialogRules" :model="dialogFormData" enctype="multipart/form-data" label-position="left" label-width="110px" style="width: 480px; margin-left:50px;" @submit.native.prevent>
+      <el-form
+        ref="dialogForm"
+        :model="dialogFormData"
+        :rules="dialogRules"
+        enctype="multipart/form-data"
+        label-position="left"
+        label-width="110px"
+        style="width: 480px; margin-left:50px;"
+        @submit.native.prevent
+      >
         <el-form-item label="Name" prop="name">
           <el-input ref="inputName" v-model="dialogFormData.name" @keyup.enter.native="handleDialogConfirm" />
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
-        <el-button @click="dialogFormVisible = false">
-          Cancel
-        </el-button>
-        <el-button :loading="dialogLoading" type="primary" @click="handleDialogConfirm">
-          Confirm
-        </el-button>
+        <el-button @click="dialogFormVisible = false">Cancel</el-button>
+        <el-button :loading="dialogLoading" type="primary" @click="handleDialogConfirm">Confirm</el-button>
       </div>
     </el-dialog>
 
-    <el-dialog title="Warning" :visible.sync="deleteDialogVisible" width="30%">
+    <el-dialog :visible.sync="deleteDialogVisible" title="Warning" width="30%">
       <span>Are you sure to delete {{ selectedNode ? selectedNode.data.key : '' }}?</span>
       <span slot="footer" class="dialog-footer">
         <el-button @click="deleteDialogVisible = false">Cancel</el-button>
@@ -99,7 +147,18 @@
 
 <script>
 import { codemirror } from 'vue-codemirror';
-import { getTreePath, getFile, updateFile, renameFile, renameDirectory, createFile, createDirectory, deleteFile, deleteDirectory } from '@/api/tree';
+import {
+    getTreePath,
+    getFile,
+    updateFile,
+    renameFile,
+    renameDirectory,
+    createFile,
+    createDirectory,
+    deleteFile,
+    deleteDirectory,
+    resetUserSpace
+} from '@/api/tree';
 import 'codemirror/lib/codemirror.css';
 
 import 'codemirror/mode/javascript/javascript.js';
@@ -146,11 +205,13 @@ export default {
             tabs: [],
             deleteDialogVisible: false,
             dialogRules: {
-                name: [{
-                    required: true,
-                    validator: validateName,
-                    trigger: 'change'
-                }]
+                name: [
+                    {
+                        required: true,
+                        validator: validateName,
+                        trigger: 'change'
+                    }
+                ]
             },
             dialogFormData: {
                 name: ''
@@ -207,16 +268,15 @@ export default {
                 jpeg: 'data:image/jpeg',
                 png: 'data:image/png',
                 gif: 'data:image/gif'
-            }
+            },
+            resetDialogVisible: false,
+            resetDialogLoading: false,
+            purgeUserSpace: false
         };
     },
     methods: {
-        onCmReady(cm) {
-
-        },
-        onCmFocus(cm) {
-
-        },
+        onCmReady(cm) {},
+        onCmFocus(cm) {},
         onCmCodeChange(newCode) {
             const tabIndex = this.getTabIndexOfFile(this.currentFile);
             if (tabIndex > -1) {
@@ -240,7 +300,8 @@ export default {
                 if (this.currentFile === targetKey) {
                     this.tabs.forEach((tabs, index) => {
                         if (tabs.key === targetKey) {
-                            const nextTab = this.tabs[index + 1] || this.tabs[index - 1];
+                            const nextTab =
+                                this.tabs[index + 1] || this.tabs[index - 1];
                             if (nextTab) {
                                 this.currentFile = nextTab.key;
                                 if (nextTab.isImage) {
@@ -248,7 +309,9 @@ export default {
                                 } else {
                                     this.imageUrl = '';
                                     this.code = nextTab.content;
-                                    this.cmOptions.mode = this.getHighlightMode(this.currentFile);
+                                    this.cmOptions.mode = this.getHighlightMode(
+                                        this.currentFile
+                                    );
                                 }
                             }
                         }
@@ -275,7 +338,10 @@ export default {
             this.dialogTitle = 'Rename';
             this.dialogFormData.name = this.selectedNode.data.label;
             if (this.dialogFormData.name.endsWith('/')) {
-                this.dialogFormData.name = this.dialogFormData.name.substr(0, this.dialogFormData.name.length - 1);
+                this.dialogFormData.name = this.dialogFormData.name.substr(
+                    0,
+                    this.dialogFormData.name.length - 1
+                );
             }
             this.dialogFormVisible = true;
             this.$nextTick(() => {
@@ -299,7 +365,8 @@ export default {
                         // frontend delete
                         this.$refs.tree.remove(this.selectedNode);
                         this.selectedNode = this.topLevelNode;
-                    }).finally(() => {
+                    })
+                    .finally(() => {
                         this.deleteDialogLoading = false;
                         this.deleteDialogVisible = false;
                     });
@@ -314,7 +381,8 @@ export default {
                         // frontend delete
                         this.$refs.tree.remove(this.selectedNode);
                         this.selectedNode = this.topLevelNode;
-                    }).finally(() => {
+                    })
+                    .finally(() => {
                         this.deleteDialogLoading = false;
                         this.deleteDialogVisible = false;
                     });
@@ -360,23 +428,42 @@ export default {
                     if (this.isDirectory(this.selectedNode.data.key)) {
                         // rename dir
                         const oldPath = this.selectedNode.data.key;
-                        const dir = oldPath.substr(0, oldPath.substr(0, oldPath.length - 1).lastIndexOf('/') + 1);
-                        renameDirectory(this.uuid, this.selectedNode.data.key, dir + this.dialogFormData.name + '/')
+                        const dir = oldPath.substr(
+                            0,
+                            oldPath
+                                .substr(0, oldPath.length - 1)
+                                .lastIndexOf('/') + 1
+                        );
+                        renameDirectory(
+                            this.uuid,
+                            this.selectedNode.data.key,
+                            dir + this.dialogFormData.name + '/'
+                        )
                             .then(response => {
                                 this.$message({
                                     message: 'Successfully Renamed',
                                     type: 'success'
                                 });
                                 // frontend rename
-                                this.selectedNode.data.label = this.dialogFormData.name + '/';
-                                this.selectedNode.data.key = dir + this.dialogFormData.name + '/';
-                            }).finally(() => {
+                                this.selectedNode.data.label =
+                                    this.dialogFormData.name + '/';
+                                this.selectedNode.data.key =
+                                    dir + this.dialogFormData.name + '/';
+                            })
+                            .finally(() => {
                                 this.dialogLoading = false;
                                 this.dialogFormVisible = false;
                             });
                     } else {
-                        const dir = this.selectedNode.data.key.substr(0, this.selectedNode.data.key.lastIndexOf('/') + 1);
-                        renameFile(this.uuid, this.selectedNode.data.key, dir + this.dialogFormData.name)
+                        const dir = this.selectedNode.data.key.substr(
+                            0,
+                            this.selectedNode.data.key.lastIndexOf('/') + 1
+                        );
+                        renameFile(
+                            this.uuid,
+                            this.selectedNode.data.key,
+                            dir + this.dialogFormData.name
+                        )
                             .then(response => {
                                 this.$message({
                                     message: 'Successfully Renamed',
@@ -384,9 +471,13 @@ export default {
                                 });
                                 // frontend rename
                                 this.selectedNode.data.label = this.dialogFormData.name;
-                                this.selectedNode.data.key = dir + this.dialogFormData.name;
-                                this.selectedNode.data.icon = this.getIconClass(this.selectedNode.data.key);
-                            }).finally(() => {
+                                this.selectedNode.data.key =
+                                    dir + this.dialogFormData.name;
+                                this.selectedNode.data.icon = this.getIconClass(
+                                    this.selectedNode.data.key
+                                );
+                            })
+                            .finally(() => {
                                 this.dialogLoading = false;
                                 this.dialogFormVisible = false;
                             });
@@ -398,78 +489,103 @@ export default {
                     }
                     if (this.dialogTitle === 'Create File') {
                         // create file
-                        createFile(this.uuid, this.selectedNode.data.key + this.dialogFormData.name).then(response => {
-                            this.$message({
-                                message: 'Successfully Created',
-                                type: 'success'
+                        createFile(
+                            this.uuid,
+                            this.selectedNode.data.key +
+                                this.dialogFormData.name
+                        )
+                            .then(response => {
+                                this.$message({
+                                    message: 'Successfully Created',
+                                    type: 'success'
+                                });
+                                // frontend create
+                                this.$refs.tree.append(
+                                    {
+                                        label: this.dialogFormData.name,
+                                        key:
+                                            this.selectedNode.data.key +
+                                            this.dialogFormData.name,
+                                        isLeaf: true,
+                                        icon: this.getIconClass(
+                                            this.selectedNode.data.key +
+                                                this.dialogFormData.name
+                                        )
+                                    },
+                                    this.selectedNode
+                                );
+                            })
+                            .finally(() => {
+                                this.dialogLoading = false;
+                                this.dialogFormVisible = false;
                             });
-                            // frontend create
-                            this.$refs.tree.append({
-                                label: this.dialogFormData.name,
-                                key: this.selectedNode.data.key + this.dialogFormData.name,
-                                isLeaf: true,
-                                icon: this.getIconClass(this.selectedNode.data.key + this.dialogFormData.name)
-                            }, this.selectedNode);
-                        }).finally(() => {
-                            this.dialogLoading = false;
-                            this.dialogFormVisible = false;
-                        });
                     } else {
                         // create directory
                         const newBasePath = this.dialogFormData.name + '/';
-                        const newPath = this.selectedNode.data.key + newBasePath;
-                        createDirectory(this.uuid, newPath).then(response => {
-                            this.$message({
-                                message: 'Successfully Created',
-                                type: 'success'
+                        const newPath =
+                            this.selectedNode.data.key + newBasePath;
+                        createDirectory(this.uuid, newPath)
+                            .then(response => {
+                                this.$message({
+                                    message: 'Successfully Created',
+                                    type: 'success'
+                                });
+                                // frontend create
+                                this.$refs.tree.append(
+                                    {
+                                        label: newBasePath,
+                                        key: newPath,
+                                        isLeaf: false,
+                                        icon: this.getIconClass(newPath)
+                                    },
+                                    this.selectedNode
+                                );
+                            })
+                            .finally(() => {
+                                this.dialogLoading = false;
+                                this.dialogFormVisible = false;
                             });
-                            // frontend create
-                            this.$refs.tree.append({
-                                label: newBasePath,
-                                key: newPath,
-                                isLeaf: false,
-                                icon: this.getIconClass(newPath)
-                            }, this.selectedNode);
-                        }).finally(() => {
-                            this.dialogLoading = false;
-                            this.dialogFormVisible = false;
-                        });
                     }
                 }
             });
         },
         loadNode(node, resolve) {
             if (node.level === 0) {
-                resolve([{
-                    key: '~/',
-                    label: '~/',
-                    isLeaf: false,
-                    icon: 'folder_closed'
-                }]);
+                resolve([
+                    {
+                        key: '~/',
+                        label: '~/',
+                        isLeaf: false,
+                        icon: 'folder_closed'
+                    }
+                ]);
                 this.topLevelNode = node.childNodes[0];
                 return;
             }
 
-            getTreePath(this.uuid, node.data.key).then(response => {
-                const paths = response.payload;
-                let resolveData = [];
-                for (const path of paths) {
-                    resolveData = resolveData.concat({
-                        label: path,
-                        key: node.data.key + path,
-                        isLeaf: !this.isDirectory(path),
-                        icon: this.getIconClass(path)
-                    });
-                }
-                node.data.icon = 'folder_open';
-                return resolve(resolveData);
-            }).catch(() => {
-
-            });
+            getTreePath(this.uuid, node.data.key)
+                .then(response => {
+                    const paths = response.payload;
+                    let resolveData = [];
+                    for (const path of paths) {
+                        resolveData = resolveData.concat({
+                            label: path,
+                            key: node.data.key + path,
+                            isLeaf: !this.isDirectory(path),
+                            icon: this.getIconClass(path)
+                        });
+                    }
+                    node.data.icon = 'folder_open';
+                    return resolve(resolveData);
+                })
+                .catch(() => {});
         },
         handleNodeContextMenu(event, nodeObj, node, nodeComponent) {
             this.selectedNode = node;
-            this.$refs.contextmenu.show({ top: event.pageY, left: event.pageX });
+            this.$refs.contextmenu.show({
+                top: event.pageY,
+                left: event.pageX
+            });
         },
         handleNodeClick(nodeObj, node, nodeComponent) {
             if (this.codeMirrorLoading) {
@@ -483,7 +599,9 @@ export default {
             }
             this.selectedNode = node;
             if (node.data.key.charAt(node.data.key.length - 1) === '/') {
-                node.data.icon = (node.expanded ? 'folder_open' : 'folder_closed');
+                node.data.icon = node.expanded
+                    ? 'folder_open'
+                    : 'folder_closed';
                 return;
             }
 
@@ -495,7 +613,9 @@ export default {
                 } else {
                     this.imageUrl = '';
                     this.code = this.tabs[tabIndex].content;
-                    this.cmOptions.mode = this.getHighlightMode(this.currentFile);
+                    this.cmOptions.mode = this.getHighlightMode(
+                        this.currentFile
+                    );
                 }
                 return;
             }
@@ -510,31 +630,47 @@ export default {
             }
             this.currentFile = node.data.key;
             if (isImage) {
-                getFile(this.uuid, this.currentFile, true).then(response => {
-                    this.imageUrl = this.imageMap[imageExtension] + ';base64,' + response.payload;
-                    this.tabs.push({
-                        key: this.currentFile,
-                        label: this.currentFile.substr(this.currentFile.lastIndexOf('/') + 1),
-                        content: this.imageUrl,
-                        isImage: true
+                this.codeMirrorLoading = true;
+                getFile(this.uuid, this.currentFile, true)
+                    .then(response => {
+                        this.imageUrl =
+                            this.imageMap[imageExtension] +
+                            ';base64,' +
+                            response.payload;
+                        this.tabs.push({
+                            key: this.currentFile,
+                            label: this.currentFile.substr(
+                                this.currentFile.lastIndexOf('/') + 1
+                            ),
+                            content: this.imageUrl,
+                            isImage: true
+                        });
+                    })
+                    .finally(() => {
+                        this.codeMirrorLoading = false;
                     });
-                });
             } else {
                 this.codeMirrorLoading = true;
                 this.imageUrl = '';
 
-                getFile(this.uuid, this.currentFile).then(response => {
-                    this.code = response.payload;
-                    this.cmOptions.mode = this.getHighlightMode(this.currentFile);
-                    this.tabs.push({
-                        key: this.currentFile,
-                        label: this.currentFile.substr(this.currentFile.lastIndexOf('/') + 1),
-                        content: response.payload,
-                        isImage: false
+                getFile(this.uuid, this.currentFile)
+                    .then(response => {
+                        this.code = response.payload;
+                        this.cmOptions.mode = this.getHighlightMode(
+                            this.currentFile
+                        );
+                        this.tabs.push({
+                            key: this.currentFile,
+                            label: this.currentFile.substr(
+                                this.currentFile.lastIndexOf('/') + 1
+                            ),
+                            content: response.payload,
+                            isImage: false
+                        });
+                    })
+                    .finally(() => {
+                        this.codeMirrorLoading = false;
                     });
-                }).finally(() => {
-                    this.codeMirrorLoading = false;
-                });
             }
         },
         handleCreateFile() {
@@ -555,14 +691,33 @@ export default {
         },
         handleSave() {
             this.codeMirrorLoading = true;
-            updateFile(this.uuid, this.currentFile, this.code).then(response => {
-                this.$message({
-                    message: 'Code saved',
-                    type: 'success'
+            updateFile(this.uuid, this.currentFile, this.code)
+                .then(response => {
+                    this.$message({
+                        message: 'Code saved',
+                        type: 'success'
+                    });
+                })
+                .finally(() => {
+                    this.codeMirrorLoading = false;
                 });
-            }).finally(() => {
-                this.codeMirrorLoading = false;
-            });
+        },
+        handleResetUserSpace() {
+            this.resetDialogLoading = true;
+            resetUserSpace(this.uuid, this.purgeUserSpace)
+                .then(response => {
+                    this.resetDialogLoading = false;
+                    this.resetDialogVisible = false;
+                    this.$message({
+                        message: 'Reset success. Reloading...',
+                        type: 'success',
+                        duration: 1000,
+                        onClose: () => this.$router.go(0)
+                    });
+                }).finally(() => {
+                    this.resetDialogVisible = false;
+                    this.resetDialogLoading = false;
+                });
         }
     }
 };
@@ -572,22 +727,22 @@ export default {
 .el-aside {
     height: calc(100vh - 50px);
     .el-tree {
-        height: calc(100vh - 150px - 40px)
+        height: calc(100vh - 150px - 40px);
     }
     .save-btn {
         flex: 0 0 auto;
     }
 }
 
-.el-tabs--border-card>.el-tabs__content {
+.el-tabs--border-card > .el-tabs__content {
     padding: 0 !important;
 }
 
-.el-tabs{
-    .el-tabs__header{
+.el-tabs {
+    .el-tabs__header {
         margin: 0px;
     }
-    .el-tabs__content{
+    .el-tabs__content {
         margin: 0px;
     }
 }
@@ -608,7 +763,7 @@ export default {
     padding-right: 8px;
 }
 
-.vue-codemirror{
+.vue-codemirror {
     height: calc(100vh - 100px);
     width: 100%;
     .CodeMirror {
@@ -631,7 +786,7 @@ export default {
     margin: 0px;
 }
 
-.v-contextmenu-item{
+.v-contextmenu-item {
     padding: 10px 16px 10px 16px !important;
 }
 

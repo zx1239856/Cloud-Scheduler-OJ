@@ -252,15 +252,16 @@ class TaskExecutor:
                     common_name = "task-exec-{}".format(item.uuid)
                     try:
                         response = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE,
-                                                           label_selector="app={}".format(item.uuid))
+                                                           label_selector="task-exec={}".format(item.uuid))
                         if response.items:
                             status = response.items[0].status.phase
                             new_status = item.status
+                            deleting = response.items[0].metadata.deletion_timestamp
                             if status == 'Running':
                                 new_status = TASK.RUNNING
                             elif status == 'Succeeded':
                                 new_status = TASK.SUCCEEDED
-                            elif status == 'Pending':
+                            elif status == 'Pending' and not deleting:
                                 new_status = TASK.PENDING
                             elif status == 'Failed':
                                 new_status = TASK.FAILED
@@ -271,20 +272,24 @@ class TaskExecutor:
                                     if detailed_status and detailed_status[0].state.terminated:
                                         exit_code = detailed_status[0].state.terminated.exit_code
                                         LOGGER.debug(exit_code)
-                                    if exit_code is None or exit_code != 137:  # SIGKILL caused by timeout
-                                        response = api.read_namespaced_pod_log(name=response.items[0].metadata.name,
-                                                                               namespace=KUBERNETES_NAMESPACE)
-                                        if response:
-                                            item.logs = response
-                                    else:
-                                        item.logs = "Time limit exceeded when executing job."
-                                        new_status = TASK.TLE
+                                    response = api.read_namespaced_pod_log(name=response.items[0].metadata.name,
+                                                                           namespace=KUBERNETES_NAMESPACE)
+                                    if response:
+                                        item.logs = response
                                     item.logs_get = True
+                                    if exit_code:
+                                        item.exit_code = exit_code
+                                    if exit_code == 124:  # SIGTERM by TLE
+                                        item.logs += "\nTime limit exceeded when executing job."
+                                        new_status = TASK.TLE
+                                    elif exit_code == 137:  # SIGKILL by MLE
+                                        item.logs += "\nMemory limit exceeded when executing job."
+                                        new_status = TASK.MLE
                                     job_api.delete_namespaced_job(name=common_name,
                                                                   namespace=KUBERNETES_NAMESPACE,
                                                                   body=client.V1DeleteOptions(
                                                                       propagation_policy='Foreground',
-                                                                      grace_period_seconds=5
+                                                                      grace_period_seconds=3
                                                                   ))
                                 item.status = new_status
                                 idle = False
@@ -493,11 +498,32 @@ class TaskExecutor:
             return result
 
     @staticmethod
-    def get_user_space_pod(uuid, user):
+    def get_user_space_pod(uuid, user, recreate=False, purge=False):
+        def _recreate_space(_pod_use, _conf, _username):
+            extra_command = 'rm -rf /home/{}/*;'.format(_username) if purge else ''
+            resp = stream(api.connect_get_namespaced_pod_exec,
+                          _pod_use,
+                          KUBERNETES_NAMESPACE,
+                          command=
+                          ['/bin/bash', '-c',
+                           'set +e;'
+                           '{extra_command}'
+                           'cp -r {mount_path}/* /home/{user};'
+                           'chown -R {user}:{user} /home/{user}/*'.format(
+                               mount_path=
+                               _conf['persistent_volume']['mount_path'] + '/' +
+                               _conf['task_initial_file_path'],
+                               user=_username, extra_command=extra_command)],
+                          stderr=True, stdin=False,
+                          stdout=True, tty=False)
+            LOGGER.debug(extra_command)
+            return resp
+
         api = CoreV1Api(get_kubernetes_api_client())
         result = None
         try:
             setting = TaskSettings.objects.get(uuid=uuid)
+            username = '{}_{}'.format(user.username, setting.id)
             user_storage, created = TaskStorage.objects.get_or_create(settings=setting, user=user, defaults={
                 'settings': setting,
                 'user': user,
@@ -516,9 +542,9 @@ class TaskExecutor:
                 except ApiException as ex:
                     if ex.status != 404:
                         raise Exception("Unhandled ApiException")
+            conf = json.loads(setting.container_config)
             if result is None:
                 # if not available, try to allocate a new one
-                conf = json.loads(setting.container_config)
                 response = api.list_namespaced_pod(namespace=KUBERNETES_NAMESPACE,
                                                    label_selector="task={}".format(uuid))
                 available = None
@@ -534,7 +560,6 @@ class TaskExecutor:
                     pod_name = available.metadata.name
                     available.metadata.labels['occupied'] = str(int(available.metadata.labels['occupied']) + 1)
                     try:
-                        username = '{}_{}'.format(user.username, setting.id)
                         user_dir = "/cloud_scheduler_userspace/user_{}_task_{}".format(user.id, setting.id)
                         LOGGER.debug("Create username %s", username)
                         commands = ['/bin/bash', '-c',
@@ -560,20 +585,9 @@ class TaskExecutor:
                                           stdout=True, tty=False)
                         LOGGER.debug(response)
                         if created:
-                            response = stream(api.connect_get_namespaced_pod_exec,
-                                              pod_name,
-                                              KUBERNETES_NAMESPACE,
-                                              command=
-                                              ['/bin/bash', '-c',
-                                               'cp -r {mount_path}/* /home/{user};'
-                                               'chown -R {user}:{user} /home/{user}/*'.format(
-                                                   mount_path=
-                                                   conf['persistent_volume']['mount_path'] + '/' +
-                                                   conf['task_initial_file_path'],
-                                                   user=username)],
-                                              stderr=True, stdin=False,
-                                              stdout=True, tty=False)
-                            LOGGER.debug(response)
+                            _recreate_space(pod_name, conf, username)
+                        elif recreate:
+                            _recreate_space(pod_name, conf, username)
                         api.patch_namespaced_pod(pod_name, KUBERNETES_NAMESPACE, available)
                         result = available
                         user_storage.pod_name = available.metadata.name
@@ -581,6 +595,8 @@ class TaskExecutor:
                         user_storage.save(force_update=True)
                     except ApiException as ex:
                         LOGGER.warning(ex)
+            elif recreate:
+                _recreate_space(result.metadata.name, conf, username)
         except Exception as ex:
             LOGGER.warning(ex)
             LOGGER.exception(ex)
@@ -630,7 +646,7 @@ class TaskExecutor:
                             # overwrite
                             commands.append('chmod -R +x {}'.format(working_dir))
                             commands.append('cd {}'.format(working_dir))
-                            commands.append('timeout --signal KILL {timeout} {shell} -c \'{commands}\''.format(
+                            commands.append('timeout --signal TERM {timeout} {shell} -c \'{commands}\''.format(
                                 timeout=time_limit, shell=shell, commands=';'.join(conf['commands'])))
 
                             shared_mount = client.V1VolumeMount(mount_path=shared_mount_path, name=shared_storage_name,
@@ -661,11 +677,11 @@ class TaskExecutor:
                             user_volume = client.V1Volume(name=user_storage_name,
                                                           persistent_volume_claim=user_volume_claim)
                             template = client.V1PodTemplateSpec(
-                                metadata=client.V1ObjectMeta(labels={"app": item.uuid}),
+                                metadata=client.V1ObjectMeta(labels={"task-exec": item.uuid}),
                                 spec=client.V1PodSpec(restart_policy="Never",
                                                       containers=[container],
                                                       volumes=[volume, user_volume]))
-                            spec = client.V1JobSpec(template=template, backoff_limit=1,
+                            spec = client.V1JobSpec(template=template, backoff_limit=0,
                                                     active_deadline_seconds=GLOBAL_TASK_TIME_LIMIT)
                             job = client.V1Job(api_version="batch/v1", kind="Job",
                                                metadata=client.V1ObjectMeta(name=common_name),

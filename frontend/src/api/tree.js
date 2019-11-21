@@ -93,3 +93,11 @@ export function deleteDirectory(settingsUuid, dirName) {
         }
     });
 }
+
+export function resetUserSpace(settingsUuid, purge) {
+    return request({
+        url: '/user_space/' + settingsUuid + '/reset/',
+        method: 'get',
+        params: { purge: purge }
+    });
+}

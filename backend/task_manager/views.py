@@ -28,7 +28,7 @@ class TaskSettingsListHandler(View):
         @apiVersion 0.1.0
         @apiPermission user
 
-        @apiParam {String} [order_by] Specifies list order criteria, available options:
+        @apiParam {Number} [order_by] Specifies list order criteria, available options:
         create_time, name. Use '-' sign to indicate reverse order.
         @apiParam {String} [page] Specifies the page number (starting from 1, per page 25 elements)
         @apiSuccess {Object} payload Response object
@@ -103,7 +103,10 @@ class TaskSettingsListHandler(View):
                     },
                     "shell": "/bin/bash",
                     "commands": ["echo hello world", "echo $CLOUD_SCHEDULER_USER"],
-                    "memory_limit": "128M"
+                    "memory_limit": "128M",
+                    "working_path": "/home/task/",
+                    "task_script_path": "scripts/",
+                    "task_initial_file_path": "initial/"
             },
             "time_limit": 900,
             "replica": 2,
@@ -326,6 +329,33 @@ class ConcreteTaskListHandler(View):
     http_method_names = ['get', 'post']
 
     def get(self, request, **kwargs):
+        """
+        @api {get} /task/ Get task list
+        @apiName GetTaskSettingsList
+        @apiDescription For user, the API returns tasks belong to him. For admin, the API returns all tasks.
+        @apiGroup Task
+        @apiVersion 0.1.0
+        @apiPermission user
+
+        @apiParam {Number} [page] Specifies the page number (starting from 1, per page 25 elements)
+        @apiSuccess {Object} payload Response object
+        @apiSuccess {Number} payload.page_count Page count
+        @apiSuccess {Number} payload.count Total element count
+        @apiSuccess {Object[]} payload.entry List of TaskSettings Object
+        @apiSuccess {String} payload.entry.uuid Task uuid
+        @apiSuccess {Number} payload.entry.status Task status code, defined as [SCHEDULED = 0, RUNNING = 1,
+        SUCCEEDED = 2, FAILED = 3, DELETING = 4, PENDING = 5, TLE = 6, WAITING = 7, MLE = 8]
+        @apiSuccess {String} payload.entry.user Name of the user that the task belongs to
+        @apiSuccess {Object} payload.entry.settings Corresponding task setting
+        @apiSuccess {String} payload.entry.settings.name Name of the task setting
+        @apiSuccess {String} payload.entry.settings.uuid UUID of the task setting
+        @apiSuccess {String} payload.entry.create_time Create time
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse Unauthorized
+        """
         response = RESPONSE.SUCCESS
         try:
             user = kwargs.get('__user', None)
@@ -356,6 +386,30 @@ class ConcreteTaskListHandler(View):
             return JsonResponse(response)
 
     def post(self, request, **kwargs):
+        """
+        @api {post} /task/ Create a task
+        @apiName CreateTask
+        @apiDescription Create a task corresponding to the given TaskSetting. The task will be automatically run.
+        @apiGroup Task
+        @apiVersion 0.1.0
+        @apiPermission user
+
+        @apiParam {String} settings_uuid UUID of TaskSetting
+        @apiSuccess {Object} payload Response object
+        @apiSuccess {String} payload.uuid Task uuid
+        @apiSuccess {Number} payload.status Task status code, defined as [SCHEDULED = 0, RUNNING = 1,
+        SUCCEEDED = 2, FAILED = 3, DELETING = 4, PENDING = 5, TLE = 6, WAITING = 7]
+        @apiSuccess {String} payload.user Name of the user that the task belongs to
+        @apiSuccess {Object} payload.settings Corresponding task setting
+        @apiSuccess {String} payload.settings.name Name of the task setting
+        @apiSuccess {String} payload.settings.uuid UUID of the task setting
+        @apiSuccess {String} payload.create_time Create time
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse Unauthorized
+        """
         response = None
         try:
             user = kwargs.get('__user', None)
@@ -408,6 +462,32 @@ class ConcreteTaskHandler(View):
             return item
 
     def get(self, _, **kwargs):
+        """
+        @api {get} /task/<uuid>/ Get detailed task info
+        @apiName GetTaskInfoDetail
+        @apiGroup Task
+        @apiVersion 0.1.0
+        @apiPermission user
+
+        @apiParam {String} uuid UUID of the task
+        @apiSuccess {Object} payload Response object
+        @apiSuccess {String} payload.uuid Task uuid
+        @apiSuccess {Number} payload.status Task status code, defined as [SCHEDULED = 0, RUNNING = 1,
+        SUCCEEDED = 2, FAILED = 3, DELETING = 4, PENDING = 5, TLE = 6, WAITING = 7]
+        @apiSuccess {String} payload.user Name of the user that the task belongs to
+        @apiSuccess {Object} payload.settings Corresponding task setting
+        @apiSuccess {String} payload.settings.name Name of the task setting
+        @apiSuccess {String} payload.settings.uuid UUID of the task setting
+        @apiSuccess {Number} payload.exit_code Exit code of the task
+        @apiSuccess {String} payload.log Logs of the task
+        @apiSuccess {String} payload.create_time Create time
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        @apiUse Unauthorized
+        """
         response = RESPONSE.SUCCESS
         api = CoreV1Api(get_kubernetes_api_client())
         try:
@@ -431,6 +511,7 @@ class ConcreteTaskHandler(View):
                                        'uuid': item.uuid,
                                        'user': item.user.username,
                                        'log': log,
+                                       'exit_code': item.exit_code,
                                        'create_time': item.create_time}
         except Task.DoesNotExist:
             response = RESPONSE.OPERATION_FAILED
@@ -442,6 +523,22 @@ class ConcreteTaskHandler(View):
             return JsonResponse(response)
 
     def delete(self, _, **kwargs):
+        """
+        @api {delete} /task/<uuid>/ Delete task
+        @apiName DeleteTask
+        @apiGroup Task
+        @apiVersion 0.1.0
+        @apiPermission user
+
+        @apiParam {String} uuid UUID of the task
+
+        @apiUse APIHeader
+        @apiUse Success
+        @apiUse ServerError
+        @apiUse InvalidRequest
+        @apiUse OperationFailed
+        @apiUse Unauthorized
+        """
         response = RESPONSE.SUCCESS
         try:
             item = self._get_task(kwargs)
