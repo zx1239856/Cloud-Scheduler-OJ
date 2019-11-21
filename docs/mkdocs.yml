@@ -9,7 +9,7 @@ theme:
         - rust
 nav:
     - Home: index.md
-    - API Documentation: apidocs.md
+    - API Documentation: api_docs.md
     - System Setup: setup.md
     - Configuration File: config_file.md
     - Deploy Cloud Scheduler to Web: web_deploy.md
