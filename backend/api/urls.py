@@ -59,7 +59,7 @@ urlpatterns = [
     path('oauth/revoke_token/', oauth_views.RevokeTokenView.as_view(), name='revoke-token'),
     path('oauth/user_info/', user_views.OAuthUserInfoView.as_view()),
     # pod list
-    path('pods/', monitor_views.PodListHandler.as_view()),
+    path('pods/', permission_required(monitor_views.PodListHandler.as_view())),
     # storage
     path('storage/', storage_views.StorageHandler.as_view()),
     path('storage/upload_file/', storage_views.StorageFileHandler.as_view()),
