@@ -176,10 +176,10 @@ export default {
             });
         },
         handleCreate() {
-            this.$router.push('/task/task-settings-detail/');
+            this.$router.push({ name: 'task-settings-detail' });
         },
         handleUpdate(row) {
-            this.$router.push({ path: '/task/task-settings-detail/', query: { settings_uuid: row.uuid }});
+            this.$router.push({ name: 'task-settings-detail', query: { settings_uuid: row.uuid }});
         },
         handleDelete(row) {
             this.deleteDialogVisible = true;
