@@ -192,9 +192,11 @@ class RepositoryHandler(View):
         @apiPermission admin
         @apiParamExample {json} Request-Example:
         {
-            "file": [FILE]
+            "file": [FILE]，
+            "repo": ''
         }
         @apiParam {Object} The image.tar file to be uploaded
+        @apiParam {String} The Repository name
         @apiSuccess {Object} payload Success payload is empty
         @apiUse APIHeader
         @apiUse Success
