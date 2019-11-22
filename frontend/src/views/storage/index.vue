@@ -84,8 +84,11 @@
     </el-dialog>
     <el-dialog title="Upload History" :visible.sync="dialogHistoryVisible">
       <div class="filter-container" align="right" style="margin-top:-25px; margin-bottom:10px">
-        <el-button type="success" size="small" icon="el-icon-refresh" @click="handleReupload">
+        <el-button type="primary" size="small" icon="el-icon-refresh" @click="handleReupload">
           Re-upload
+        </el-button>
+        <el-button type="success" size="small" icon="el-icon-refresh" @click="handleLogRefresh()">
+          Refresh
         </el-button>
       </div>
 
@@ -326,7 +329,6 @@ export default {
             });
         },
         handleUpload(row) {
-            this.dialogFileData.file.splice(0, this.dialogFileData.file.length);
             this.dialogFileData.path = '';
             this.dialogUploadVisible = true;
             this.dialogType = 'Upload';
@@ -344,7 +346,6 @@ export default {
                 });
                 return false;
             }
-            this.$refs.upload.clearFiles();
             this.uploading();
         },
         getFile(item) {
@@ -423,6 +424,9 @@ export default {
             createPod(row.name).then(response => {
                 this.$router.push({ name: 'ide', query: { pvcname: row.name }});
             });
+        },
+        handleLogRefresh() {
+            this.getHistoryList();
         }
     }
 };

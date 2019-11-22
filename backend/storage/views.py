@@ -261,8 +261,8 @@ class StorageFileHandler(View):
                     FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.FAILED,
                                                                      error="File uncached.")
                     self.api_instance.delete_namespaced_pod(name=pod_name, namespace=KUBERNETES_NAMESPACE)
-                elif f.status == 2 or f.status == 3:
-                    # cached or uploading
+                elif f.status == 2:
+                    # cached
                     FileModel.objects.filter(hashid=f.hashid).update(status=FileStatusCode.CACHED)
                     uploading = Thread(target=self.uploading, args=(f.filename, f.targetpvc, f.targetpath, f.hashid))
                     uploading.start()
@@ -429,6 +429,8 @@ class StorageFileHandler(View):
 
     def uploading(self, file_name, pvc_name, path, md):
         """a new thread to create pod and upload file"""
+        if FileModel.objects.get(hashid=md).status == FileStatusCode.SUCCEEDED or FileModel.objects.get(hashid=md).status == FileStatusCode.UPLOADING:
+            return
         # create pod running a container with image nginx, bound pvc
         volume_name = "file-upload-volume-" + md
         container_name = "file-upload-container-" + md
@@ -464,6 +466,8 @@ class StorageFileHandler(View):
             LOGGER.error(e)
             return
 
+        if FileModel.objects.get(hashid=md).status == FileStatusCode.SUCCEEDED or FileModel.objects.get(hashid=md).status == FileStatusCode.UPLOADING:
+            return
         error = None
 
         try:
@@ -508,11 +512,14 @@ class StorageFileHandler(View):
         if os.path.exists(self.save_dir + file_name):
             os.remove(self.save_dir + file_name)
 
+        if FileModel.objects.get(hashid=md).status == FileStatusCode.SUCCEEDED:
+            return
+
         if error is not None:
             FileModel.objects.filter(hashid=md).update(status=FileStatusCode.FAILED, error=error)
             LOGGER.info("File uploading failed. {}".format(error))
         else:
-            FileModel.objects.filter(hashid=md).update(status=FileStatusCode.SUCCEEDED)
+            FileModel.objects.filter(hashid=md).update(status=FileStatusCode.SUCCEEDED, error="No information.")
             LOGGER.info("File uploaded successfully.")
 
 
