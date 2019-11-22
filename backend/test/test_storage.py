@@ -282,6 +282,7 @@ class TestStorage(TestCaseWithBasicUser):
 
     @mock.patch.object(storage.views, 'stream', mock_stream)
     def testFileUploading(self):
+        FileModel.objects.create(filename='test3.txt', status=2, hashid='testid')
         StorageFileHandler().uploading("test3.txt", 'test-pvc', 'test', 'testid')
 
     # test PVC Pod

@@ -512,15 +512,13 @@ class StorageFileHandler(View):
         if os.path.exists(self.save_dir + file_name):
             os.remove(self.save_dir + file_name)
 
-        if FileModel.objects.get(hashid=md).status == FileStatusCode.SUCCEEDED:
-            return
-
-        if error is not None:
-            FileModel.objects.filter(hashid=md).update(status=FileStatusCode.FAILED, error=error)
-            LOGGER.info("File uploading failed. {}".format(error))
-        else:
-            FileModel.objects.filter(hashid=md).update(status=FileStatusCode.SUCCEEDED, error="No information.")
-            LOGGER.info("File uploaded successfully.")
+        if FileModel.objects.get(hashid=md).status != FileStatusCode.SUCCEEDED:
+            if error is not None:
+                FileModel.objects.filter(hashid=md).update(status=FileStatusCode.FAILED, error=error)
+                LOGGER.info("File uploading failed. {}".format(error))
+            else:
+                FileModel.objects.filter(hashid=md).update(status=FileStatusCode.SUCCEEDED, error="No information.")
+                LOGGER.info("File uploaded successfully.")
 
 
 class PVCPodHandler(View):
